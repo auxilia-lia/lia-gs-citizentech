@@ -1,0 +1,10 @@
+node_modules/
+.expo/
+*.apk
+.env
+__pycache__/
+.ipynb_checkpoints/
+target/
+*.class
+.idea/
+.vscode/
