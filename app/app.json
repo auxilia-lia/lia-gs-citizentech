@@ -21,6 +21,20 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "A Lia usa o microfone para ouvir o que você fala.",
+          "speechRecognitionPermission": "A Lia usa o reconhecimento de voz para entender o que você fala.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.as",
+            "com.samsung.android.bixby.agent"
+          ]
+        }
+      ]
+    ]
   }
 }
