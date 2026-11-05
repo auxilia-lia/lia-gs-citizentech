@@ -6,7 +6,7 @@ Se sim, o Guia entra na demo. Se não, a Lia fica com Entende + Age e o Guia vir
 ## Como rodar
 1. `npm install` e depois `npm run android`, com o celular no cabo USB e a depuração USB ligada.
 2. No app, toque em **Ativar a Lia na acessibilidade** e ligue "Lia — Guia na tela".
-3. Rode cada teste pronto. Siga o anel laranja e a voz. Quem toca é você.
+3. Rode cada teste pronto (os do gov.br precisam da API ligada). Siga o anel laranja e a voz. Quem toca é você. Teste também os níveis 1 e 2 de autonomia.
 4. Se um passo não for achado, o registro mostra o que a Lia viu na tela. Use o nome exato no **Teste livre**.
 5. Toque em **Compartilhar registro** e salve o texto em `agile/` como evidência.
 

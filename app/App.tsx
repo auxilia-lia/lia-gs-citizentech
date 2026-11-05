@@ -3,8 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Conversa from './src/telas/Conversa';
 import TesteGuia from './src/telas/TesteGuia';
+import Ligacao from './src/telas/Ligacao';
+import MinhaLia from './src/telas/MinhaLia';
 
-type Aba = 'conversa' | 'guia';
+type Aba = 'conversa' | 'ligacao' | 'minha' | 'guia';
 
 export default function App() {
   const [aba, setAba] = useState<Aba>('conversa');
@@ -15,10 +17,15 @@ export default function App() {
         <Text style={styles.nome}>Lia</Text>
         <View style={styles.abas}>
           <Aba texto="Conversar" ativa={aba === 'conversa'} onPress={() => setAba('conversa')} />
+          <Aba texto="Ligação" ativa={aba === 'ligacao'} onPress={() => setAba('ligacao')} />
+          <Aba texto="Minha Lia" ativa={aba === 'minha'} onPress={() => setAba('minha')} />
           <Aba texto="Teste do Guia" ativa={aba === 'guia'} onPress={() => setAba('guia')} />
         </View>
       </View>
-      {aba === 'conversa' ? <Conversa /> : <TesteGuia />}
+      {aba === 'conversa' && <Conversa />}
+      {aba === 'ligacao' && <Ligacao />}
+      {aba === 'minha' && <MinhaLia />}
+      {aba === 'guia' && <TesteGuia />}
     </View>
   );
 }
@@ -35,7 +42,7 @@ const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: '#fff', paddingTop: 48 },
   topo: { paddingHorizontal: 16, paddingBottom: 8, borderBottomWidth: 1, borderColor: '#eee' },
   nome: { fontSize: 30, fontWeight: '800', color: '#FF6D00' },
-  abas: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  abas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   aba: { borderRadius: 999, borderWidth: 1, borderColor: '#FF6D00', paddingVertical: 8, paddingHorizontal: 14 },
   abaAtiva: { backgroundColor: '#FF6D00' },
   abaTexto: { fontSize: 16, fontWeight: '600', color: '#FF6D00' },

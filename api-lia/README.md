@@ -1,6 +1,6 @@
 # API da Lia
 
-Recebe a conversa do app e devolve a resposta da IA. A chave fica só aqui (`.env`), nunca no app.
+Conversa, Entende (foto), antigolpe e o gov.br simulado. A chave da IA fica só aqui (`.env`), nunca no app.
 
 ```
 pip install -r requirements.txt
@@ -8,6 +8,19 @@ copy .env.example .env      # e preencha
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-- `LIA_PROVEDOR=teste` responde sem IA (para testar o app sem chave).
-- `GET /saude` mostra se está no ar. `POST /conversa` recebe `{"mensagens": [{"papel": "pessoa", "texto": "..."}]}`.
-- Provisório: depois, a chamada à IA passa pelo núcleo em Java, como manda a documentação.
+`LIA_PROVEDOR=teste` responde por regras, sem IA, para testar o app e ensaiar a demo sem chave.
+
+| Rota | O que faz |
+| --- | --- |
+| `GET /saude` | Mostra se está no ar e qual IA usa |
+| `POST /conversa` | `{mensagens, canal: "app" ou "ligacao", contexto}` → `{fala, acao, golpe}` |
+| `POST /entende` | Foto em base64 → explicação em linguagem simples + se parece golpe |
+| `POST /antigolpe` | Texto → domínio parecido com um oficial (Levenshtein) + sinais de golpe |
+| `GET /gov` | gov.br **simulado** (abra no navegador do celular: `http://IP:8000/gov`) |
+| `GET /gov/fluxos` | Passos de cada serviço para o Guia (consulta, beneficio, multas) |
+
+Ações que a IA pode pedir: `guiar`, `avisar_familiar` e `tirar_foto` (app); `agendar_por_voz`, `consultar_beneficio` e `avisar_familiar` (ligação). Qualquer outra é descartada pelo servidor.
+
+Testes: `pip install -r requirements-dev.txt` e depois `python -m pytest teste_api.py -q`.
+
+Provisório: depois, a chamada à IA passa pelo núcleo em Java, como manda a documentação.

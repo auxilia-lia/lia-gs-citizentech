@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  AppState, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
+  AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { buscarFluxos, urlGov } from '../lia/api';
 import LiaGuia, { StepEvent } from '../../modules/lia-guia';
 
 // Teste de 1 dia do Guia (backlog #4): a Lia consegue ler a tela de outro app,
@@ -24,6 +25,8 @@ export default function TesteGuia() {
   const [log, setLog] = useState<string[]>([]);
   const [livre, setLivre] = useState('');
   const [appLivre, setAppLivre] = useState<'settings' | 'com.whatsapp'>('settings');
+  const [testesGov, setTestesGov] = useState<Teste[]>([]);
+  const [nivel, setNivel] = useState(0);
   const ultimo = useRef('');
 
   const registrar = (linha: string) => {
@@ -33,6 +36,9 @@ export default function TesteGuia() {
   };
 
   useEffect(() => {
+    buscarFluxos()
+      .then((f) => setTestesGov(Object.values(f).map((x) => ({ nome: `gov.br: ${x.titulo}`, app: urlGov(x.caminho), passos: x.passos }))))
+      .catch(() => registrar('⚠️ Servidor da Lia desligado: sem os testes do gov.br simulado'));
     const checar = () => setAtivo(LiaGuia.isEnabled());
     checar();
     const sApp = AppState.addEventListener('change', (s) => s === 'active' && checar());
@@ -57,8 +63,12 @@ export default function TesteGuia() {
   }, []);
 
   const rodar = (t: Teste) => {
-    registrar(`▶️ Teste "${t.nome}": ${t.passos.join(' → ')}`);
-    if (!LiaGuia.start(t.passos)) return registrar('⚠️ Guia não iniciou (acessibilidade desligada?)');
+    registrar(`▶️ Teste "${t.nome}" (nível ${nivel}): ${t.passos.join(' → ')}`);
+    if (!LiaGuia.start(t.passos, nivel)) return registrar('⚠️ Guia não iniciou (acessibilidade desligada?)');
+    if (t.app.startsWith('http')) {
+      Linking.openURL(t.app).catch(() => registrar(`⚠️ Não consegui abrir ${t.app}`));
+      return;
+    }
     if (!LiaGuia.openApp(t.app)) {
       LiaGuia.stop();
       registrar(`⚠️ Não consegui abrir ${t.app}`);
@@ -83,8 +93,15 @@ export default function TesteGuia() {
         )}
       </View>
 
+      <Text style={styles.section}>Nível de autonomia do teste</Text>
+      <View style={styles.row}>
+        <Chip texto="0 · Faz junto" ativo={nivel === 0} onPress={() => setNivel(0)} />
+        <Chip texto="1 · Só confirma" ativo={nivel === 1} onPress={() => setNivel(1)} />
+        <Chip texto="2 · Só acompanha" ativo={nivel === 2} onPress={() => setNivel(2)} />
+      </View>
+
       <Text style={styles.section}>Testes prontos</Text>
-      {TESTES.map((t) => (
+      {[...testesGov, ...TESTES].map((t) => (
         <Botao key={t.nome} texto={t.nome} onPress={() => rodar(t)} disabled={!ativo} />
       ))}
 

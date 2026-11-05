@@ -34,6 +34,13 @@
             "com.samsung.android.bixby.agent"
           ]
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "A Lia usa a câmera para ler papéis, cartas e boletos para você.",
+          "photosPermission": false
+        }
       ]
     ]
   }

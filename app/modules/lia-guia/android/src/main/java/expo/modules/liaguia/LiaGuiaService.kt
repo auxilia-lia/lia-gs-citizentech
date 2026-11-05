@@ -38,7 +38,13 @@ class LiaGuiaService : AccessibilityService() {
   private var falado = -1
   private var faladoRolar = -1
 
+  // Autonomia progressiva: 0 = faz junto, 1 = só confirma, 2 = só acompanha.
+  private var nivel = 0
+  private var revelado = true // o anel aparece? (no nível 0, sempre)
+  private var revelarAgendado = false
+
   private val avaliar = Runnable { avaliarTela() }
+  private val revelar = Runnable { revelado = true; avaliarTela() }
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -62,7 +68,7 @@ class LiaGuiaService : AccessibilityService() {
 
   // ---------- controle (chamado pelo módulo) ----------
 
-  fun iniciarGuia(lista: List<String>): Boolean {
+  fun iniciarGuia(lista: List<String>, nivelPedido: Int = 0): Boolean {
     val limpos = lista.map { it.trim() }.filter { it.isNotEmpty() }
     if (limpos.isEmpty()) return false
     passos = limpos
@@ -70,13 +76,22 @@ class LiaGuiaService : AccessibilityService() {
     falado = -1
     faladoRolar = -1
     alvoAtual = null
+    nivel = nivelPedido.coerceIn(0, 2)
+    reiniciarRevelacao()
     mostrarOverlay()
     agendar(800)
     return true
   }
 
+  private fun reiniciarRevelacao() {
+    handler.removeCallbacks(revelar)
+    revelarAgendado = false
+    revelado = nivel == 0
+  }
+
   fun pararGuia() {
     handler.removeCallbacks(avaliar)
+    handler.removeCallbacks(revelar)
     indice = -1
     passos = emptyList()
     alvoAtual = null
@@ -134,6 +149,7 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to indice, "step" to passos.getOrNull(indice)))
     indice++
     alvoAtual = null
+    reiniciarRevelacao()
     if (indice >= passos.size) {
       falar("Pronto! Você conseguiu.")
       LiaGuiaBridge.emit("onStep", mapOf("type" to "finished", "total" to passos.size))
@@ -143,6 +159,7 @@ class LiaGuiaService : AccessibilityService() {
       return
     }
     overlay?.show(null, "")
+    if (nivel >= 1) falar("Isso!")
     agendar(700)
   }
 
@@ -169,16 +186,26 @@ class LiaGuiaService : AccessibilityService() {
 
     if (achado != null) {
       alvoAtual = achado.bounds
-      overlay?.show(achado.bounds, "Toque aqui: ${achado.label}")
-      if (falado != indice) {
-        falado = indice
-        falar("Toque em ${achado.label}")
+      if (revelado) {
+        overlay?.show(achado.bounds, "Toque aqui: ${achado.label}")
+        if (falado != indice) {
+          falado = indice
+          falar(if (nivel == 0) "Toque em ${achado.label}" else "Está aqui: ${achado.label}")
+        }
+      } else {
+        // A pessoa já sabe: a Lia só dá a dica (nível 1) ou fica quieta (nível 2)
+        // e mostra o anel se ela travar.
+        overlay?.show(null, if (nivel == 1) "Você já sabe: procure \"${achado.label}\"" else "")
+        if (!revelarAgendado) {
+          revelarAgendado = true
+          handler.postDelayed(revelar, if (nivel == 1) 8000L else 20000L)
+        }
       }
       LiaGuiaBridge.emit(
         "onStep",
         mapOf(
           "type" to "found", "index" to indice, "total" to passos.size, "step" to passo,
-          "label" to achado.label, "score" to achado.score,
+          "label" to achado.label, "score" to achado.score, "nivel" to nivel, "revealed" to revelado,
           "app" to root.packageName?.toString()
         )
       )
@@ -186,8 +213,8 @@ class LiaGuiaService : AccessibilityService() {
       alvoAtual = null
       val rolavel = temRolagem(root, 0)
       val msg = if (rolavel) "Role a tela para procurar \"$passo\"" else "Procurando \"$passo\"…"
-      overlay?.show(null, msg)
-      if (rolavel && faladoRolar != indice) {
+      overlay?.show(null, if (nivel == 2 && !revelado) "" else msg)
+      if (rolavel && faladoRolar != indice && (nivel < 2 || revelado)) {
         faladoRolar = indice
         falar("Não estou vendo $passo. Role a tela devagar.")
       }

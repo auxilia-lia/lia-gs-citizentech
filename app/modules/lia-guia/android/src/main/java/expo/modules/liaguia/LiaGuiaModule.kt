@@ -44,9 +44,10 @@ class LiaGuiaModule : Module() {
       true
     }
 
-    // Começa o guia com a lista de passos (o texto de cada botão a tocar).
-    Function("start") { steps: List<String> ->
-      LiaGuiaService.instance?.iniciarGuia(steps) ?: false
+    // Começa o guia com a lista de passos (o texto de cada botão a tocar)
+    // e o nível de autonomia da pessoa nesse serviço (0, 1 ou 2).
+    Function("start") { steps: List<String>, nivel: Int ->
+      LiaGuiaService.instance?.iniciarGuia(steps, nivel) ?: false
     }
 
     Function("stop") {

@@ -1,7 +1,7 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
 export type StepEvent =
-  | { type: 'found'; index: number; total: number; step: string; label: string; score: number; app?: string }
+  | { type: 'found'; index: number; total: number; step: string; label: string; score: number; app?: string; nivel: number; revealed: boolean }
   | { type: 'not_found'; index: number; total: number; step: string; app?: string; visible?: string[] }
   | { type: 'done_step'; index: number; step?: string }
   | { type: 'finished'; total: number };
@@ -27,7 +27,8 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   isEnabled(): boolean;
   openAccessibilitySettings(): void;
   openApp(pkg: string): boolean;
-  start(steps: string[]): boolean;
+  /** nivel: 0 = faz junto, 1 = só confirma, 2 = só acompanha */
+  start(steps: string[], nivel: number): boolean;
   stop(): void;
   readScreen(): ScreenNode[];
 }
