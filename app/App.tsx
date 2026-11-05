@@ -1,15 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Conversa from './src/telas/Conversa';
 import TesteGuia from './src/telas/TesteGuia';
 import Ligacao from './src/telas/Ligacao';
 import MinhaLia from './src/telas/MinhaLia';
+import BoasVindas from './src/telas/BoasVindas';
+import { carregarEnderecoSalvo } from './src/lia/api';
+import { gravar, ler } from './src/lia/armazenamento';
 
 type Aba = 'conversa' | 'ligacao' | 'minha' | 'guia';
 
 export default function App() {
   const [aba, setAba] = useState<Aba>('conversa');
+  const [pronto, setPronto] = useState(false);
+  const [primeiraVez, setPrimeiraVez] = useState(false);
+
+  useEffect(() => {
+    Promise.all([carregarEnderecoSalvo(), ler('lia:boas-vindas', false)]).then(([, viu]) => {
+      setPrimeiraVez(!viu);
+      setPronto(true);
+    });
+  }, []);
+
+  if (!pronto) return <View style={{ flex: 1, backgroundColor: '#FF6D00' }} />;
+  if (primeiraVez) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <BoasVindas aoTerminar={() => { gravar('lia:boas-vindas', true); setPrimeiraVez(false); }} />
+      </>
+    );
+  }
+
   return (
     <View style={styles.app}>
       <StatusBar style="dark" />

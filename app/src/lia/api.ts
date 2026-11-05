@@ -1,10 +1,12 @@
 import Constants from 'expo-constants';
+import { ler, gravar } from './armazenamento';
 import { Mapa, pseudonimizar, restaurar } from './pseudonimizar';
 
 export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes'; objetivo: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'agendar_por_voz'; ubs: string; horario: string; resultado?: { protocolo: string } }
@@ -14,22 +16,48 @@ export type RespostaLia = { fala: string; acao: Acao | null; golpe: AnaliseGolpe
 export type Contexto = { autonomia: Record<string, number>; familia: string[] };
 export type Fluxo = { titulo: string; caminho: string; passos: string[]; risco: string };
 
-// Endereço da API da Lia. Por padrão usa o mesmo computador que roda o Metro
-// (o notebook), na porta 8000. Para outro endereço: EXPO_PUBLIC_LIA_API no .env do app.
-function enderecoApi(): string {
+// Endereço da API da Lia. Ordem: o que foi salvo em "Minha Lia" > EXPO_PUBLIC_LIA_API no .env
+// > o mesmo computador que roda o Metro (o notebook), na porta 8000.
+// No APK da banca não há Metro: configure o endereço em "Minha Lia".
+function enderecoPadrao(): string {
   const fixo = process.env.EXPO_PUBLIC_LIA_API;
   if (fixo) return fixo.replace(/\/$/, '');
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return `http://${host ?? 'localhost'}:8000`;
+  return `http://${host ?? '192.168.0.10'}:8000`;
 }
 
-export const API = enderecoApi();
+const CHAVE_ENDERECO = 'lia:servidor';
+let base = enderecoPadrao();
+
+export const api = () => base;
+
+export async function carregarEnderecoSalvo(): Promise<string> {
+  const salvo = await ler<string>(CHAVE_ENDERECO, '');
+  if (salvo) base = salvo;
+  return base;
+}
+
+export async function definirEndereco(url: string): Promise<string> {
+  let u = url.trim().replace(/\/$/, '');
+  if (!u) {
+    base = enderecoPadrao();
+    fluxosCache = null;
+    await gravar(CHAVE_ENDERECO, '');
+    return base;
+  }
+  if (!/^https?:\/\//.test(u)) u = `http://${u}`;
+  if (!/:\d+$/.test(u.replace(/^https?:\/\//, ''))) u = `${u}:8000`;
+  base = u;
+  fluxosCache = null;
+  await gravar(CHAVE_ENDERECO, u);
+  return base;
+}
 
 async function post<T>(caminho: string, corpo: unknown, tempoMs = 40000): Promise<T> {
   const controle = new AbortController();
   const t = setTimeout(() => controle.abort(), tempoMs);
   try {
-    const r = await fetch(`${API}${caminho}`, {
+    const r = await fetch(`${base}${caminho}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
@@ -65,10 +93,16 @@ let fluxosCache: Record<string, Fluxo> | null = null;
 
 export async function buscarFluxos(): Promise<Record<string, Fluxo>> {
   if (fluxosCache) return fluxosCache;
-  const r = await fetch(`${API}/gov/fluxos`);
+  const r = await fetch(`${base}/gov/fluxos`);
   if (!r.ok) throw new Error(`API respondeu ${r.status}`);
   fluxosCache = (await r.json()) as Record<string, Fluxo>;
   return fluxosCache;
 }
 
-export const urlGov = (caminho: string) => `${API}${caminho}`;
+export const urlGov = (caminho: string) => `${base}${caminho}`;
+
+export type PassoGuia = { alvo: string | null; fala: string; concluido: boolean };
+
+// Guia genérico (#7): manda os textos da tela (já pseudonimizados) e recebe o próximo toque.
+export const proximoPasso = (objetivo: string, app: string, elementos: string[], feitos: string[]) =>
+  post<PassoGuia>('/guia/proximo', { objetivo, app, elementos, feitos }, 30000);

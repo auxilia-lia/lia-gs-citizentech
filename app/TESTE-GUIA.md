@@ -10,6 +10,9 @@ Se sim, o Guia entra na demo. Se não, a Lia fica com Entende + Age e o Guia vir
 4. Se um passo não for achado, o registro mostra o que a Lia viu na tela. Use o nome exato no **Teste livre**.
 5. Toque em **Compartilhar registro** e salve o texto em `agile/` como evidência.
 
+## Guia com IA (#7)
+Na seção **Guia com IA**, escreva o objetivo (ex.: "aumentar o tamanho da letra") e escolha o app. No modo teste, a API escolhe o toque por palavras parecidas; com a IA ligada, ela decide pela tela.
+
 ## O que anotar
 | Teste | Achou todos os passos? | Anel no lugar certo? | Avançou sozinho após o toque? | Observação |
 | --- | --- | --- | --- | --- |
@@ -17,6 +20,9 @@ Se sim, o Guia entra na demo. Se não, a Lia fica com Entende + Age e o Guia vir
 | Aumentar a letra | | | | |
 | Ver a versão do Android | | | | |
 | WhatsApp: conversa nova | | | | |
+| gov.br: Marcar consulta | | | | |
+| Guia com IA: aumentar a letra | | | | |
+| Guia com IA: mandar foto no WhatsApp | | | | |
 
 ## Atenção
 - Os nomes dos passos foram escritos para o One UI (Samsung) em português e podem mudar em outro celular.

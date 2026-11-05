@@ -12,7 +12,7 @@ class LiaGuiaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LiaGuia")
 
-    Events("onStep", "onStatus")
+    Events("onStep", "onStatus", "onScreen")
 
     OnCreate {
       LiaGuiaBridge.listener = { name, body -> sendEvent(name, body) }
@@ -48,6 +48,19 @@ class LiaGuiaModule : Module() {
     // e o nível de autonomia da pessoa nesse serviço (0, 1 ou 2).
     Function("start") { steps: List<String>, nivel: Int ->
       LiaGuiaService.instance?.iniciarGuia(steps, nivel) ?: false
+    }
+
+    // Guia genérico: a tela vai para o app (evento onScreen) e a IA decide o toque.
+    Function("startAI") { nivel: Int ->
+      LiaGuiaService.instance?.iniciarGuiaIA(nivel) ?: false
+    }
+
+    Function("point") { label: String, fala: String ->
+      LiaGuiaService.instance?.apontarIA(label, fala)
+    }
+
+    Function("finishAI") { fala: String ->
+      LiaGuiaService.instance?.concluirIA(fala)
     }
 
     Function("stop") {

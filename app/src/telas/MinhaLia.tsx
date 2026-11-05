@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { API } from '../lia/api';
+import { api, definirEndereco } from '../lia/api';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, Progresso, zerarProgresso } from '../lia/autonomia';
 import { carregarFamilia, Familiar, salvarFamilia } from '../lia/familia';
 
@@ -16,6 +16,15 @@ export default function MinhaLia() {
   const [progresso, setProgresso] = useState<Progresso>({});
   const [novo, setNovo] = useState({ nome: '', parentesco: '', telefone: '' });
   const [servidor, setServidor] = useState('verificando…');
+  const [endereco, setEndereco] = useState(api());
+
+  const testarServidor = useCallback(() => {
+    setServidor('verificando…');
+    fetch(`${api()}/saude`)
+      .then((r) => r.json())
+      .then((j: { provedor: string }) => setServidor(`ligado (IA: ${j.provedor})`))
+      .catch(() => setServidor('desligado ou endereço errado'));
+  }, []);
 
   const recarregar = useCallback(async () => {
     setFamilia(await carregarFamilia());
@@ -24,11 +33,8 @@ export default function MinhaLia() {
 
   useEffect(() => {
     recarregar();
-    fetch(`${API}/saude`)
-      .then((r) => r.json())
-      .then((j: { provedor: string }) => setServidor(`ligado (IA: ${j.provedor})`))
-      .catch(() => setServidor('desligado'));
-  }, [recarregar]);
+    testarServidor();
+  }, [recarregar, testarServidor]);
 
   const adicionar = async () => {
     if (!novo.nome.trim() || !novo.parentesco.trim()) return;
@@ -83,7 +89,17 @@ export default function MinhaLia() {
       <Pressable style={styles.botao} onPress={adicionar}><Text style={styles.botaoTexto}>Adicionar familiar</Text></Pressable>
 
       <Text style={styles.secao}>Servidor da Lia</Text>
-      <Text style={styles.ajuda}>{API} · {servidor}</Text>
+      <Text style={styles.ajuda}>{api()} · {servidor}</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="IP do notebook (ex.: 192.168.0.15)"
+        autoCapitalize="none"
+        value={endereco}
+        onChangeText={setEndereco}
+      />
+      <Pressable style={styles.botao} onPress={async () => { setEndereco(await definirEndereco(endereco)); testarServidor(); }}>
+        <Text style={styles.botaoTexto}>Salvar endereço e testar</Text>
+      </Pressable>
     </ScrollView>
   );
 }

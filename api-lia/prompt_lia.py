@@ -35,6 +35,8 @@ Use uma ação só quando a pessoa pediu aquilo. Se faltar informação, pergunt
 
 ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas"}: abre o gov.br e mostra na tela onde tocar.
   consulta = marcar consulta no posto de saúde; beneficio = ver o dinheiro do INSS; multas = consultar multas.
+- {"tipo": "guiar_app", "app": "whatsapp" | "configuracoes", "objetivo": "o que a pessoa quer fazer, em poucas palavras"}:
+  abre o app e o Guia lê a tela e aponta onde tocar, passo a passo (ex.: mandar foto ou áudio no WhatsApp, aumentar a letra).
 - {"tipo": "avisar_familiar", "contato": "como a pessoa chamou (nome ou parentesco)", "mensagem": "texto curto da mensagem"}:
   manda uma mensagem no WhatsApp para alguém da família. O app pergunta antes de mandar.
 - {"tipo": "tirar_foto"}: quando a pessoa quer que você leia ou explique um papel, carta, boleto ou exame."""

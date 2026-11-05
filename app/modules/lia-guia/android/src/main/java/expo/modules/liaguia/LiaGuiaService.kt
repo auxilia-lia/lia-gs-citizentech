@@ -43,6 +43,13 @@ class LiaGuiaService : AccessibilityService() {
   private var revelado = true // o anel aparece? (no nível 0, sempre)
   private var revelarAgendado = false
 
+  // Modo IA (#7): a tela vai para a IA, que escolhe o próximo toque em qualquer app.
+  private var modoIA = false
+  private var alvoIA: String? = null
+  private var falaIA: String? = null
+  private var ultimaAssinatura = ""
+  private var passosIA = 0
+
   private val avaliar = Runnable { avaliarTela() }
   private val revelar = Runnable { revelado = true; avaliarTela() }
 
@@ -69,6 +76,7 @@ class LiaGuiaService : AccessibilityService() {
   // ---------- controle (chamado pelo módulo) ----------
 
   fun iniciarGuia(lista: List<String>, nivelPedido: Int = 0): Boolean {
+    modoIA = false
     val limpos = lista.map { it.trim() }.filter { it.isNotEmpty() }
     if (limpos.isEmpty()) return false
     passos = limpos
@@ -83,6 +91,45 @@ class LiaGuiaService : AccessibilityService() {
     return true
   }
 
+  fun iniciarGuiaIA(nivelPedido: Int = 0): Boolean {
+    modoIA = true
+    passos = emptyList()
+    indice = 0
+    alvoIA = null
+    falaIA = null
+    ultimaAssinatura = ""
+    passosIA = 0
+    falado = -1
+    alvoAtual = null
+    nivel = nivelPedido.coerceIn(0, 2)
+    reiniciarRevelacao()
+    mostrarOverlay()
+    overlay?.show(null, "Deixa eu ver a tela…")
+    agendar(900)
+    return true
+  }
+
+  // A IA escolheu: aponta para esse elemento e fala a instrução.
+  fun apontarIA(label: String, fala: String) {
+    if (!modoIA) return
+    alvoIA = label
+    falaIA = fala
+    falado = -1
+    reiniciarRevelacao()
+    agendar(50)
+  }
+
+  // A IA disse que o objetivo foi alcançado (ou não sabe seguir).
+  fun concluirIA(fala: String) {
+    if (!modoIA) return
+    if (fala.isNotBlank()) falar(fala)
+    overlay?.show(null, fala)
+    LiaGuiaBridge.emit("onStep", mapOf("type" to "finished", "total" to passosIA))
+    modoIA = false
+    indice = -1
+    handler.postDelayed({ if (!modoIA && indice < 0) pararGuia() }, 2500)
+  }
+
   private fun reiniciarRevelacao() {
     handler.removeCallbacks(revelar)
     revelarAgendado = false
@@ -90,6 +137,8 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   fun pararGuia() {
+    modoIA = false
+    alvoIA = null
     handler.removeCallbacks(avaliar)
     handler.removeCallbacks(revelar)
     indice = -1
@@ -129,7 +178,7 @@ class LiaGuiaService : AccessibilityService() {
   // ---------- eventos do Android ----------
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    if (event == null || indice < 0) return
+    if (event == null || (indice < 0 && !modoIA)) return
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     when (event.eventType) {
       AccessibilityEvent.TYPE_VIEW_CLICKED -> aoClicar(event)
@@ -140,6 +189,21 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun aoClicar(event: AccessibilityEvent) {
     val alvo = alvoAtual ?: return
+    if (modoIA) {
+      val src = event.source ?: return
+      val b = Rect().also { src.getBoundsInScreen(it) }
+      if (!Rect.intersects(b, alvo)) return agendar(250)
+      LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to alvoIA))
+      passosIA++
+      alvoIA = null
+      alvoAtual = null
+      ultimaAssinatura = "" // força mandar a próxima tela para a IA
+      reiniciarRevelacao()
+      if (nivel >= 1) falar("Isso!")
+      overlay?.show(null, "…")
+      agendar(800)
+      return
+    }
     val src = event.source ?: return
     val b = Rect().also { src.getBoundsInScreen(it) }
     if (Rect.intersects(b, alvo)) avancar() else agendar(250)
@@ -171,6 +235,11 @@ class LiaGuiaService : AccessibilityService() {
   // ---------- o coração do Guia ----------
 
   private fun avaliarTela() {
+    if (modoIA) {
+      val r = rootInActiveWindow ?: return
+      if (r.packageName?.toString() != packageName) avaliarTelaIA(r)
+      return
+    }
     if (indice < 0 || indice >= passos.size) return
     val root = rootInActiveWindow ?: return
     if (root.packageName?.toString() == packageName) return
@@ -226,6 +295,60 @@ class LiaGuiaService : AccessibilityService() {
           "visible" to lerTela().mapNotNull { (it["text"] ?: it["desc"]) as String? }.distinct().take(40))
       )
     }
+  }
+
+  private fun avaliarTelaIA(root: AccessibilityNodeInfo) {
+    val elementos = tocaveis(root)
+    val app = root.packageName?.toString() ?: ""
+    val assinatura = app + "|" + elementos.joinToString("|")
+    val mudou = assinatura != ultimaAssinatura
+    ultimaAssinatura = assinatura
+
+    val alvo = alvoIA
+    if (alvo == null) {
+      if (mudou) LiaGuiaBridge.emit("onScreen", mapOf("app" to app, "elementos" to elementos))
+      return
+    }
+    val achado = melhorAlvo(root, alvo)
+    if (achado == null) {
+      // A tela mudou e o alvo sumiu: pede uma nova decisão à IA.
+      if (mudou) {
+        alvoIA = null
+        alvoAtual = null
+        overlay?.show(null, "Deixa eu ver a tela…")
+        LiaGuiaBridge.emit("onScreen", mapOf("app" to app, "elementos" to elementos))
+      }
+      return
+    }
+    alvoAtual = achado.bounds
+    val fala = falaIA ?: "Toque em ${achado.label}"
+    if (revelado) {
+      overlay?.show(achado.bounds, fala)
+      if (falado != passosIA) { falado = passosIA; falar(fala) }
+    } else {
+      overlay?.show(null, if (nivel == 1) "Você já sabe: procure \"${achado.label}\"" else "")
+      if (!revelarAgendado) {
+        revelarAgendado = true
+        handler.postDelayed(revelar, if (nivel == 1) 8000L else 20000L)
+      }
+    }
+    LiaGuiaBridge.emit("onStep", mapOf("type" to "found", "index" to passosIA, "total" to 0, "step" to alvo,
+      "label" to achado.label, "score" to achado.score, "nivel" to nivel, "revealed" to revelado, "app" to app))
+  }
+
+  // Textos dos elementos que dá para tocar (o que a IA recebe).
+  private fun tocaveis(root: AccessibilityNodeInfo): List<String> {
+    val out = LinkedHashSet<String>()
+    fun andar(n: AccessibilityNodeInfo, prof: Int) {
+      if (prof > MAX_PROFUNDIDADE || out.size >= 60) return
+      if (n.isVisibleToUser) {
+        val label = (n.text ?: n.contentDescription)?.toString()?.trim()
+        if (!label.isNullOrEmpty() && acharClicavel(n) != null) out.add(label.take(80))
+      }
+      for (i in 0 until n.childCount) n.getChild(i)?.let { andar(it, prof + 1) }
+    }
+    andar(root, 0)
+    return out.toList()
   }
 
   private fun melhorAlvo(root: AccessibilityNodeInfo, passo: String): Alvo? {

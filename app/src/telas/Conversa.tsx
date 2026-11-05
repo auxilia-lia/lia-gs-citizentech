@@ -2,13 +2,14 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
-import { Acao, AnaliseGolpe, API, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
+import { Acao, AnaliseGolpe, api, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
 import { montarContexto } from '../lia/contexto';
 import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/familia';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { useVoz } from '../lia/useVoz';
+import { guiarComIA, PACOTES } from '../lia/guiaIA';
 
 const BOAS_VINDAS = 'Oi, eu sou a Lia. Me fala o que você quer fazer.';
 
@@ -65,7 +66,7 @@ export default function Conversa() {
       setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
       voz.falar(r.fala, () => r.acao && executar(r.acao));
     } catch {
-      voz.setErro(`Não consegui falar com o servidor da Lia (${API}). Ele está ligado?`);
+      voz.setErro(`Não consegui falar com o servidor da Lia (${api()}). Ele está ligado?`);
     } finally {
       setPensando(false);
     }
@@ -74,6 +75,7 @@ export default function Conversa() {
   // ---------- ações (Guia, Age, Entende) ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
+    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
   };
@@ -91,8 +93,22 @@ export default function Conversa() {
       }
       await Linking.openURL(urlGov(fluxo.caminho));
     } catch {
-      voz.setErro(`Não consegui abrir o gov.br simulado (${API}).`);
+      voz.setErro(`Não consegui abrir o gov.br simulado (${api()}).`);
     }
+  };
+
+  // Guia genérico: a IA lê a tela do outro app e decide cada toque.
+  const guiarApp = async (app: string, objetivo: string) => {
+    if (!LiaGuia.isEnabled()) {
+      return voz.setErro('O Guia na tela está desligado. Ative na aba "Teste do Guia" para a Lia apontar onde tocar.');
+    }
+    const chave = `app:${app}`;
+    const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
+    guiarComIA(objetivo, nivel, async () => {
+      const vezes = await registrarConclusao(chave);
+      setMensagens((m) => [...m, { papel: 'lia', texto: `Muito bem! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}.` }]);
+    });
+    if (!LiaGuia.openApp(PACOTES[app] ?? app)) voz.setErro('Não consegui abrir esse app. Ele está instalado?');
   };
 
   const prepararAviso = async (contato: string, mensagem: string) => {

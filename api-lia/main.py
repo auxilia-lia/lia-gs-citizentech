@@ -14,6 +14,7 @@ load_dotenv()
 import antigolpe  # noqa: E402
 import cerebro_teste  # noqa: E402
 import gov_simulado  # noqa: E402
+import guia  # noqa: E402
 from ia import gerar, provedor  # noqa: E402
 from prompt_lia import PROMPT_ENTENDE, montar_sistema  # noqa: E402
 
@@ -22,10 +23,11 @@ app = FastAPI(title="API da Lia")
 app.include_router(gov_simulado.router)
 
 ACOES_POR_CANAL = {
-    "app": {"guiar", "avisar_familiar", "tirar_foto"},
+    "app": {"guiar", "guiar_app", "avisar_familiar", "tirar_foto"},
     "ligacao": {"agendar_por_voz", "consultar_beneficio", "avisar_familiar"},
 }
 SERVICOS = set(gov_simulado.FLUXOS)
+APPS = {"whatsapp", "configuracoes"}
 
 
 class Mensagem(BaseModel):
@@ -62,6 +64,8 @@ def validar_acao(acao, canal: str) -> dict | None:
     if not isinstance(acao, dict) or acao.get("tipo") not in ACOES_POR_CANAL[canal]:
         return None
     if acao["tipo"] == "guiar" and acao.get("servico") not in SERVICOS:
+        return None
+    if acao["tipo"] == "guiar_app" and (acao.get("app") not in APPS or not acao.get("objetivo")):
         return None
     if acao["tipo"] == "avisar_familiar" and not (acao.get("contato") and acao.get("mensagem")):
         return None
@@ -125,3 +129,24 @@ async def entende(f: Foto):
 def verificar_golpe(t: Texto):
     a = antigolpe.analisar(t.texto)
     return {**a, "fala": antigolpe.fala_golpe(a)}
+
+
+class TelaGuia(BaseModel):
+    objetivo: str = Field(min_length=2, max_length=300)
+    app: str = Field(default="", max_length=120)
+    elementos: list[str] = Field(default=[], max_length=80)
+    feitos: list[str] = Field(default=[], max_length=30)
+
+
+@app.post("/guia/proximo")
+async def guia_proximo(t: TelaGuia):
+    elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
+    if provedor() not in ("gemini", "claude"):
+        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos), "provedor": provedor()}
+    try:
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos, t.feitos),
+                        [{"papel": "pessoa", "texto": "Qual é o próximo toque?"}])
+    except (httpx.HTTPError, KeyError, IndexError) as e:
+        log.exception("falha na IA")
+        raise HTTPException(502, f"Falha ao falar com a IA: {e}") from e
+    return {**guia.interpretar(r, elementos), "provedor": provedor()}

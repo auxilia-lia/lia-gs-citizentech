@@ -98,3 +98,31 @@ def test_avisar_familiar_variacoes():
     for frase, contato in [("manda mensagem pra Ana que já cheguei", "ana"), ("fala pro meu neto que estou bem", "neto")]:
         r = falar(frase)
         assert r["acao"] and r["acao"]["contato"] == contato, (frase, r)
+
+
+def test_guia_generico_gov_modo_teste():
+    tela = ["Saúde", "Meu INSS", "Veículos", "Sair"]
+    r = c.post("/guia/proximo", json={"objetivo": "marcar consulta", "elementos": tela, "feitos": ["Entrar com conta de demonstração"]}).json()
+    assert r["alvo"] == "Saúde" and not r["concluido"]
+    todos = c.get("/gov/fluxos").json()["consulta"]["passos"]
+    r = c.post("/guia/proximo", json={"objetivo": "marcar consulta", "elementos": ["Voltar ao início"], "feitos": todos}).json()
+    assert r["concluido"]
+
+
+def test_guia_generico_outro_app():
+    r = c.post("/guia/proximo", json={"objetivo": "aumentar o tamanho da fonte", "elementos": ["Conexões", "Tela", "Tamanho e estilo da fonte"]}).json()
+    assert r["alvo"] == "Tamanho e estilo da fonte"
+
+
+def test_guia_interpretar_valida_resposta_da_ia():
+    import guia
+    els = ["Conversas", "Anexar", "Pagar com Pix"]
+    assert guia.interpretar({"indice": 1, "fala": "Toque no clipe."}, els)["alvo"] == "Anexar"
+    assert guia.interpretar({"indice": 9, "fala": "x"}, els)["alvo"] is None
+    assert guia.interpretar({"indice": 2, "fala": "x"}, els)["alvo"] is None
+    assert guia.interpretar({"concluido": True, "fala": "Pronto"}, els)["concluido"]
+
+
+def test_conversa_pede_guiar_app():
+    r = falar("como mando foto no whatsapp?")
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"]["app"] == "whatsapp"

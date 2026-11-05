@@ -21,6 +21,7 @@ export type ScreenNode = {
 type LiaGuiaEvents = {
   onStep: (e: StepEvent) => void;
   onStatus: (e: { enabled: boolean }) => void;
+  onScreen: (e: { app: string; elementos: string[] }) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
@@ -30,6 +31,10 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   /** nivel: 0 = faz junto, 1 = só confirma, 2 = só acompanha */
   start(steps: string[], nivel: number): boolean;
   stop(): void;
+  /** Guia genérico: a tela chega pelo evento onScreen e a IA decide o toque. */
+  startAI(nivel: number): boolean;
+  point(label: string, fala: string): void;
+  finishAI(fala: string): void;
   readScreen(): ScreenNode[];
 }
 

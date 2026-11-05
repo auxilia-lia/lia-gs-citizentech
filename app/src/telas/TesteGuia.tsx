@@ -3,6 +3,7 @@ import {
   AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { buscarFluxos, urlGov } from '../lia/api';
+import { guiarComIA, pararGuiaIA, PACOTES } from '../lia/guiaIA';
 import LiaGuia, { StepEvent } from '../../modules/lia-guia';
 
 // Teste de 1 dia do Guia (backlog #4): a Lia consegue ler a tela de outro app,
@@ -27,6 +28,8 @@ export default function TesteGuia() {
   const [appLivre, setAppLivre] = useState<'settings' | 'com.whatsapp'>('settings');
   const [testesGov, setTestesGov] = useState<Teste[]>([]);
   const [nivel, setNivel] = useState(0);
+  const [objetivoIA, setObjetivoIA] = useState('');
+  const [appIA, setAppIA] = useState<'configuracoes' | 'whatsapp'>('configuracoes');
   const ultimo = useRef('');
 
   const registrar = (linha: string) => {
@@ -75,6 +78,16 @@ export default function TesteGuia() {
     }
   };
 
+  const rodarIA = () => {
+    const objetivo = objetivoIA.trim();
+    if (!objetivo) return;
+    registrar(`🤖 Guia com IA (nível ${nivel}): "${objetivo}" em ${appIA}`);
+    if (!guiarComIA(objetivo, nivel, () => registrar('🎉 Guia com IA terminou'))) {
+      return registrar('⚠️ Guia não iniciou (acessibilidade desligada?)');
+    }
+    if (!LiaGuia.openApp(PACOTES[appIA])) registrar(`⚠️ Não consegui abrir ${appIA}`);
+  };
+
   const rodarLivre = () => {
     const passos = livre.split(',').map((p) => p.trim()).filter(Boolean);
     if (passos.length) rodar({ nome: 'Livre', app: appLivre, passos });
@@ -105,6 +118,19 @@ export default function TesteGuia() {
         <Botao key={t.nome} texto={t.nome} onPress={() => rodar(t)} disabled={!ativo} />
       ))}
 
+      <Text style={styles.section}>Guia com IA (qualquer app)</Text>
+      <TextInput
+        style={styles.input}
+        value={objetivoIA}
+        onChangeText={setObjetivoIA}
+        placeholder="O que a pessoa quer. Ex.: aumentar o tamanho da letra"
+      />
+      <View style={styles.row}>
+        <Chip texto="Configurações" ativo={appIA === 'configuracoes'} onPress={() => setAppIA('configuracoes')} />
+        <Chip texto="WhatsApp" ativo={appIA === 'whatsapp'} onPress={() => setAppIA('whatsapp')} />
+      </View>
+      <Botao texto="Rodar Guia com IA" onPress={rodarIA} disabled={!ativo} />
+
       <Text style={styles.section}>Teste livre</Text>
       <TextInput
         style={styles.input}
@@ -119,7 +145,7 @@ export default function TesteGuia() {
       <Botao texto="Rodar teste livre" onPress={rodarLivre} disabled={!ativo} />
 
       <View style={styles.row}>
-        <Chip texto="Parar guia" onPress={() => { LiaGuia.stop(); registrar('⏹️ Parado'); }} />
+        <Chip texto="Parar guia" onPress={() => { pararGuiaIA(); registrar('⏹️ Parado'); }} />
         <Chip texto="Compartilhar registro" onPress={() => Share.share({ message: [...log].reverse().join('\n') })} />
         <Chip texto="Limpar" onPress={() => setLog([])} />
       </View>
