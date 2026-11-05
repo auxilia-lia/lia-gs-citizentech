@@ -1,0 +1,4 @@
+<resources>
+  <string name="lia_guia_nome">Lia — Guia na tela</string>
+  <string name="lia_guia_descricao">A Lia lê a tela e mostra onde tocar, passo a passo. Ela só aponta e fala: quem toca é você.</string>
+</resources>
