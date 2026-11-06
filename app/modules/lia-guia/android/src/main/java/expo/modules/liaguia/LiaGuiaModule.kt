@@ -50,6 +50,10 @@ class LiaGuiaModule : Module() {
       Protecao.definir(context, pkg, proteger)
     }
 
+    Function("state") {
+      LiaGuiaService.instance?.estado() ?: "o Guia está desligado"
+    }
+
     Function("isEnabled") {
       LiaGuiaService.instance != null
     }

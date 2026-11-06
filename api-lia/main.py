@@ -39,7 +39,7 @@ class Mensagem(BaseModel):
 class Contexto(BaseModel):
     autonomia: dict[str, int] = {}
     familia: list[str] = []  # só parentescos/apelidos; telefones ficam no celular
-    guia: str | None = Field(default=None, max_length=300)  # o que o Guia está mostrando agora, se estiver
+    guia: str | None = Field(default=None, max_length=600)  # o que o Guia está mostrando agora, se estiver
 
 
 class Conversa(BaseModel):
@@ -100,11 +100,14 @@ async def conversa(c: Conversa):
     p = provedor()
     if p in ("gemini", "claude"):
         try:
-            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300)
+            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=10)
         except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
             # Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo).
             log.exception("IA indisponível; respondendo pelas regras")
             r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
+            if contexto.get("guia") and not r.get("acao"):
+                # Durante o Guia, a resposta genérica das regras confunde: avisa e deixa o Guia seguir.
+                r = {"fala": "A internet está lenta agora. Continuo com você: o Guia segue na tela.", "acao": None}
             p = "regras (IA indisponível)"
     else:
         r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
@@ -125,7 +128,7 @@ async def entende(f: Foto):
         return {**cerebro_teste.entender_foto(), "provedor": p}
     try:
         r = await gerar(PROMPT_ENTENDE, [{"papel": "pessoa", "texto": "Me explica esse papel."}],
-                        imagem={"base64": f.imagem_base64, "mime": f.mime})
+                        imagem={"base64": f.imagem_base64, "mime": f.mime}, prazo=35)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para a foto")
         return {"fala": "Agora não consegui ler o papel, a internet está ruim. Tenta de novo daqui a pouco.",
@@ -181,7 +184,7 @@ async def guia_proximo(t: TelaGuia):
     lista = elementos[:45]
     try:
         r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args),
-                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180)
+                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180, prazo=7)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}

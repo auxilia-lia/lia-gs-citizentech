@@ -79,7 +79,7 @@ export async function conversar(
   contexto: Contexto,
 ): Promise<RespostaLia> {
   const mensagens = historico.slice(-20).map((m) => ({ ...m, texto: pseudonimizar(m.texto, mapa) }));
-  const r = await post<RespostaLia>('/conversa', { mensagens, canal, contexto });
+  const r = await post<RespostaLia>('/conversa', { mensagens, canal, contexto }, 20000);
   const acao = r.acao && 'mensagem' in r.acao ? { ...r.acao, mensagem: restaurar(r.acao.mensagem, mapa) } : r.acao;
   return { ...r, fala: restaurar(r.fala, mapa), acao };
 }
@@ -125,4 +125,4 @@ export type PedidoGuia = {
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.
-export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, 30000);
+export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, 12000);

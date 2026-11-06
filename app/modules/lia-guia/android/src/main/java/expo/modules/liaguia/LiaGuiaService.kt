@@ -47,6 +47,8 @@ class LiaGuiaService : AccessibilityService() {
     private val CONSEGUI = Regex("\\b(ja consegui|consegui|deu certo|ja fiz|ja foi|pronto|ja liguei|ja desliguei|ja abri|obrigad[oa])\\b")
     private val NAO_CONSEGUI = Regex("\\bnao (consegui|deu|foi|fiz)")
     private val PROTEGER = Regex("\\b(nao (entra|entre|olha|olhe|leia|le)|bloqueia|bloquear|bloqueie|protege|proteger|proteja)\\b.*\\b(nesse|neste|esse|este|aqui|app|aplicativo)\\b")
+    // "e agora?", "qual o próximo passo?", "não tô vendo nada"… (frases curtas): o Guia resolve sem ir para a conversa.
+    private val AJUDA = Regex("\\b(proximo passo|e agora|o que (eu )?(faco|fasso|toco|aperto)|nao (sei|to vendo|estou vendo|vejo|achei|acho|apareceu|aparece|mostrou|mostra|falou)|cade|onde (eu )?(toco|clico|aperto|esta)|travou|nada na tela|mostra de novo|repete|repetir|fala de novo|nao entendi)\\b")
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
@@ -97,6 +99,19 @@ class LiaGuiaService : AccessibilityService() {
   private var rotulosEnviados: List<String> = emptyList()
 
   private val avaliar = Runnable { agendadoPara = 0L; avaliarTela() }
+
+  // Vigia: depois de mandar a tela para a IA, a Lia nunca fica muda nem parada esperando para sempre.
+  private val aguardando = Runnable {
+    if (ativo && modoIA && tipoIA == null && emProtegido == null) falar("Só um momento, estou olhando a tela.")
+  }
+  private val reenviar = Runnable {
+    if (!ativo || !modoIA || tipoIA != null || emProtegido != null) return@Runnable
+    val root = raizAtual()
+    if (root == null) { reagendarVigia(3000); return@Runnable }
+    emitirTela(lerContexto(root), "parado")
+  }
+  private fun reagendarVigia(ms: Long) { handler.removeCallbacks(reenviar); handler.postDelayed(reenviar, ms) }
+  private fun pararVigia() { handler.removeCallbacks(aguardando); handler.removeCallbacks(reenviar) }
   private val revelar = Runnable { revelado = true; avaliarTela() }
   private val lembrar = Runnable { lembrete() }
 
@@ -160,6 +175,7 @@ class LiaGuiaService : AccessibilityService() {
     if (tela >= 0 && tela != telaEnviada) return@naPrincipal
     indiceIA = indice
     faltas = 0
+    pararVigia()
     tipoIA = tipo
     alvoIA = alvo?.takeIf { it.isNotBlank() }
     falaIA = fala
@@ -186,6 +202,38 @@ class LiaGuiaService : AccessibilityService() {
     falar(fala)
     pararAgora()
     voltarParaLia()
+  }
+
+  // A pessoa pediu ajuda ("e agora?"): repete o que está valendo ou, se não há nada na tela, olha de novo.
+  private fun mostrarDeNovo() {
+    if (!ativo) return
+    emProtegido?.let { falar("Este app é protegido, então eu não olho esta tela. Saia dele para eu voltar a ajudar."); return }
+    val tipo = tipoIA
+    if (!modoIA) {
+      falado = false; revelado = true; avaliarTela(); return
+    }
+    if (tipo == null || (tipo == "tocar" && alvoAtual == null)) {
+      falar("Deixa eu olhar a tela de novo.")
+      raizAtual()?.let { emitirTela(lerContexto(it), "parado") } ?: agendar(800)
+      return
+    }
+    revelado = true
+    falado = false
+    when {
+      tipo == "tocar" -> avaliarTela()
+      tipo in GESTOS -> { overlay?.mostrarGesto(tipo, falaIA); falarUmaVez(falaIA) }
+      else -> { overlay?.mostrarMensagem(falaIA); falarUmaVez(falaIA) }
+    }
+  }
+
+  // O que o Guia está mostrando agora (a conversa usa isso para não dizer "siga a tela" quando não há nada nela).
+  fun estado(): String = when {
+    !ativo -> "o Guia está desligado"
+    emProtegido != null -> "um app protegido está aberto; o Guia não olha esta tela"
+    !modoIA -> if (alvoAtual != null) "mostrando: Toque em $nomeAlvo" else "procurando \"$nomeAlvo\" na tela"
+    tipoIA == null -> "nada ainda: o Guia está olhando a tela para decidir o próximo passo"
+    tipoIA == "tocar" && alvoAtual == null -> "nada ainda: procurando o botão na tela"
+    else -> "mostrando: $falaIA"
   }
 
   // Nome da voz escolhida (o app usa a mesma, para a Lia soar igual em todo lugar).
@@ -231,6 +279,11 @@ class LiaGuiaService : AccessibilityService() {
         falar("Tudo bem, parei. Se precisar, é só me chamar.")
         pararAgora()
         voltarParaLia()
+        return
+      }
+      AJUDA.containsMatchIn(Matcher.normalize(texto)) && texto.trim().split(Regex("\\s+")).size <= 8 -> {
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        mostrarDeNovo()
         return
       }
       CONSEGUI.containsMatchIn(Matcher.normalize(texto)) && !NAO_CONSEGUI.containsMatchIn(Matcher.normalize(texto)) -> {
@@ -297,6 +350,7 @@ class LiaGuiaService : AccessibilityService() {
     handler.removeCallbacks(avaliar)
     handler.removeCallbacks(revelar)
     handler.removeCallbacks(lembrar)
+    pararVigia()
     esconderOverlay()
   }
 
@@ -409,7 +463,8 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun avaliarTela() {
     if (!ativo) return
-    val root = raizAtual() ?: return
+    // Tela de transição (sem janela legível): tenta de novo em vez de ficar parado.
+    val root = raizAtual() ?: return agendar(1000)
     val pkg = root.packageName?.toString() ?: ""
     if (Protecao.bloqueado(this, pkg)) return protegido(pkg)
     if (emProtegido != null) { emProtegido = null; ultimaAssinatura = "" }
@@ -530,6 +585,9 @@ class LiaGuiaService : AccessibilityService() {
     val cumpriu = seguiu
     seguiu = null
     overlay?.mostrarMensagem("Deixa eu ver a tela…")
+    pararVigia()
+    handler.postDelayed(aguardando, 5000)
+    handler.postDelayed(reenviar, 15000)
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
       "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,

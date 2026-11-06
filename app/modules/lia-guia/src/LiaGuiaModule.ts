@@ -44,11 +44,13 @@ type LiaGuiaEvents = {
   onStatus: (e: { enabled: boolean }) => void;
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
-  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string }) => void;
+  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean }) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   isEnabled(): boolean;
+  /** O que o Guia está mostrando agora, em português (para a conversa saber se há algo na tela). */
+  state(): string;
   /** Apps do celular e se cada um é protegido (neles a Lia não olha a tela). */
   apps(): AppDoCelular[];
   setProtected(pkg: string, proteger: boolean): void;

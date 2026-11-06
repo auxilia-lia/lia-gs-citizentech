@@ -23,6 +23,10 @@ const SEM_SERVIDOR = 'Não consegui falar com a Lia agora. Confira se o celular 
 
 type Pendente = { familiar: Familiar; mensagem: string };
 
+const estadoDoGuia = () => {
+  try { return LiaGuia.state(); } catch { return 'desconhecido'; }
+};
+
 export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pedido | null }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([{ papel: 'lia', texto: BOAS_VINDAS }]);
   const [pensando, setPensando] = useState(false);
@@ -79,7 +83,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   useEffect(() => {
     const s = LiaGuia.addListener('onVoz', async (e) => {
       const guiando = objetivoAtual() ?? (guiaAtivo.current ? `fazer: ${guiaAtivo.current}` : null);
-      if (e.protegeu) return; // "não olha esse app": o Guia já resolveu sozinho
+      if (e.protegeu || e.tratado) return; // "não olha esse app", "e agora?": o Guia já resolveu sozinho
       if (e.conseguiu) {
         // "Já consegui": o Guia conclui e conta para a autonomia (o evento de fim chega em seguida).
         setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }]);
@@ -94,7 +98,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }]);
       try {
         const historico: Mensagem[] = [{ papel: 'pessoa', texto: e.texto }];
-        const r = await conversar(historico, mapa.current, 'app', { ...(await montarContexto()), guia: guiando });
+        const r = await conversar(historico, mapa.current, 'app', { ...(await montarContexto()), guia: guiando ? `${guiando} (na tela agora: ${estadoDoGuia()})` : guiando });
         setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
         LiaGuia.say(r.fala); // por cima do outro app
         const a = r.acao;

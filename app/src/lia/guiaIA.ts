@@ -72,7 +72,8 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
       if (r.concluido) LiaGuia.finishAI(fala);
       else LiaGuia.instruct(r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1, tela.id ?? -1);
     } catch {
-      if (atual === estado && !estado.pendente) LiaGuia.instruct('esperar', null, 'A internet está ruim. Espere um momento, que eu já te mostro.', -1, tela.id ?? -1);
+      // Sem resposta: avisa e deixa o vigia do Guia olhar a tela de novo em seguida (ele não fica parado).
+      if (atual === estado && !estado.pendente) LiaGuia.say('A internet está lenta. Já tento de novo.');
     } finally {
       estado.ocupado = false;
       const pend = estado.pendente;

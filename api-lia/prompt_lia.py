@@ -93,6 +93,8 @@ def montar_sistema(canal: str, contexto: dict, analise_golpe: dict | None) -> st
 AGORA o Guia está na tela, ajudando a pessoa a: "{contexto['guia']}". Ela falou com você pelo botão de microfone.
 - Se ela pedir OUTRA coisa, mande a nova ação (guiar_app ou guiar) e diga na fala que vai mudar.
 - Se for uma dúvida sobre a tela ou o caminho, responda em 1 ou 2 frases, sem ação: o Guia continua.
+- O que está entre parênteses diz o que o Guia mostra AGORA. Se for "nada ainda", NUNCA diga para seguir o que está
+  na tela: diga que você está olhando a tela e já mostra o próximo passo. Nunca cite um botão que você não sabe se existe.
 - Se ela quiser parar, responda que parou, sem ação.""")
     if analise_golpe and analise_golpe.get("golpe"):
         partes.append("\nO verificador antigolpe analisou a última mensagem e achou: "

@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import time
 
 import httpx
 
@@ -21,33 +22,40 @@ def _extrair_json(texto: str) -> dict:
     return {"fala": texto, "acao": None}  # a IA respondeu texto puro
 
 
-async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None, max_tokens: int = 600) -> dict:
-    """mensagens: [{"papel": "pessoa"|"lia", "texto": str}]; imagem: {"base64", "mime"} na última mensagem."""
+async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None, max_tokens: int = 600,
+                prazo: float = 15) -> dict:
+    """mensagens: [{"papel": "pessoa"|"lia", "texto": str}]; imagem: {"base64", "mime"} na última mensagem.
+    prazo: tempo TOTAL em segundos (somando os modelos reserva). Passou disso, quem chamou usa as regras."""
     p = provedor()
     if p == "gemini":
-        return _extrair_json(await _gemini(sistema, mensagens, imagem, max_tokens))
+        return _extrair_json(await _gemini(sistema, mensagens, imagem, max_tokens, prazo))
     if p == "claude":
-        return _extrair_json(await _claude(sistema, mensagens, imagem))
+        return _extrair_json(await _claude(sistema, mensagens, imagem, prazo))
     raise RuntimeError("provedor de teste não chama IA")
 
 
-async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None, max_tokens: int = 600) -> str:
+async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None, max_tokens: int = 600,
+                  prazo: float = 15) -> str:
     """Tenta os modelos em fila: o principal e depois os reservas (GEMINI_MODELO_RESERVA, separados por vírgula).
     Passa para o próximo quando o modelo está sobrecarregado (429/500/503) ou demora demais."""
     principal = os.getenv("GEMINI_MODELO", "gemini-flash-lite-latest")
     reservas = os.getenv("GEMINI_MODELO_RESERVA", "gemini-3.1-flash-lite,gemini-3.5-flash")
     fila = [principal] + [m.strip() for m in reservas.split(",") if m.strip() and m.strip() != principal]
     ultimo_erro: Exception | None = None
+    fim = time.monotonic() + prazo
     for modelo in fila:
+        resta = fim - time.monotonic()
+        if resta < 1.5:
+            break  # sem tempo para outro modelo: melhor responder pelas regras do que deixar a pessoa esperando
         try:
-            return await _gemini_modelo(modelo, sistema, mensagens, imagem, timeout=20, max_tokens=max_tokens)
+            return await _gemini_modelo(modelo, sistema, mensagens, imagem, timeout=resta, max_tokens=max_tokens)
         except httpx.TimeoutException as e:
             ultimo_erro = e
         except httpx.HTTPStatusError as e:
             if e.response.status_code not in (429, 500, 503):
                 raise
             ultimo_erro = e
-    raise ultimo_erro or RuntimeError("nenhum modelo disponível")
+    raise ultimo_erro or RuntimeError("nenhum modelo respondeu a tempo")
 
 
 # Modelos que já recusaram a configuração de "pensamento" (não tentamos de novo).
@@ -63,7 +71,7 @@ def _config_pensamento(modelo: str) -> dict:
     return {"thinkingConfig": {"thinkingLevel": "minimal"}}
 
 
-async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], imagem: dict | None, timeout: int,
+async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], imagem: dict | None, timeout: float,
                          max_tokens: int = 600) -> str:
     conteudos = []
     for i, m in enumerate(mensagens):
@@ -90,7 +98,7 @@ async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], image
     return "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
 
 
-async def _claude(sistema: str, mensagens: list[dict], imagem: dict | None) -> str:
+async def _claude(sistema: str, mensagens: list[dict], imagem: dict | None, prazo: float = 15) -> str:
     modelo = os.getenv("CLAUDE_MODELO", "claude-haiku-5-5")
     msgs = []
     for i, m in enumerate(mensagens):
@@ -100,7 +108,7 @@ async def _claude(sistema: str, mensagens: list[dict], imagem: dict | None) -> s
         msgs.append({"role": "user" if m["papel"] == "pessoa" else "assistant", "content": conteudo})
     corpo = {"model": modelo, "max_tokens": 600, "system": sistema, "messages": msgs}
     headers = {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01"}
-    async with httpx.AsyncClient(timeout=90) as c:
+    async with httpx.AsyncClient(timeout=prazo) as c:
         r = await c.post("https://api.anthropic.com/v1/messages", json=corpo, headers=headers)
         r.raise_for_status()
     return "".join(b.get("text", "") for b in r.json()["content"] if b.get("type") == "text")
