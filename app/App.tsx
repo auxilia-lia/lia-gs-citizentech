@@ -12,8 +12,10 @@ import BoasVindas from './src/telas/BoasVindas';
 import BarraAbas, { Aba } from './src/ui/BarraAbas';
 import Cabecalho from './src/ui/Cabecalho';
 import { carregarEnderecoSalvo } from './src/lia/api';
+import { prepararVoz } from './src/lia/fala';
 import { gravar, ler } from './src/lia/armazenamento';
 import { cores } from './src/ui/tema';
+import { Aparecer } from './src/ui/anim';
 
 export type Demo = 'ligacao' | 'teste';
 
@@ -26,7 +28,7 @@ export default function App() {
   const margens = useMargens();
 
   useEffect(() => {
-    Promise.all([carregarEnderecoSalvo(), ler('lia:boas-vindas', false)]).then(([, viu]) => {
+    Promise.all([carregarEnderecoSalvo(), ler('lia:boas-vindas', false), prepararVoz()]).then(([, viu]) => {
       setPrimeiraVez(!viu);
       setPronto(true);
     });
@@ -64,13 +66,13 @@ export default function App() {
           </View>
         ) : (
           <View style={{ flex: 1 }}>
-            {aba === 'inicio' && <Inicio pedir={pedir} irPara={setAba} />}
+            {aba === 'inicio' && <Aparecer key='inicio' distancia={10} estilo={{ flex: 1 }}><Inicio pedir={pedir} irPara={setAba} /></Aparecer>}
             {/* A conversa fica sempre montada para não perder o histórico ao trocar de aba. */}
             <View style={{ flex: 1, display: aba === 'conversa' ? 'flex' : 'none' }}>
               <Conversa ativa={aba === 'conversa' && !demo} pedido={pedido} />
             </View>
-            {aba === 'familia' && <Familia />}
-            {aba === 'voce' && <Voce abrirDemo={setDemo} reverBoasVindas={() => setPrimeiraVez(true)} />}
+            {aba === 'familia' && <Aparecer key='familia' distancia={10} estilo={{ flex: 1 }}><Familia /></Aparecer>}
+            {aba === 'voce' && <Aparecer key='voce' distancia={10} estilo={{ flex: 1 }}><Voce abrirDemo={setDemo} reverBoasVindas={() => setPrimeiraVez(true)} /></Aparecer>}
             <BarraAbas aba={aba} mudar={setAba} />
           </View>
         )}

@@ -22,11 +22,45 @@ export async function niveis(): Promise<Record<string, Nivel>> {
   return Object.fromEntries(Object.entries(p).map(([s, v]) => [s, nivelDe(v)]));
 }
 
+export type Conquista = { chave: string; quando: string; vezes: number };
+const CHAVE_HIST = 'lia:historico';
+
+export const carregarHistorico = () => ler<Conquista[]>(CHAVE_HIST, []);
+
 export async function registrarConclusao(servico: string): Promise<number> {
   const p = await carregarProgresso();
   p[servico] = (p[servico] ?? 0) + 1;
   await gravar(CHAVE, p);
+  const h = await carregarHistorico();
+  await gravar(CHAVE_HIST, [{ chave: servico, quando: new Date().toISOString(), vezes: p[servico] }, ...h].slice(0, 60));
   return p[servico];
 }
 
-export const zerarProgresso = () => gravar<Progresso>(CHAVE, {});
+export async function zerarProgresso() {
+  await gravar<Progresso>(CHAVE, {});
+  await gravar<Conquista[]>(CHAVE_HIST, []);
+}
+
+// Autonomia geral (0 a 1): média de quanto a pessoa já faz sozinha em cada coisa que já fez.
+export function autonomiaGeral(p: Progresso): number {
+  const v = Object.values(p).filter((n) => n > 0);
+  if (!v.length) return 0;
+  return v.reduce((soma, n) => soma + (nivelDe(n) + 1) / 3, 0) / v.length;
+}
+
+export type Medalha = { id: string; nome: string; descricao: string; icone: string; ganhou: boolean };
+
+export function medalhas(p: Progresso): Medalha[] {
+  const total = Object.values(p).reduce((a, b) => a + b, 0);
+  const coisas = Object.values(p).filter((n) => n > 0).length;
+  const sozinho = Object.values(p).some((n) => nivelDe(n) === 2);
+  const aulas = Object.entries(p).filter(([k, n]) => k.startsWith('aula:') && n > 0).length;
+  return [
+    { id: 'primeiro', nome: 'Primeiro passo', descricao: 'Fez a primeira coisa com a Lia', icone: 'footsteps', ganhou: total >= 1 },
+    { id: 'sozinho', nome: 'Faz sozinho', descricao: 'Fez uma tarefa sem precisar de ajuda', icone: 'ribbon', ganhou: sozinho },
+    { id: 'curioso', nome: 'Curioso', descricao: 'Fez 3 coisas diferentes', icone: 'compass', ganhou: coisas >= 3 },
+    { id: 'aluno', nome: 'Bom aluno', descricao: 'Completou 3 aulas', icone: 'school', ganhou: aulas >= 3 },
+    { id: 'constante', nome: 'Constante', descricao: 'Fez 10 tarefas no total', icone: 'flame', ganhou: total >= 10 },
+    { id: 'independente', nome: 'Independente', descricao: 'Chegou a 80% de autonomia', icone: 'trophy', ganhou: autonomiaGeral(p) >= 0.8 && coisas >= 3 },
+  ];
+}

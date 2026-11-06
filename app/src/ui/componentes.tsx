@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { cores, espaco, raio, sombra, tamanho, TOQUE_MIN } from './tema';
+import { Toque } from './anim';
 
 export type NomeIcone = keyof typeof Ionicons.glyphMap;
 
@@ -15,28 +16,28 @@ export function Botao({
   const fundo = { primario: cores.primaria, secundario: cores.primariaSuave, claro: cores.superficie, perigo: cores.perigo, sucesso: cores.sucesso }[tipo];
   const cor = tipo === 'secundario' || tipo === 'claro' ? cores.primaria : cores.branco;
   return (
-    <Pressable
+    <Toque
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={texto}
-      style={({ pressed }) => [
-        s.botao, { backgroundColor: fundo, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 },
+      estilo={[
+        s.botao, { backgroundColor: fundo, opacity: disabled ? 0.45 : 1 },
         tipo === 'claro' && { borderWidth: 2, borderColor: cores.primariaBorda }, estilo,
       ]}
     >
       {icone && <Ionicons name={icone} size={26} color={cor} />}
       <Text style={[s.botaoTexto, { color: cor }]}>{texto}</Text>
-    </Pressable>
+    </Toque>
   );
 }
 
 export function Cartao({ children, estilo, onPress }: { children: ReactNode; estilo?: StyleProp<ViewStyle>; onPress?: () => void }) {
   if (!onPress) return <View style={[s.cartao, estilo]}>{children}</View>;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [s.cartao, estilo, pressed && { opacity: 0.85 }]}>
+    <Toque onPress={onPress} accessibilityRole="button" estilo={[s.cartao, estilo]}>
       {children}
-    </Pressable>
+    </Toque>
   );
 }
 

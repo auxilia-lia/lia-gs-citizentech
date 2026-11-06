@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { abrirWhatsApp, carregarFamilia, Familiar, salvarFamilia } from '../lia/familia';
 import { Aviso, Botao, Campo, Cartao, Texto, Titulo } from '../ui/componentes';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
+import { Aparecer } from '../ui/anim';
 
 const PARENTESCOS = ['filha', 'filho', 'neta', 'neto', 'esposa', 'marido', 'irmã', 'irmão', 'vizinha', 'vizinho'];
 
@@ -83,8 +84,9 @@ export default function Familia() {
         </Cartao>
       )}
 
-      {familia.map((f) => (
-        <Cartao key={f.id} estilo={st.pessoa}>
+      {familia.map((f, i) => (
+        <Aparecer key={f.id} atraso={i * 70}>
+        <Cartao estilo={st.pessoa}>
           <View style={st.linha}>
             <View style={st.inicial}><Text style={st.inicialTexto}>{f.nome[0]?.toUpperCase()}</Text></View>
             <View style={{ flex: 1 }}>
@@ -99,10 +101,11 @@ export default function Familia() {
             <Botao texto="Mandar mensagem" icone="logo-whatsapp" tipo="secundario" onPress={() => abrirWhatsApp(f.telefone, '')} estilo={{ marginTop: espaco.md }} />
           ) : null}
         </Cartao>
+        </Aparecer>
       ))}
 
       {adicionando ? (
-        <Cartao estilo={{ marginTop: espaco.md }}>
+        <Aparecer><Cartao estilo={{ marginTop: espaco.md }}>
           <Text style={st.formTitulo}>Adicionar alguém</Text>
           <Campo rotulo="Nome" placeholder="Ex.: Ana" value={nome} onChangeText={setNome} erro={erros.nome} autoCapitalize="words" />
           <Text style={st.rotulo}>Quem é para você?</Text>
@@ -120,7 +123,7 @@ export default function Familia() {
           />
           <Botao texto="Salvar" icone="checkmark" onPress={adicionar} />
           <Botao texto="Cancelar" tipo="claro" onPress={() => { setAdicionando(false); setErros({}); }} estilo={{ marginTop: espaco.sm }} />
-        </Cartao>
+        </Cartao></Aparecer>
       ) : (
         <Botao texto="Adicionar alguém" icone="person-add" onPress={() => { setSalvo(''); setAdicionando(true); }} estilo={{ marginTop: espaco.md }} />
       )}

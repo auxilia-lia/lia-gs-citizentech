@@ -191,3 +191,23 @@ def test_guia3_lado_direito_e_sem_culpa():
     import guia
     p = guia.montar_prompt("ligar o bluetooth", "x", ["A"], [], seguiu="Bluetooth")
     assert 'fez exatamente o que você pediu: "Bluetooth"' in p and "o erro foi SEU" in p
+
+
+def test_guia4_atalhos_sem_ia_e_play_store():
+    import guia
+    r = guia.regra_certeira("instalar o facebook", ["Abrir", "Desinstalar", "Facebook"], [], "app")
+    assert r["concluido"] and "já está instalado" in r["fala"]
+    r = guia.regra_certeira("baixar o facebook", ["Instalar", "Facebook"], [], "app")
+    assert r["tipo"] == "tocar" and r["alvo"] == "Instalar"
+    assert guia.regra_certeira("ligar o bluetooth", ["Wi-Fi", "Bluetooth"], [], "painel")["alvo"] == "Bluetooth"
+    assert guia.regra_certeira("mandar foto no whatsapp", ["Conversas"], [], "app") is None
+    r = falar("quero instalar o facebook")
+    assert r["acao"]["app"] == "playstore"
+    from main import validar_acao
+    assert validar_acao({"tipo": "parar_guia"}, "app") == {"tipo": "parar_guia"}
+
+
+def test_config_pensamento():
+    import ia
+    assert ia._config_pensamento("gemini-2.5-flash") == {"thinkingConfig": {"thinkingBudget": 0}}
+    assert "thinkingLevel" in ia._config_pensamento("gemini-flash-lite-latest")["thinkingConfig"]

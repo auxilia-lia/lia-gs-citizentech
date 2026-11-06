@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import * as Speech from 'expo-speech';
+import { falar as falarComVoz } from './fala';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 // Ouvir (reconhecimento de voz do Android, pt-BR) e falar (texto para voz).
@@ -51,9 +52,7 @@ export function useVoz(onOuvido: (texto: string) => void) {
   const falar = (texto: string, depois?: () => void) => {
     setFalando(true);
     Speech.stop();
-    Speech.speak(texto, {
-      language: 'pt-BR',
-      rate: 0.95,
+    falarComVoz(texto, {
       onDone: () => { setFalando(false); depois?.(); },
       onStopped: () => setFalando(false),
       onError: () => { setFalando(false); depois?.(); },

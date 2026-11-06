@@ -11,10 +11,12 @@ import { guiarComIA, objetivoAtual, PACOTES, pararGuiaIA } from '../lia/guiaIA';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { useVoz } from '../lia/useVoz';
+import type { Aula } from '../lia/aulas';
 import { Aviso, Botao } from '../ui/componentes';
+import { Aparecer, Ondas, Toque } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
-export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir'; texto?: string };
+export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir' | 'aula'; texto?: string; aula?: Aula };
 
 const BOAS_VINDAS = 'Oi! Eu sou a Lia. Me fala o que você quer fazer, que eu te ajudo.';
 const SEM_SERVIDOR = 'Não consegui falar com a Lia agora. Confira se o celular está com internet e tente de novo.';
@@ -54,6 +56,11 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (pedido.tipo === 'texto' && pedido.texto) enviar(pedido.texto);
     else if (pedido.tipo === 'foto') tirarFoto();
     else if (pedido.tipo === 'ouvir') voz.ouvir();
+    else if (pedido.tipo === 'aula' && pedido.aula) {
+      const a = pedido.aula;
+      setMensagens((m) => [...m, { papel: 'pessoa', texto: `Quero aprender: ${a.titulo}` }]);
+      dizer(`Vamos aprender: ${a.titulo.toLowerCase()}. Eu vou te mostrando cada passo na tela.`, () => guiarApp(a.app, a.objetivo, `aula:${a.id}`));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido?.id]);
 
@@ -72,6 +79,11 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   useEffect(() => {
     const s = LiaGuia.addListener('onVoz', async (e) => {
       const guiando = objetivoAtual() ?? (guiaAtivo.current ? `fazer: ${guiaAtivo.current}` : null);
+      if (e.conseguiu) {
+        // "Já consegui": o Guia conclui e conta para a autonomia (o evento de fim chega em seguida).
+        setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }]);
+        return;
+      }
       if (e.parou) {
         pararGuiaIA(false);
         guiaAtivo.current = null;
@@ -85,7 +97,9 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
         setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
         LiaGuia.say(r.fala); // por cima do outro app
         const a = r.acao;
-        if (a?.tipo === 'guiar_app' || a?.tipo === 'guiar') {
+        if (a?.tipo === 'parar_guia') {
+          LiaGuia.finishAI('Que bom! Você conseguiu.');
+        } else if (a?.tipo === 'guiar_app' || a?.tipo === 'guiar') {
           guiaAtivo.current = null;
           setTimeout(() => executar(a), 2500); // depois de falar, troca o objetivo do Guia
         } else if (a) {
@@ -130,6 +144,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
+    if (acao.tipo === 'parar_guia') return LiaGuia.finishAI('Que bom! Você conseguiu.');
   };
 
   const semGuia = () => dizer('Para eu te mostrar onde tocar, falta ativar uma permissão. Vá na aba Você e toque em Ativar o Guia.');
@@ -148,9 +163,9 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     }
   };
 
-  const guiarApp = async (app: string, objetivo: string) => {
+  const guiarApp = async (app: string, objetivo: string, chaveAula?: string) => {
     if (!LiaGuia.isEnabled()) return semGuia();
-    const chave = `app:${app}`;
+    const chave = chaveAula ?? `app:${app}`;
     const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
     guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)));
     if (!LiaGuia.openApp(PACOTES[app] ?? app)) dizer('Não consegui abrir esse app. Ele está instalado?');
@@ -234,16 +249,20 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       <ScrollView ref={rolagem} contentContainerStyle={st.lista} onContentSizeChange={() => rolagem.current?.scrollToEnd({ animated: true })}>
         {mensagens.map((m, i) => (
           m.papel === 'lia' ? (
-            <Pressable key={i} onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir de novo" style={[st.balao, st.balaoLia]}>
-              <Text style={st.texto}>{m.texto}</Text>
-              <View style={st.ouvir}><Ionicons name="volume-high" size={18} color={cores.primaria} /><Text style={st.ouvirTexto}>Ouvir de novo</Text></View>
-            </Pressable>
+            <Aparecer key={i} distancia={12} estilo={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+              <Pressable onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir de novo" style={[st.balao, st.balaoLia]}>
+                <Text style={st.texto}>{m.texto}</Text>
+                <View style={st.ouvir}><Ionicons name="volume-high" size={18} color={cores.primaria} /><Text style={st.ouvirTexto}>Ouvir de novo</Text></View>
+              </Pressable>
+            </Aparecer>
           ) : (
-            <View key={i} style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></View>
+            <Aparecer key={i} distancia={12} estilo={{ alignSelf: 'flex-end', maxWidth: '88%' }}>
+              <View style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></View>
+            </Aparecer>
           )
         ))}
-        {voz.parcial ? <View style={[st.balao, st.balaoPessoa, { opacity: 0.6 }]}><Text style={[st.texto, { color: cores.branco }]}>{voz.parcial}</Text></View> : null}
-        {pensando && <View style={[st.balao, st.balaoLia]}><Text style={st.texto}>…</Text></View>}
+        {voz.parcial ? <View style={[st.balao, st.balaoPessoa, { opacity: 0.6, alignSelf: 'flex-end', maxWidth: '88%' }]}><Text style={[st.texto, { color: cores.branco }]}>{voz.parcial}</Text></View> : null}
+        {pensando && <View style={[st.balao, st.balaoLia, { alignSelf: 'flex-start' }]}><Text style={st.texto}>…</Text></View>}
       </ScrollView>
 
       <View style={st.extras}>
@@ -277,15 +296,18 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
 
       <View style={st.doca}>
         <BotaoLado icone="camera" texto="Ler papel" onPress={tirarFoto} disabled={pensando} />
-        <Pressable
-          onPress={() => (voz.ouvindo ? voz.pararDeOuvir() : voz.ouvir())}
-          disabled={pensando}
-          accessibilityRole="button"
-          accessibilityLabel={voz.ouvindo ? 'Parar de ouvir' : 'Falar com a Lia'}
-          style={[st.micro, voz.ouvindo && st.microAtivo, pensando && { opacity: 0.5 }]}
-        >
-          <Ionicons name={voz.ouvindo ? 'stop' : 'mic'} size={44} color={cores.branco} />
-        </Pressable>
+        <View style={st.microArea}>
+          <Ondas tamanho={96} cor={cores.perigo} ativo={voz.ouvindo} />
+          <Toque
+            onPress={() => (voz.ouvindo ? voz.pararDeOuvir() : voz.ouvir())}
+            disabled={pensando}
+            accessibilityRole="button"
+            accessibilityLabel={voz.ouvindo ? 'Parar de ouvir' : 'Falar com a Lia'}
+            estilo={[st.micro, voz.ouvindo && st.microAtivo, pensando && { opacity: 0.5 }]}
+          >
+            <Ionicons name={voz.ouvindo ? 'stop' : 'mic'} size={44} color={cores.branco} />
+          </Toque>
+        </View>
         <BotaoLado icone={escrevendo ? 'close' : 'create'} texto={escrevendo ? 'Fechar' : 'Escrever'} onPress={() => setEscrevendo(!escrevendo)} />
       </View>
       <Text style={st.dica}>{voz.ouvindo ? 'Pode falar. Toque de novo para parar.' : 'Toque no microfone e fale'}</Text>
@@ -311,9 +333,9 @@ const st = StyleSheet.create({
   cadeado: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.pilula, paddingHorizontal: 10, paddingVertical: 6 },
   cadeadoTexto: { color: cores.sucesso, fontSize: 13, fontWeight: '800' },
   lista: { padding: espaco.md, gap: espaco.md },
-  balao: { maxWidth: '88%', borderRadius: raio.md, padding: espaco.md },
-  balaoLia: { alignSelf: 'flex-start', backgroundColor: cores.superficie, borderTopLeftRadius: 6, ...sombra, elevation: 2 },
-  balaoPessoa: { alignSelf: 'flex-end', backgroundColor: cores.primaria, borderTopRightRadius: 6 },
+  balao: { borderRadius: raio.md, padding: espaco.md },
+  balaoLia: { backgroundColor: cores.superficie, borderTopLeftRadius: 6, ...sombra, elevation: 2 },
+  balaoPessoa: { backgroundColor: cores.primaria, borderTopRightRadius: 6 },
   texto: { fontSize: tamanho.corpo, lineHeight: 29, color: cores.texto },
   ouvir: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: espaco.sm },
   ouvirTexto: { color: cores.primaria, fontSize: tamanho.mini, fontWeight: '800' },
@@ -322,6 +344,7 @@ const st = StyleSheet.create({
   input: { flex: 1, minHeight: 56, borderWidth: 2, borderColor: cores.primariaBorda, borderRadius: raio.md, paddingHorizontal: espaco.md, fontSize: tamanho.corpo, backgroundColor: cores.superficie, color: cores.texto },
   enviar: { width: 56, height: 56, borderRadius: 28, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
   doca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', paddingTop: espaco.md },
+  microArea: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
   micro: { width: 96, height: 96, borderRadius: 48, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: cores.primariaSuave, ...sombra },
   microAtivo: { backgroundColor: cores.perigo, borderColor: cores.perigoSuave },
   lado: { alignItems: 'center', width: 90 },

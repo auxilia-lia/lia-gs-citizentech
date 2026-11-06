@@ -6,9 +6,10 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular'; objetivo: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
+  | { tipo: 'parar_guia' }
   | { tipo: 'agendar_por_voz'; ubs: string; horario: string; resultado?: { protocolo: string } }
   | { tipo: 'consultar_beneficio'; resultado?: unknown };
 export type AnaliseGolpe = { golpe: boolean; nivel: 'alto' | 'medio' | 'baixo'; motivos: string[] };

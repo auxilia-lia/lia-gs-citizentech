@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LiaGuia from '../../modules/lia-guia';
-import { carregarProgresso } from '../lia/autonomia';
+import { AULAS } from '../lia/aulas';
+import { autonomiaGeral, carregarProgresso, Progresso } from '../lia/autonomia';
 import { Aviso, Botao, Cartao, IconeCirculo, NomeIcone, Secao } from '../ui/componentes';
+import { Aparecer, BarraAnimada, Flutuar, Ondas, Toque } from '../ui/anim';
 import { Aba } from '../ui/BarraAbas';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 import type { Pedido } from './Conversa';
 
 type Atalho = { titulo: string; sub: string; icone: NomeIcone; pedido: Omit<Pedido, 'id'> };
 
-// O que a Lia faz, em linguagem de quem usa (não de quem programa).
+// O que a Lia faz, em linguagem de quem usa.
 const ATALHOS: Atalho[] = [
   { titulo: 'Marcar consulta', sub: 'No posto de saúde', icone: 'medkit', pedido: { tipo: 'texto', texto: 'Quero marcar uma consulta' } },
   { titulo: 'Ver meu INSS', sub: 'Quanto e quando cai', icone: 'wallet', pedido: { tipo: 'texto', texto: 'Quero ver o dinheiro do INSS' } },
@@ -25,12 +27,11 @@ function saudacao() {
 
 export default function Inicio({ pedir, irPara }: { pedir: (p: Omit<Pedido, 'id'>) => void; irPara: (a: Aba) => void }) {
   const [guiaAtivo, setGuiaAtivo] = useState(true);
-  const [feitos, setFeitos] = useState(0);
+  const [progresso, setProgresso] = useState<Progresso>({});
 
   const atualizar = useCallback(async () => {
     setGuiaAtivo(LiaGuia.isEnabled());
-    const p = await carregarProgresso();
-    setFeitos(Object.values(p).reduce((a, b) => a + b, 0));
+    setProgresso(await carregarProgresso());
   }, []);
 
   useEffect(() => {
@@ -40,69 +41,99 @@ export default function Inicio({ pedir, irPara }: { pedir: (p: Omit<Pedido, 'id'
     return () => { s.remove(); g.remove(); };
   }, [atualizar]);
 
+  const aulasFeitas = AULAS.filter((a) => (progresso[`aula:${a.id}`] ?? 0) > 0).length;
+  const autonomia = Math.round(autonomiaGeral(progresso) * 100);
+
   return (
     <ScrollView contentContainerStyle={st.tela} showsVerticalScrollIndicator={false}>
-      <View style={st.topo}>
-        <View style={{ flex: 1 }}>
-          <Text style={st.ola}>{saudacao()}</Text>
-          <Text style={st.pergunta}>O que vamos fazer hoje?</Text>
+      <Aparecer>
+        <View style={st.topo}>
+          <View style={{ flex: 1 }}>
+            <Text style={st.ola}>{saudacao()}</Text>
+            <Text style={st.pergunta}>O que vamos fazer hoje?</Text>
+          </View>
+          <Flutuar><View style={st.logo}><Ionicons name="chatbubble-ellipses" size={26} color={cores.branco} /></View></Flutuar>
         </View>
-        <View style={st.logo}><Ionicons name="chatbubble-ellipses" size={26} color={cores.branco} /></View>
-      </View>
+      </Aparecer>
 
-      {/* Cartão principal: falar com a Lia */}
-      <Pressable
-        onPress={() => pedir({ tipo: 'ouvir' })}
-        accessibilityRole="button"
-        accessibilityLabel="Falar com a Lia"
-        style={({ pressed }) => [st.heroi, pressed && { opacity: 0.92 }]}
-      >
-        <View style={st.circuloDecor1} />
-        <View style={st.circuloDecor2} />
-        <Text style={st.heroiTitulo}>Fale comigo</Text>
-        <Text style={st.heroiTexto}>Toque no microfone e diga o que você precisa. Eu te ajudo, passo a passo.</Text>
-        <View style={st.micro}>
-          <Ionicons name="mic" size={44} color={cores.primaria} />
-        </View>
-        <Text style={st.heroiDica}>Toque para falar</Text>
-      </Pressable>
+      {/* Falar com a Lia */}
+      <Aparecer atraso={80}>
+        <Toque onPress={() => pedir({ tipo: 'ouvir' })} accessibilityRole="button" accessibilityLabel="Falar com a Lia" estilo={st.heroi} escala={0.98}>
+          <View style={st.decor1} />
+          <View style={st.decor2} />
+          <Text style={st.heroiTitulo}>Fale comigo</Text>
+          <Text style={st.heroiTexto}>Toque no microfone e diga o que você precisa. Eu te ajudo, passo a passo.</Text>
+          <View style={st.microArea}>
+            <Ondas tamanho={112} />
+            <View style={st.micro}><Ionicons name="mic" size={44} color={cores.primaria} /></View>
+          </View>
+          <Text style={st.heroiDica}>Toque para falar</Text>
+        </Toque>
+      </Aparecer>
 
       {!guiaAtivo && (
-        <View style={{ marginTop: espaco.lg }}>
-          <Aviso tipo="atencao" titulo="Falta uma permissão" texto="Para eu te mostrar onde tocar nos outros apps, peça para alguém de confiança ativar a Lia uma vez.">
+        <Aparecer atraso={140} estilo={{ marginTop: espaco.lg }}>
+          <Aviso tipo="atencao" titulo="Falta uma permissão" texto="Para eu te mostrar onde tocar nos outros apps, peça para alguém de confiança me ativar uma vez.">
             <Botao texto="Ativar agora" icone="hand-left" onPress={() => LiaGuia.openAccessibilitySettings()} />
           </Aviso>
-        </View>
+        </Aparecer>
       )}
 
-      <Secao>Posso te ajudar com</Secao>
+      {/* Aprender: aulas curtas e contínuas */}
+      <Aparecer atraso={160}>
+        <View style={st.aprender}>
+          <View style={st.aprenderTopo}>
+            <IconeCirculo nome="school" cor={cores.branco} fundo={cores.primaria} tam={52} />
+            <View style={{ flex: 1 }}>
+              <Text style={st.aprenderTitulo}>Aprender a usar o celular</Text>
+              <Text style={st.aprenderSub}>{aulasFeitas === 0 ? 'Aulas curtas, eu te mostro cada passo' : `${aulasFeitas} de ${AULAS.length} aulas feitas`}</Text>
+            </View>
+          </View>
+          <BarraAnimada fracao={aulasFeitas / AULAS.length} fundo={cores.branco} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.aulas}>
+            {AULAS.map((a, i) => {
+              const vezes = progresso[`aula:${a.id}`] ?? 0;
+              return (
+                <Aparecer key={a.id} atraso={220 + i * 60} distancia={10}>
+                  <Toque estilo={st.aula} onPress={() => pedir({ tipo: 'aula', aula: a })} accessibilityRole="button" accessibilityLabel={`Aula: ${a.titulo}`}>
+                    <View style={st.aulaIcone}>
+                      <Ionicons name={a.icone} size={28} color={cores.primaria} />
+                      {vezes > 0 && <View style={st.feito}><Ionicons name="checkmark" size={14} color={cores.branco} /></View>}
+                    </View>
+                    <Text style={st.aulaTitulo} numberOfLines={2}>{a.titulo}</Text>
+                    <Text style={st.aulaSub}>{vezes > 0 ? 'Fazer de novo' : 'Começar'}</Text>
+                  </Toque>
+                </Aparecer>
+              );
+            })}
+          </ScrollView>
+          <Botao texto="Quero aprender outra coisa" icone="sparkles" tipo="claro" onPress={() => pedir({ tipo: 'texto', texto: 'Quero aprender a usar uma coisa no celular' })} />
+        </View>
+      </Aparecer>
+
+      <Aparecer atraso={240}><Secao>Posso te ajudar com</Secao></Aparecer>
       <View style={st.grade}>
-        {ATALHOS.map((a) => (
-          <Cartao key={a.titulo} estilo={st.atalho} onPress={() => pedir(a.pedido)}>
-            <IconeCirculo nome={a.icone} />
-            <Text style={st.atalhoTitulo}>{a.titulo}</Text>
-            <Text style={st.atalhoSub}>{a.sub}</Text>
-          </Cartao>
+        {ATALHOS.map((a, i) => (
+          <Aparecer key={a.titulo} atraso={280 + i * 70} estilo={st.atalhoFora}>
+            <Cartao estilo={st.atalho} onPress={() => pedir(a.pedido)}>
+              <IconeCirculo nome={a.icone} />
+              <Text style={st.atalhoTitulo}>{a.titulo}</Text>
+              <Text style={st.atalhoSub}>{a.sub}</Text>
+            </Cartao>
+          </Aparecer>
         ))}
       </View>
 
-      <Cartao estilo={st.linha} onPress={() => pedir({ tipo: 'texto', texto: 'Quero aprender a usar uma coisa no celular' })}>
-        <IconeCirculo nome="phone-portrait" />
-        <View style={{ flex: 1 }}>
-          <Text style={st.atalhoTitulo}>Me ensina no celular</Text>
-          <Text style={st.atalhoSub}>Wi-Fi, letra maior, foto no WhatsApp…</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={26} color={cores.textoSuave} />
-      </Cartao>
-
-      <Cartao estilo={[st.linha, { marginTop: espaco.md }]} onPress={() => irPara('voce')}>
-        <IconeCirculo nome="trophy" cor="#8A5A00" fundo={cores.destaqueSuave} />
-        <View style={{ flex: 1 }}>
-          <Text style={st.atalhoTitulo}>{feitos === 0 ? 'Seu progresso' : `Você já fez ${feitos} ${feitos === 1 ? 'coisa' : 'coisas'} comigo`}</Text>
-          <Text style={st.atalhoSub}>{feitos === 0 ? 'Cada vez que você faz, eu ajudo menos' : 'Veja o que você já faz sozinho'}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={26} color={cores.textoSuave} />
-      </Cartao>
+      <Aparecer atraso={560}>
+        <Cartao estilo={st.linha} onPress={() => irPara('voce')}>
+          <IconeCirculo nome="trophy" cor="#8A5A00" fundo={cores.destaqueSuave} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={st.atalhoTitulo}>{autonomia === 0 ? 'Seu progresso' : `Sua autonomia: ${autonomia}%`}</Text>
+            <BarraAnimada fracao={autonomia / 100} cor={cores.destaque} />
+          </View>
+          <Ionicons name="chevron-forward" size={26} color={cores.textoSuave} />
+        </Cartao>
+      </Aparecer>
     </ScrollView>
   );
 }
@@ -113,21 +144,27 @@ const st = StyleSheet.create({
   ola: { fontSize: tamanho.subtitulo, color: cores.textoSuave, fontWeight: '700' },
   pergunta: { fontSize: tamanho.titulo, color: cores.tinta, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
   logo: { width: 52, height: 52, borderRadius: 26, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
-  heroi: {
-    backgroundColor: cores.primaria, borderRadius: raio.lg, padding: espaco.lg, paddingBottom: espaco.xl,
-    alignItems: 'center', overflow: 'hidden', ...sombra,
-  },
-  circuloDecor1: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: '#2A4DB8', top: -120, right: -80 },
-  circuloDecor2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: cores.primariaEscura, bottom: -90, left: -60 },
+  heroi: { backgroundColor: cores.primaria, borderRadius: raio.lg, padding: espaco.lg, paddingBottom: espaco.xl, alignItems: 'center', overflow: 'hidden', ...sombra },
+  decor1: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: '#2A4DB8', top: -120, right: -80 },
+  decor2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: cores.primariaEscura, bottom: -90, left: -60 },
   heroiTitulo: { fontSize: tamanho.titulo, fontWeight: '800', color: cores.branco, alignSelf: 'flex-start' },
   heroiTexto: { fontSize: tamanho.pequeno + 1, color: '#DCE4FB', lineHeight: 26, marginTop: espaco.sm, alignSelf: 'flex-start' },
-  micro: {
-    width: 112, height: 112, borderRadius: 56, backgroundColor: cores.branco, alignItems: 'center', justifyContent: 'center',
-    marginTop: espaco.lg, borderWidth: 8, borderColor: '#3D5FC6',
-  },
+  microArea: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center', marginTop: espaco.lg },
+  micro: { width: 112, height: 112, borderRadius: 56, backgroundColor: cores.branco, alignItems: 'center', justifyContent: 'center', borderWidth: 8, borderColor: '#3D5FC6' },
   heroiDica: { color: cores.branco, fontSize: tamanho.pequeno, fontWeight: '800', marginTop: espaco.sm },
+  aprender: { marginTop: espaco.lg, backgroundColor: cores.primariaSuave, borderRadius: raio.lg, padding: espaco.md + 2, gap: espaco.md, borderWidth: 1, borderColor: cores.primariaBorda },
+  aprenderTopo: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
+  aprenderTitulo: { fontSize: tamanho.corpo + 1, fontWeight: '800', color: cores.tinta },
+  aprenderSub: { fontSize: tamanho.mini, color: cores.textoSuave, marginTop: 2 },
+  aulas: { gap: espaco.sm, paddingVertical: 4, paddingRight: espaco.sm },
+  aula: { width: 140, minHeight: 150, backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.md, gap: 6, ...sombra, elevation: 3 },
+  aulaIcone: { width: 52, height: 52, borderRadius: 26, backgroundColor: cores.primariaSuave, alignItems: 'center', justifyContent: 'center' },
+  feito: { position: 'absolute', right: -4, top: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: cores.sucesso, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: cores.branco },
+  aulaTitulo: { fontSize: tamanho.pequeno, fontWeight: '800', color: cores.tinta },
+  aulaSub: { fontSize: tamanho.mini, fontWeight: '800', color: cores.primaria, marginTop: 'auto' },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.md, marginBottom: espaco.md },
-  atalho: { width: '47.5%', minHeight: 170, gap: espaco.sm },
+  atalhoFora: { width: '47.5%' },
+  atalho: { minHeight: 170, gap: espaco.sm },
   atalhoTitulo: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
   atalhoSub: { fontSize: tamanho.mini, color: cores.textoSuave },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },

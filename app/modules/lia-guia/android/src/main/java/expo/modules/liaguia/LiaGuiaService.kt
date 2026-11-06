@@ -11,6 +11,8 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.speech.tts.Voice
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
 import android.view.WindowManager
@@ -41,6 +43,9 @@ class LiaGuiaService : AccessibilityService() {
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
 
     // "deixa pra lá", "para", "não quero mais"… (já sem acento)
+    // "já consegui", "pronto", "deu certo"… (sem acento)
+    private val CONSEGUI = Regex("\\b(ja consegui|consegui|deu certo|ja fiz|ja foi|pronto|ja liguei|ja desliguei|ja abri|obrigad[oa])\\b")
+    private val NAO_CONSEGUI = Regex("\\bnao (consegui|deu|foi|fiz)")
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
@@ -82,8 +87,9 @@ class LiaGuiaService : AccessibilityService() {
   private var falaIA = ""
   private var assinaturaDaInstrucao = ""
   private var passosIA = 0
+  private var faltas = 0 // leituras seguidas sem achar o botão que a IA pediu
 
-  private val avaliar = Runnable { avaliarTela() }
+  private val avaliar = Runnable { agendadoPara = 0L; avaliarTela() }
   private val revelar = Runnable { revelado = true; avaliarTela() }
   private val lembrar = Runnable { lembrete() }
 
@@ -98,7 +104,8 @@ class LiaGuiaService : AccessibilityService() {
       ttsPronto = status == TextToSpeech.SUCCESS
       if (ttsPronto) {
         tts?.language = Locale("pt", "BR")
-        tts?.setSpeechRate(0.95f)
+        escolherVoz()
+        tts?.setSpeechRate(1.08f)
       }
     }
     LiaGuiaBridge.emit("onStatus", mapOf("enabled" to true))
@@ -186,12 +193,16 @@ class LiaGuiaService : AccessibilityService() {
     when {
       texto.isBlank() -> falar("Não ouvi. Toque no microfone e fale de novo.")
       PARAR.containsMatchIn(Matcher.normalize(texto)) -> {
-        // Parar não depende da internet nem do app: resolve aqui mesmo.
+        // Parar não depende da internet nem do app: resolve aqui mesmo e volta para a Lia.
         LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to true))
         falar("Tudo bem, parei. Se precisar, é só me chamar.")
-        overlay?.mostrarMensagem("Parei. Se precisar, é só me chamar.")
-        ativo = false
-        handler.postDelayed({ if (!ativo) pararAgora() }, 2500)
+        pararAgora()
+        voltarParaLia()
+        return
+      }
+      CONSEGUI.containsMatchIn(Matcher.normalize(texto)) && !NAO_CONSEGUI.containsMatchIn(Matcher.normalize(texto)) -> {
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to true, "conseguiu" to true))
+        concluir("Que bom! Você conseguiu.")
         return
       }
       else -> {
@@ -237,6 +248,7 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun novaInstrucao() {
     falado = false
+    faltas = 0
     lembretes = 0
     handler.removeCallbacks(revelar)
     revelarAgendado = false
@@ -346,9 +358,16 @@ class LiaGuiaService : AccessibilityService() {
     agendar(700)
   }
 
+  // Agenda a leitura da tela SEM ficar adiando: se já tem uma leitura marcada para antes, mantém.
+  // (O painel rápido dispara eventos sem parar; antes, cada evento empurrava a leitura para frente.)
+  private var agendadoPara = 0L
   private fun agendar(ms: Long) {
+    val agora = SystemClock.uptimeMillis()
+    val quando = agora + ms
+    if (agendadoPara > agora && agendadoPara <= quando) return
     handler.removeCallbacks(avaliar)
-    handler.postDelayed(avaliar, ms)
+    agendadoPara = quando
+    handler.postAtTime(avaliar, quando)
   }
 
   // ================= o coração do Guia =================
@@ -362,7 +381,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun avaliarPassos(root: AccessibilityNodeInfo) {
     if (indice >= passos.size) return
     val passo = passos[indice]
-    val assinatura = "${root.packageName}|${lerContexto(root).elementos.joinToString("|")}"
+    val assinatura = "${root.packageName}|${estavel(lerContexto(root).elementos)}"
     if (assinatura != ultimaAssinatura) { ultimaAssinatura = assinatura; ultimaMudanca = System.currentTimeMillis() }
     nomeAlvo = passo
     val achado = melhorAlvo(root, passo)
@@ -391,7 +410,7 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun avaliarTelaIA(root: AccessibilityNodeInfo) {
     val ctx = lerContexto(root)
-    val assinatura = "${ctx.app}|${ctx.tela}|${ctx.elementos.joinToString("|")}"
+    val assinatura = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
     val mudou = assinatura != ultimaAssinatura
     ultimaAssinatura = assinatura
     val mudouDesdeInstrucao = assinatura != assinaturaDaInstrucao
@@ -404,7 +423,13 @@ class LiaGuiaService : AccessibilityService() {
         when {
           achado != null -> desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" })
           mudou && mudouDesdeInstrucao -> emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
-          else -> { alvoAtual = null; overlay?.mostrarMensagem(falaIA) }
+          else -> {
+            // A IA citou um botão que não está na tela: em vez de esperar o lembrete, pede outra ideia logo.
+            alvoAtual = null
+            overlay?.mostrarMensagem(falaIA)
+            faltas++
+            if (faltas >= 3) emitirTela(ctx, "parado") else agendar(500)
+          }
         }
       }
       tipo in GESTOS -> if (mudou && mudouDesdeInstrucao) {
@@ -418,6 +443,9 @@ class LiaGuiaService : AccessibilityService() {
       else -> if (mudou && mudouDesdeInstrucao) emitirTela(ctx, "mudou")
     }
   }
+
+  private val DIGITOS = Regex("\\d+")
+  private fun estavel(elementos: List<String>) = elementos.joinToString("|") { it.replace(DIGITOS, "#").lineSequence().first() }
 
   private fun emitirTela(ctx: Contexto, motivo: String) {
     limparInstrucaoIA()
@@ -442,6 +470,7 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun desenharAlvo(achado: Alvo, fala: String) {
     alvoAtual = achado.bounds
+    desviarBotao(achado.bounds)
     nomeAlvo = achado.label
     if (revelado) {
       overlay?.mostrarAlvo(achado.bounds, fala)
@@ -565,6 +594,26 @@ class LiaGuiaService : AccessibilityService() {
 
   // ================= voz e camada =================
 
+  // A voz mais natural em português do Brasil que o celular tiver (as "neurais"/de rede soam mais humanas).
+  private fun escolherVoz() {
+    val t = tts ?: return
+    val vozes = try { t.voices } catch (_: Exception) { null } ?: return
+    val pt = vozes.filter {
+      it.locale.language == "pt" && it.locale.country in setOf("BR", "") &&
+        !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+    }
+    val melhor = pt.maxWithOrNull(compareBy<Voice>({ it.quality }, { if (it.isNetworkConnectionRequired) 1 else 0 }, { it.name }))
+    if (melhor != null) t.voice = melhor
+  }
+
+  // Volta para o app da Lia (quando a pessoa pede para parar).
+  private fun voltarParaLia() {
+    packageManager.getLaunchIntentForPackage(packageName)?.let {
+      it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+      try { startActivity(it) } catch (_: Exception) {}
+    }
+  }
+
   private fun falar(texto: String) {
     if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "lia-guia")
   }
@@ -615,9 +664,20 @@ class LiaGuiaService : AccessibilityService() {
     )
     lp.gravity = Gravity.TOP or Gravity.END
     lp.x = (6 * d).toInt()
-    lp.y = (resources.displayMetrics.heightPixels * 0.32).toInt()
+    lp.y = (resources.displayMetrics.heightPixels * 0.55).toInt()
     wm.addView(b, lp)
     botao = b
+  }
+
+  // Se o botão de falar estiver em cima do botão que a pessoa precisa tocar, ele muda de lado.
+  private fun desviarBotao(alvo: Rect) {
+    val b = botao ?: return
+    val lp = b.layoutParams as? WindowManager.LayoutParams ?: return
+    val loc = IntArray(2).also { b.getLocationOnScreen(it) }
+    val area = Rect(loc[0], loc[1], loc[0] + b.width, loc[1] + b.height)
+    if (!Rect.intersects(area, alvo)) return
+    lp.gravity = if (lp.gravity and Gravity.END == Gravity.END) Gravity.TOP or Gravity.START else Gravity.TOP or Gravity.END
+    try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(b, lp) } catch (_: Exception) {}
   }
 
   private fun esconderOverlay() {

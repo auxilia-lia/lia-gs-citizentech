@@ -21,17 +21,17 @@ def _extrair_json(texto: str) -> dict:
     return {"fala": texto, "acao": None}  # a IA respondeu texto puro
 
 
-async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None) -> dict:
+async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None, max_tokens: int = 600) -> dict:
     """mensagens: [{"papel": "pessoa"|"lia", "texto": str}]; imagem: {"base64", "mime"} na última mensagem."""
     p = provedor()
     if p == "gemini":
-        return _extrair_json(await _gemini(sistema, mensagens, imagem))
+        return _extrair_json(await _gemini(sistema, mensagens, imagem, max_tokens))
     if p == "claude":
         return _extrair_json(await _claude(sistema, mensagens, imagem))
     raise RuntimeError("provedor de teste não chama IA")
 
 
-async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None) -> str:
+async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None, max_tokens: int = 600) -> str:
     """Tenta os modelos em fila: o principal e depois os reservas (GEMINI_MODELO_RESERVA, separados por vírgula).
     Passa para o próximo quando o modelo está sobrecarregado (429/500/503) ou demora demais."""
     principal = os.getenv("GEMINI_MODELO", "gemini-flash-lite-latest")
@@ -40,7 +40,7 @@ async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None) -> s
     ultimo_erro: Exception | None = None
     for modelo in fila:
         try:
-            return await _gemini_modelo(modelo, sistema, mensagens, imagem, timeout=25)
+            return await _gemini_modelo(modelo, sistema, mensagens, imagem, timeout=20, max_tokens=max_tokens)
         except httpx.TimeoutException as e:
             ultimo_erro = e
         except httpx.HTTPStatusError as e:
@@ -50,7 +50,21 @@ async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None) -> s
     raise ultimo_erro or RuntimeError("nenhum modelo disponível")
 
 
-async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], imagem: dict | None, timeout: int) -> str:
+# Modelos que já recusaram a configuração de "pensamento" (não tentamos de novo).
+_SEM_PENSAMENTO: set[str] = set()
+
+
+def _config_pensamento(modelo: str) -> dict:
+    """Pede o mínimo de "pensamento": a Lia precisa responder rápido, não resolver problemas difíceis."""
+    if modelo in _SEM_PENSAMENTO:
+        return {}
+    if modelo.startswith("gemini-2"):
+        return {"thinkingConfig": {"thinkingBudget": 0}}
+    return {"thinkingConfig": {"thinkingLevel": "minimal"}}
+
+
+async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], imagem: dict | None, timeout: int,
+                         max_tokens: int = 600) -> str:
     conteudos = []
     for i, m in enumerate(mensagens):
         partes = [{"text": m["texto"]}]
@@ -60,11 +74,18 @@ async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], image
     corpo = {
         "systemInstruction": {"parts": [{"text": sistema}]},
         "contents": conteudos,
-        "generationConfig": {"maxOutputTokens": 600, "temperature": 0.5, "responseMimeType": "application/json"},
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4, "responseMimeType": "application/json",
+                             **_config_pensamento(modelo)},
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+    headers = {"x-goog-api-key": os.environ["GEMINI_API_KEY"]}
     async with httpx.AsyncClient(timeout=timeout) as c:
-        r = await c.post(url, json=corpo, headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+        r = await c.post(url, json=corpo, headers=headers)
+        if r.status_code == 400 and "thinkingConfig" in corpo["generationConfig"]:
+            # Este modelo não aceita a configuração de pensamento: tira e tenta de novo.
+            _SEM_PENSAMENTO.add(modelo)
+            corpo["generationConfig"].pop("thinkingConfig")
+            r = await c.post(url, json=corpo, headers=headers)
         r.raise_for_status()
     return "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
 

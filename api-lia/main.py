@@ -23,11 +23,11 @@ app = FastAPI(title="API da Lia")
 app.include_router(gov_simulado.router)
 
 ACOES_POR_CANAL = {
-    "app": {"guiar", "guiar_app", "avisar_familiar", "tirar_foto"},
+    "app": {"guiar", "guiar_app", "avisar_familiar", "tirar_foto", "parar_guia"},
     "ligacao": {"agendar_por_voz", "consultar_beneficio", "avisar_familiar"},
 }
 SERVICOS = set(gov_simulado.FLUXOS)
-APPS = {"whatsapp", "configuracoes", "celular"}
+APPS = {"whatsapp", "configuracoes", "celular", "playstore"}
 
 
 class Mensagem(BaseModel):
@@ -95,7 +95,7 @@ async def conversa(c: Conversa):
     p = provedor()
     if p in ("gemini", "claude"):
         try:
-            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs)
+            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300)
         except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
             # Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo).
             log.exception("IA indisponível; respondendo pelas regras")
@@ -153,11 +153,15 @@ async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
+    if t.motivo != "errou":
+        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela)
+        if certeira:
+            return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
     try:
-        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos, t.feitos, textos=textos, **args),
-                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}])
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos[:45], t.feitos, textos=textos[:20], **args),
+                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}

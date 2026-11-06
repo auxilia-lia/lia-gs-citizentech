@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
+import { calar, falar } from '../lia/fala';
 import { useMargens } from '../ui/margens';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import LiaGuia from '../../modules/lia-guia';
 import { NomeIcone } from '../ui/componentes';
+import { Aparecer, Flutuar } from '../ui/anim';
 import { Aba } from '../ui/BarraAbas';
 import { cores, espaco, raio, tamanho, TOQUE_MIN } from '../ui/tema';
 
@@ -28,11 +29,11 @@ export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) 
 
   useEffect(() => {
     setFeito(passo.acao === 'guia' ? LiaGuia.isEnabled() : false);
-    Speech.stop();
-    Speech.speak(`${passo.titulo}. ${passo.texto}`, { language: 'pt-BR', rate: 0.95 });
+    calar();
+    falar(`${passo.titulo}. ${passo.texto}`);
   }, [passo]);
 
-  const terminar = (irPara?: Aba) => { Speech.stop(); aoTerminar(irPara); };
+  const terminar = (irPara?: Aba) => { calar(); aoTerminar(irPara); };
 
   const fazerAcao = async () => {
     if (passo.acao === 'microfone') {
@@ -57,14 +58,14 @@ export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) 
         </Pressable>
       )}
 
-      <View style={st.centro}>
-        <View style={st.icone}><Ionicons name={passo.icone} size={72} color={cores.primaria} /></View>
+      <Aparecer key={i} estilo={st.centro}>
+        <Flutuar><View style={st.icone}><Ionicons name={passo.icone} size={72} color={cores.primaria} /></View></Flutuar>
         <Text style={st.titulo} accessibilityRole="header">{passo.titulo}</Text>
         <Text style={st.texto}>{passo.texto}</Text>
         {feito && (
           <View style={st.ok}><Ionicons name="checkmark-circle" size={24} color={cores.branco} /><Text style={st.okTexto}>Pronto!</Text></View>
         )}
-      </View>
+      </Aparecer>
 
       <View style={st.pontos}>
         {PASSOS.map((_, n) => <View key={n} style={[st.ponto, n === i && st.pontoAtivo]} />)}

@@ -1,4 +1,3 @@
-import * as Speech from 'expo-speech';
 import LiaGuia, { TelaEvent } from '../../modules/lia-guia';
 import { proximoPasso } from './api';
 import { novoMapa, pseudonimizar, restaurar } from './pseudonimizar';
@@ -12,6 +11,7 @@ export const PACOTES: Record<string, string> = {
   whatsapp: 'com.whatsapp',
   configuracoes: 'settings',
   celular: 'home',
+  playstore: 'com.android.vending',
 };
 
 const MAX_PASSOS = 15;
@@ -95,4 +95,3 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   return ok;
 }
 
-export const falar = (texto: string) => Speech.speak(texto, { language: 'pt-BR', rate: 0.95 });

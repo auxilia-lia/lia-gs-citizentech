@@ -38,7 +38,7 @@ type LiaGuiaEvents = {
   onStatus: (e: { enabled: boolean }) => void;
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
-  onVoz: (e: { texto: string; parou: boolean }) => void;
+  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean }) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {

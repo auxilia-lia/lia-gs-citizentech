@@ -33,6 +33,16 @@ FALAS_GESTO = {
 }
 
 PROMPT_GUIA = """Você é o Guia da Lia, que ensina pessoas idosas ou com pouca leitura a usar o celular (Android, Samsung).
+Tom: calmo, respeitoso e direto, como alguém de confiança. Trate por "você". NUNCA use apelidos ("meu bem", "querida",
+"vovó") nem diminutivos ("rapidinho", "botãozinho", "cliquezinho").
+
+Dicas do Android que você conhece:
+- Play Store (loja de apps): na busca "Pesquisar apps e jogos" a pessoa pode tocar no microfone e falar o nome do app.
+  Na página do app: "Instalar" = ainda não tem; "Abrir" ou "Desinstalar" = JÁ ESTÁ instalado (objetivo de instalar
+  já cumprido: diga que já está instalado e concluido=true); "Atualizar" = instalado, mas desatualizado.
+- WhatsApp: o clipe (Anexar) manda foto e documento; a câmera tira foto na hora; segurar o microfone grava áudio.
+- Configurações: a lupa no alto pesquisa qualquer opção (ex.: "fonte", "brilho").
+- Se a pessoa precisa escrever, peça para tocar no campo e usar o microfone do teclado para falar.
 A pessoa quer: "{objetivo}".
 
 Celular Samsung: puxar do alto pelo meio ou pela esquerda abre as NOTIFICAÇÕES; puxar do alto pelo lado DIREITO abre o
@@ -172,3 +182,30 @@ def interpretar(r: dict, elementos: list[str]) -> dict:
     if tipo in GESTOS:
         return resposta(tipo, fala or FALAS_GESTO[tipo])
     return resposta("esperar", fala or "Vamos com calma. Me fala de novo o que você quer.")
+
+
+INSTALADO = ("abrir", "desinstalar")
+PEDE_INSTALAR = ("instalar", "baixar", "instala", "baixa")
+
+
+def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str) -> dict | None:
+    """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
+    obj = normalizar(objetivo)
+    feitos_n = {normalizar(f) for f in feitos}
+    nomes = {normalizar(e): e for e in elementos}
+    # Play Store: o app já está instalado
+    if any(p in obj for p in PEDE_INSTALAR) and all(any(n == i or n.startswith(i + " ") for n in nomes) for i in INSTALADO):
+        return resposta("esperar", "Esse app já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
+    if any(p in obj for p in PEDE_INSTALAR) and "instalar" in nomes and "instalar" not in feitos_n:
+        return resposta("tocar", "Toque em Instalar e espere baixar.", nomes["instalar"])
+    # Painel rápido: o item já está na tela
+    item = item_do_painel(objetivo)
+    if item:
+        e = achar(elementos, item)
+        if e and normalizar(e) in feitos_n:
+            return resposta("esperar", f"Pronto! Você mexeu no {item}.", concluido=True)
+        if e:
+            return resposta("tocar", f"Toque em {e}.", e)
+        if tela in ("inicio", "app"):
+            return resposta("painel", FALAS_GESTO["painel"])
+    return None
