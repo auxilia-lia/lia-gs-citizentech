@@ -27,6 +27,7 @@ type Estado = {
 let atual: Estado | null = null;
 
 export const guiaIAAtivo = () => atual !== null;
+export const objetivoAtual = () => atual?.objetivo ?? null;
 
 export function pararGuiaIA(pararNativo = true) {
   atual?.remover();

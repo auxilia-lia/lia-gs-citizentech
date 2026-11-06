@@ -38,6 +38,7 @@ class Mensagem(BaseModel):
 class Contexto(BaseModel):
     autonomia: dict[str, int] = {}
     familia: list[str] = []  # só parentescos/apelidos; telefones ficam no celular
+    guia: str | None = Field(default=None, max_length=300)  # o que o Guia está mostrando agora, se estiver
 
 
 class Conversa(BaseModel):

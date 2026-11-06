@@ -76,6 +76,12 @@ def montar_sistema(canal: str, contexto: dict, analise_golpe: dict | None) -> st
     familia = contexto.get("familia") or []
     if familia:
         partes.append("\nFamiliares cadastrados para avisar no WhatsApp: " + ", ".join(familia) + ".")
+    if contexto.get("guia"):
+        partes.append(f"""
+AGORA o Guia está na tela, ajudando a pessoa a: "{contexto['guia']}". Ela falou com você pelo botão de microfone.
+- Se ela pedir OUTRA coisa, mande a nova ação (guiar_app ou guiar) e diga na fala que vai mudar.
+- Se for uma dúvida sobre a tela ou o caminho, responda em 1 ou 2 frases, sem ação: o Guia continua.
+- Se ela quiser parar, responda que parou, sem ação.""")
     if analise_golpe and analise_golpe.get("golpe"):
         partes.append("\nO verificador antigolpe analisou a última mensagem e achou: "
                       + json.dumps(analise_golpe, ensure_ascii=False) + ". Avise a pessoa com calma.")

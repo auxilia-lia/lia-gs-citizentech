@@ -13,7 +13,7 @@ export type Acao =
   | { tipo: 'consultar_beneficio'; resultado?: unknown };
 export type AnaliseGolpe = { golpe: boolean; nivel: 'alto' | 'medio' | 'baixo'; motivos: string[] };
 export type RespostaLia = { fala: string; acao: Acao | null; golpe: AnaliseGolpe | null };
-export type Contexto = { autonomia: Record<string, number>; familia: string[] };
+export type Contexto = { autonomia: Record<string, number>; familia: string[]; guia?: string | null };
 export type Fluxo = { titulo: string; caminho: string; passos: string[]; risco: string };
 
 // Endereço da API da Lia. Ordem: o que foi salvo em "Minha Lia" > EXPO_PUBLIC_LIA_API no .env

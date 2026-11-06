@@ -1,6 +1,8 @@
 package expo.modules.liaguia
 
 import android.content.Intent
+import android.os.Build
+import android.view.WindowInsets
 import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -12,7 +14,7 @@ class LiaGuiaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LiaGuia")
 
-    Events("onStep", "onStatus", "onScreen")
+    Events("onStep", "onStatus", "onScreen", "onVoz")
 
     OnCreate {
       LiaGuiaBridge.listener = { name, body -> sendEvent(name, body) }
@@ -23,6 +25,22 @@ class LiaGuiaModule : Module() {
     }
 
     // A Lia está ativada nas configurações de acessibilidade?
+    // Margens das barras do sistema (status em cima, navegação embaixo), em dp.
+    // Substitui o react-native-safe-area-context, que estoura o limite de caminho do Windows.
+    Function("insets") {
+      val d = context.resources.displayMetrics.density
+      val ins = appContext.currentActivity?.window?.decorView?.rootWindowInsets
+      if (ins == null) {
+        mapOf("top" to 24.0, "bottom" to 24.0)
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val i = ins.getInsets(WindowInsets.Type.systemBars())
+        mapOf("top" to (i.top / d).toDouble(), "bottom" to (i.bottom / d).toDouble())
+      } else {
+        @Suppress("DEPRECATION")
+        mapOf("top" to (ins.systemWindowInsetTop / d).toDouble(), "bottom" to (ins.systemWindowInsetBottom / d).toDouble())
+      }
+    }
+
     Function("isEnabled") {
       LiaGuiaService.instance != null
     }
@@ -65,6 +83,11 @@ class LiaGuiaModule : Module() {
 
     Function("point") { label: String, fala: String ->
       LiaGuiaService.instance?.instruirIA("tocar", label, fala)
+    }
+
+    // A Lia fala por cima do outro app (resposta da conversa durante o Guia).
+    Function("say") { texto: String ->
+      LiaGuiaService.instance?.dizer(texto)
     }
 
     Function("finishAI") { fala: String ->

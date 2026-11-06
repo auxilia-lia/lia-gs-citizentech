@@ -7,7 +7,7 @@ import { Acao, AnaliseGolpe, buscarFluxos, conversar, entenderFoto, Mensagem, ur
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
 import { montarContexto } from '../lia/contexto';
 import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/familia';
-import { guiarComIA, PACOTES } from '../lia/guiaIA';
+import { guiarComIA, objetivoAtual, PACOTES, pararGuiaIA } from '../lia/guiaIA';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { useVoz } from '../lia/useVoz';
@@ -66,6 +66,37 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       parabens(await registrarConclusao(servico));
     });
     return () => s.remove();
+  }, []);
+
+  // Conversa durante o Guia: a pessoa tocou no microfone por cima do outro app.
+  useEffect(() => {
+    const s = LiaGuia.addListener('onVoz', async (e) => {
+      const guiando = objetivoAtual() ?? (guiaAtivo.current ? `fazer: ${guiaAtivo.current}` : null);
+      if (e.parou) {
+        pararGuiaIA(false);
+        guiaAtivo.current = null;
+        setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }, { papel: 'lia', texto: 'Tudo bem, parei. Se precisar, é só me chamar.' }]);
+        return;
+      }
+      setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }]);
+      try {
+        const historico: Mensagem[] = [{ papel: 'pessoa', texto: e.texto }];
+        const r = await conversar(historico, mapa.current, 'app', { ...(await montarContexto()), guia: guiando });
+        setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
+        LiaGuia.say(r.fala); // por cima do outro app
+        const a = r.acao;
+        if (a?.tipo === 'guiar_app' || a?.tipo === 'guiar') {
+          guiaAtivo.current = null;
+          setTimeout(() => executar(a), 2500); // depois de falar, troca o objetivo do Guia
+        } else if (a) {
+          LiaGuia.say('Para isso, volte para a Lia: é só abrir o app dela.');
+        }
+      } catch {
+        LiaGuia.say('A internet está ruim agora. Tente de novo daqui a pouco.');
+      }
+    });
+    return () => s.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const parabens = (vezes: number) => {

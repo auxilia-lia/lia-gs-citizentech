@@ -173,3 +173,10 @@ def test_guia2_interpretar_gestos():
 def test_conversa_wifi_vai_para_o_celular():
     r = falar("como eu desligo o wifi?")
     assert r["acao"] == {"tipo": "guiar_app", "app": "celular", "objetivo": "como eu desligo o wifi?"}
+
+
+def test_conversa_durante_o_guia_troca_objetivo():
+    r = falar("na verdade quero ligar a lanterna", contexto={"guia": "desligar o wifi"})
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"]["app"] == "celular"
+    from prompt_lia import montar_sistema
+    assert "AGORA o Guia está na tela" in montar_sistema("app", {"guia": "ligar o bluetooth"}, None)

@@ -1,6 +1,11 @@
 package expo.modules.liaguia
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Build
@@ -33,6 +38,9 @@ class LiaGuiaService : AccessibilityService() {
     private const val LEMBRETE_MS = 12000L
     private const val MAX_LEMBRETES = 2
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
+
+    // "deixa pra lá", "para", "não quero mais"… (já sem acento)
+    private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
   private data class Alvo(val label: String, val bounds: Rect, val score: Double, val area: Int)
@@ -43,6 +51,8 @@ class LiaGuiaService : AccessibilityService() {
 
   private val handler = Handler(Looper.getMainLooper())
   private var overlay: GuiaOverlayView? = null
+  private var botao: BotaoFalar? = null
+  private var reconhecedor: SpeechRecognizer? = null
   private var tts: TextToSpeech? = null
   private var ttsPronto = false
 
@@ -146,6 +156,66 @@ class LiaGuiaService : AccessibilityService() {
   fun concluirIA(fala: String) = naPrincipal { concluir(fala) }
 
   fun pararGuia() = naPrincipal { pararAgora() }
+
+  // A Lia fala por cima do outro app (resposta da conversa durante o Guia).
+  fun dizer(texto: String) = naPrincipal { falar(texto) }
+
+  // ================= conversar durante o Guia =================
+
+  private fun ouvir() {
+    if (!SpeechRecognizer.isRecognitionAvailable(this)) return falar("Não consigo ouvir neste celular.")
+    tts?.stop()
+    handler.removeCallbacks(lembrar)
+    val r = reconhecedor ?: SpeechRecognizer.createSpeechRecognizer(this).also {
+      it.setRecognitionListener(ouvinte)
+      reconhecedor = it
+    }
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+      .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+      .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+      .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+    botao?.ouvindo = true
+    r.startListening(intent)
+  }
+
+  private fun aoOuvir(texto: String) {
+    botao?.ouvindo = false
+    when {
+      texto.isBlank() -> falar("Não ouvi. Toque no microfone e fale de novo.")
+      PARAR.containsMatchIn(Matcher.normalize(texto)) -> {
+        // Parar não depende da internet nem do app: resolve aqui mesmo.
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to true))
+        falar("Tudo bem, parei. Se precisar, é só me chamar.")
+        overlay?.mostrarMensagem("Parei. Se precisar, é só me chamar.")
+        ativo = false
+        handler.postDelayed({ if (!ativo) pararAgora() }, 2500)
+        return
+      }
+      else -> {
+        overlay?.mostrarMensagem("Entendi: \"$texto\"")
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false))
+      }
+    }
+    if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS)
+  }
+
+  private val ouvinte = object : RecognitionListener {
+    override fun onResults(results: Bundle?) {
+      aoOuvir(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: "")
+    }
+    override fun onError(error: Int) {
+      botao?.ouvindo = false
+      falar("Não ouvi direito. Toque no microfone e fale de novo.")
+      if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS)
+    }
+    override fun onReadyForSpeech(params: Bundle?) {}
+    override fun onBeginningOfSpeech() {}
+    override fun onRmsChanged(rmsdB: Float) {}
+    override fun onBufferReceived(buffer: ByteArray?) {}
+    override fun onEndOfSpeech() {}
+    override fun onPartialResults(partialResults: Bundle?) {}
+    override fun onEvent(eventType: Int, params: Bundle?) {}
+  }
 
   // ================= estado =================
 
@@ -503,11 +573,36 @@ class LiaGuiaService : AccessibilityService() {
     }
     wm.addView(view, lp)
     overlay = view
+    mostrarBotao(wm)
+  }
+
+  // Botão de falar: no lado direito, um pouco acima do meio (longe dos botões que os apps põem embaixo).
+  private fun mostrarBotao(wm: WindowManager) {
+    if (botao != null) return
+    val d = resources.displayMetrics.density
+    val b = BotaoFalar(this).apply { setOnClickListener { ouvir() } }
+    val lado = (88 * d).toInt()
+    val lp = WindowManager.LayoutParams(
+      lado, lado,
+      WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+      PixelFormat.TRANSLUCENT,
+    )
+    lp.gravity = Gravity.TOP or Gravity.END
+    lp.x = (6 * d).toInt()
+    lp.y = (resources.displayMetrics.heightPixels * 0.32).toInt()
+    wm.addView(b, lp)
+    botao = b
   }
 
   private fun esconderOverlay() {
+    val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    reconhecedor?.destroy()
+    reconhecedor = null
+    botao?.let { wm.removeView(it) }
+    botao = null
     val v = overlay ?: return
-    (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(v)
+    wm.removeView(v)
     overlay = null
   }
 }

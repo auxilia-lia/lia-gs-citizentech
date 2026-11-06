@@ -35,6 +35,8 @@ type LiaGuiaEvents = {
   onStep: (e: StepEvent) => void;
   onStatus: (e: { enabled: boolean }) => void;
   onScreen: (e: TelaEvent) => void;
+  /** A pessoa falou pelo botão de microfone durante o Guia. */
+  onVoz: (e: { texto: string; parou: boolean }) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
@@ -52,6 +54,8 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   instruct(tipo: TipoPasso, alvo: string | null, fala: string): void;
   point(label: string, fala: string): void;
   finishAI(fala: string): void;
+  /** A Lia fala por cima do outro app. */
+  say(texto: string): void;
   readScreen(): ScreenNode[];
 }
 
