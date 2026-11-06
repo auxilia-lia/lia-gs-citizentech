@@ -15,7 +15,8 @@ export async function prepararVoz() {
     if (nome && vozes.some((v) => v.identifier === nome)) { voz = nome; return; }
     // 2º: a melhor voz pt-BR: as "de rede" e "Enhanced" soam mais humanas
     const pt = vozes.filter((v) => v.language?.toLowerCase().replace('_', '-').startsWith('pt-br'));
-    const pontos = (v: Speech.Voice) => (/network/i.test(v.identifier) ? 2 : 0) + (v.quality === Speech.VoiceQuality.Enhanced ? 1 : 0);
+    // a voz "de rede" fica muda quando a internet oscila: prefere a que roda no celular
+    const pontos = (v: Speech.Voice) => (/network/i.test(v.identifier) ? 0 : 2) + (v.quality === Speech.VoiceQuality.Enhanced ? 1 : 0);
     pt.sort((a, b) => pontos(b) - pontos(a));
     voz = pt[0]?.identifier;
   } catch {
@@ -28,7 +29,20 @@ let tentouGuia = false;
 export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   // Se o Guia foi ligado depois de abrir o app, passa a usar a voz dele.
   if (!tentouGuia) { tentouGuia = true; try { const n = LiaGuia.voice(); if (n) voz = n; } catch { /* sem Guia */ } }
-  Speech.speak(texto, { language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes });
+  if (!voz) return Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+  // Se a voz escolhida não começar a falar (voz indisponível), larga ela e fala com a voz padrão.
+  let comecou = false;
+  const reserva = setTimeout(() => {
+    if (comecou) return;
+    voz = undefined;
+    Speech.stop();
+    Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+  }, 2500);
+  Speech.speak(texto, {
+    language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes,
+    onStart: () => { comecou = true; clearTimeout(reserva); opcoes.onStart?.(); },
+    onError: (e) => { if (!comecou) { clearTimeout(reserva); comecou = true; voz = undefined; Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes }); } else opcoes.onError?.(e); },
+  });
 }
 
 export const calar = () => Speech.stop();

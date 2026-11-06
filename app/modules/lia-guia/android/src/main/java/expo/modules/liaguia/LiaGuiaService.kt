@@ -690,7 +690,8 @@ class LiaGuiaService : AccessibilityService() {
       it.locale.language == "pt" && it.locale.country in setOf("BR", "") &&
         !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
     }
-    val melhor = pt.maxWithOrNull(compareBy<Voice>({ it.quality }, { if (it.isNetworkConnectionRequired) 1 else 0 }, { it.name }))
+    // Voz que roda no próprio celular primeiro: a "de rede" fica muda quando a internet oscila.
+    val melhor = pt.maxWithOrNull(compareBy<Voice>({ if (it.isNetworkConnectionRequired) 0 else 1 }, { it.quality }, { it.name }))
     if (melhor != null) t.voice = melhor
   }
 

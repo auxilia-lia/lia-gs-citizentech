@@ -257,3 +257,9 @@ def test_guia4_extrato_de_pagamento_nao_e_acao_final():
 def test_guia4_regras_mandam_indice():
     r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Bluetooth", "Wi-Fi — Casa"]}).json()
     assert r["tipo"] == "tocar" and r["indice"] == 1 and r["fala"].endswith("Toque em Wi-Fi.")
+
+
+def test_guiar_app_de_qualquer_app_comeca_da_tela_inicial():
+    from main import validar_acao
+    assert validar_acao({"tipo": "guiar_app", "app": "facebook", "objetivo": "entrar no Facebook"}, "app")["app"] == "celular"
+    assert validar_acao({"tipo": "guiar_app", "app": "facebook"}, "app") is None

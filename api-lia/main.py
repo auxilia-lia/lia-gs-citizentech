@@ -67,8 +67,12 @@ def validar_acao(acao, canal: str) -> dict | None:
         return None
     if acao["tipo"] == "guiar" and acao.get("servico") not in SERVICOS:
         return None
-    if acao["tipo"] == "guiar_app" and (acao.get("app") not in APPS or not acao.get("objetivo")):
-        return None
+    if acao["tipo"] == "guiar_app":
+        if not acao.get("objetivo"):
+            return None
+        # Qualquer outro app (Facebook, Instagram, banco...): o Guia começa da tela inicial e acha o ícone.
+        if acao.get("app") not in APPS:
+            acao = {**acao, "app": "celular"}
     if acao["tipo"] == "avisar_familiar" and not (acao.get("contato") and acao.get("mensagem")):
         return None
     return acao
