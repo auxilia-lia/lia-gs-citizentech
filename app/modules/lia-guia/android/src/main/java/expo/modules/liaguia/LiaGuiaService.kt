@@ -46,7 +46,7 @@ class LiaGuiaService : AccessibilityService() {
     // "já consegui", "pronto", "deu certo"… (sem acento)
     private val CONSEGUI = Regex("\\b(ja consegui|consegui|deu certo|ja fiz|ja foi|pronto|ja liguei|ja desliguei|ja abri|obrigad[oa])\\b")
     private val NAO_CONSEGUI = Regex("\\bnao (consegui|deu|foi|fiz)")
-    private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
+    private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
   private data class Alvo(val label: String, val bounds: Rect, val score: Double, val area: Int)
@@ -76,6 +76,7 @@ class LiaGuiaService : AccessibilityService() {
   private var ultimoErro: String? = null
   private var seguiu: String? = null // a última instrução que a pessoa cumpriu (para a IA não culpar a pessoa)
   private var ultimaMudanca = 0L
+  private var instrucaoDesde = 0L
 
   // modo passos
   private var passos: List<String> = emptyList()
@@ -170,6 +171,16 @@ class LiaGuiaService : AccessibilityService() {
   // A Lia fala por cima do outro app (resposta da conversa durante o Guia).
   fun dizer(texto: String) = naPrincipal { falar(texto) }
 
+  // A pessoa desistiu: para sem dizer que conseguiu, e volta para a Lia.
+  fun cancelar(fala: String) = naPrincipal {
+    falar(fala)
+    pararAgora()
+    voltarParaLia()
+  }
+
+  // Nome da voz escolhida (o app usa a mesma, para a Lia soar igual em todo lugar).
+  fun nomeVoz(): String? = if (ttsPronto) tts?.voice?.name else null
+
   // ================= conversar durante o Guia =================
 
   private fun ouvir() {
@@ -247,6 +258,7 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   private fun novaInstrucao() {
+    instrucaoDesde = System.currentTimeMillis()
     falado = false
     faltas = 0
     lembretes = 0
@@ -400,6 +412,7 @@ class LiaGuiaService : AccessibilityService() {
         return agendar(ESPERA_CARREGAR_MS - desde + 100)
       }
       val ctx = lerContexto(root)
+      if (ultimaMudanca > instrucaoDesde && ctx.textos.any { Matcher.score(it, passo) <= LIMIAR }) return avancar()
       val msg = if (ctx.rolavel) "Arraste a tela devagar para procurar \"$passo\"" else "Procurando \"$passo\"…"
       if (ctx.rolavel && (nivel < 2 || revelado)) overlay?.mostrarGesto("rolar_baixo", msg) else overlay?.mostrarMensagem(if (nivel == 2 && !revelado) "" else msg)
       falarUmaVez(msg)
@@ -470,7 +483,6 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun desenharAlvo(achado: Alvo, fala: String) {
     alvoAtual = achado.bounds
-    desviarBotao(achado.bounds)
     nomeAlvo = achado.label
     if (revelado) {
       overlay?.mostrarAlvo(achado.bounds, fala)
@@ -496,8 +508,10 @@ class LiaGuiaService : AccessibilityService() {
     for (w in janelas.sortedByDescending { it.layer }) {
       if (w.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY || w.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue
       val b = Rect().also { w.getBoundsInScreen(it) }
-      if (b.width().toLong() * b.height() < areaTela * 0.4) continue
+      val area = b.width().toLong() * b.height()
       val r = w.root ?: continue
+      val doSistema = r.packageName?.toString() == "com.android.systemui"
+      if (area < areaTela * (if (doSistema) 0.15 else 0.4)) continue
       return if (r.packageName?.toString() == packageName) null else r
     }
     val r = rootInActiveWindow ?: return null
@@ -654,7 +668,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun mostrarBotao(wm: WindowManager) {
     if (botao != null) return
     val d = resources.displayMetrics.density
-    val b = BotaoFalar(this).apply { setOnClickListener { ouvir() } }
+    val b = BotaoFalar(this).apply { aoTocar = { ouvir() } }
     val lado = (88 * d).toInt()
     val lp = WindowManager.LayoutParams(
       lado, lado,
@@ -662,23 +676,13 @@ class LiaGuiaService : AccessibilityService() {
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
       PixelFormat.TRANSLUCENT,
     )
-    lp.gravity = Gravity.TOP or Gravity.END
-    lp.x = (6 * d).toInt()
+    lp.gravity = Gravity.TOP or Gravity.START
+    lp.x = resources.displayMetrics.widthPixels - lado - (6 * d).toInt()
     lp.y = (resources.displayMetrics.heightPixels * 0.55).toInt()
     wm.addView(b, lp)
     botao = b
   }
 
-  // Se o botão de falar estiver em cima do botão que a pessoa precisa tocar, ele muda de lado.
-  private fun desviarBotao(alvo: Rect) {
-    val b = botao ?: return
-    val lp = b.layoutParams as? WindowManager.LayoutParams ?: return
-    val loc = IntArray(2).also { b.getLocationOnScreen(it) }
-    val area = Rect(loc[0], loc[1], loc[0] + b.width, loc[1] + b.height)
-    if (!Rect.intersects(area, alvo)) return
-    lp.gravity = if (lp.gravity and Gravity.END == Gravity.END) Gravity.TOP or Gravity.START else Gravity.TOP or Gravity.END
-    try { (getSystemService(WINDOW_SERVICE) as WindowManager).updateViewLayout(b, lp) } catch (_: Exception) {}
-  }
 
   private fun esconderOverlay() {
     val wm = getSystemService(WINDOW_SERVICE) as WindowManager

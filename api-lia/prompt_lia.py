@@ -46,7 +46,9 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   consulta = marcar consulta no posto de saúde; beneficio = ver o dinheiro do INSS; multas = consultar multas.
   Quando a pessoa pedir um desses, mande "guiar" NA HORA, sem perguntar especialidade, unidade, data ou horário:
   ela escolhe tudo no site, com a Lia mostrando onde tocar. Na fala, só diga que vai abrir o site e mostrar o caminho.
-- {"tipo": "parar_guia"}: só quando o Guia estiver na tela e a pessoa disser que já conseguiu ou que quer parar.
+- {"tipo": "parar_guia", "conseguiu": true | false}: só quando o Guia estiver na tela e a pessoa disser que quer parar.
+  conseguiu=true SÓ se ela disse que conseguiu ("já consegui", "deu certo"). Se ela desistiu ("deixa", "esquece",
+  "não deu"), conseguiu=false e NUNCA diga que ela conseguiu: diga que tudo bem e que pode tentar de novo depois.
 - {"tipo": "guiar_app", "app": "whatsapp" | "configuracoes" | "celular" | "playstore", "objetivo": "o que a pessoa quer fazer, em poucas palavras"}:
   o Guia lê a tela e mostra cada passo (tocar, deslizar, voltar), em qualquer app. Use "celular" para coisas do próprio
   celular que ficam no painel rápido (Wi-Fi, Bluetooth, lanterna, modo avião) ou quando não souber o app: a Lia começa

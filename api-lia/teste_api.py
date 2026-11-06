@@ -195,10 +195,13 @@ def test_guia3_lado_direito_e_sem_culpa():
 
 def test_guia4_atalhos_sem_ia_e_play_store():
     import guia
-    r = guia.regra_certeira("instalar o facebook", ["Abrir", "Desinstalar", "Facebook"], [], "app")
+    r = guia.regra_certeira("instalar o facebook", ["Abrir", "Desinstalar"], [], "app", ["Facebook", "Meta Platforms"])
     assert r["concluido"] and "já está instalado" in r["fala"]
-    r = guia.regra_certeira("baixar o facebook", ["Instalar", "Facebook"], [], "app")
+    r = guia.regra_certeira("baixar o facebook", ["Instalar"], [], "app", ["Facebook"])
     assert r["tipo"] == "tocar" and r["alvo"] == "Instalar"
+    # Tela inicial da loja com "Instalar" de OUTRO app (anúncio): não aponta
+    assert guia.regra_certeira("quero instalar o facebook", ["Instalar", "Pesquisa"], [], "app", ["Pier: Seguro Auto e Cel"]) is None
+    assert guia.nome_do_app("me ajuda a instalar o Facebook") == "facebook"
     assert guia.regra_certeira("ligar o bluetooth", ["Wi-Fi", "Bluetooth"], [], "painel")["alvo"] == "Bluetooth"
     assert guia.regra_certeira("mandar foto no whatsapp", ["Conversas"], [], "app") is None
     r = falar("quero instalar o facebook")

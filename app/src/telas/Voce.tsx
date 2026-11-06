@@ -115,8 +115,8 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
               <View style={[st.medalhaIcone, m.ganhou && { backgroundColor: cores.destaqueSuave, borderColor: cores.destaque }]}>
                 <Ionicons name={(m.ganhou ? m.icone : 'lock-closed') as NomeIcone} size={28} color={m.ganhou ? '#8A5A00' : cores.textoSuave} />
               </View>
-              <Text style={st.medalhaNome} numberOfLines={1}>{m.nome}</Text>
-              <Text style={st.medalhaDesc} numberOfLines={2}>{m.descricao}</Text>
+              <Text style={st.medalhaNome} numberOfLines={2}>{m.nome}</Text>
+              <Text style={st.medalhaDesc} numberOfLines={3}>{m.descricao}</Text>
             </View>
           </Aparecer>
         ))}
@@ -253,11 +253,11 @@ const st = StyleSheet.create({
   numeros: { flexDirection: 'row', marginTop: espaco.xs },
   num: { color: cores.branco, fontSize: tamanho.subtitulo, fontWeight: '800' },
   numRotulo: { color: '#C9D6F8', fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  medalhas: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.sm },
+  medalhas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: espaco.sm },
   medalhaFora: { width: '31.5%' },
-  medalha: { backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.sm, alignItems: 'center', gap: 4, minHeight: 150, borderWidth: 1, borderColor: cores.borda },
-  medalhaIcone: { width: 56, height: 56, borderRadius: 28, backgroundColor: cores.fundo, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: cores.borda },
-  medalhaNome: { fontSize: 14, fontWeight: '800', color: cores.tinta, textAlign: 'center' },
+  medalha: { backgroundColor: cores.superficie, borderRadius: raio.md, paddingVertical: espaco.sm, paddingHorizontal: 6, alignItems: 'center', gap: 4, minHeight: 156, borderWidth: 1, borderColor: cores.borda },
+  medalhaIcone: { width: 50, height: 50, borderRadius: 25, backgroundColor: cores.fundo, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: cores.borda },
+  medalhaNome: { fontSize: 13, fontWeight: '800', color: cores.tinta, textAlign: 'center' },
   medalhaDesc: { fontSize: 12, color: cores.textoSuave, textAlign: 'center' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
   nome: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },

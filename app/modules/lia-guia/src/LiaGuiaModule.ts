@@ -56,6 +56,10 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   instruct(tipo: TipoPasso, alvo: string | null, fala: string): void;
   point(label: string, fala: string): void;
   finishAI(fala: string): void;
+  /** Para sem contar como conquista (a pessoa desistiu) e volta para a Lia. */
+  cancel(fala: string): void;
+  /** Nome da voz que o Guia usa (null se o Guia não estiver ativo). */
+  voice(): string | null;
   /** A Lia fala por cima do outro app. */
   say(texto: string): void;
   readScreen(): ScreenNode[];

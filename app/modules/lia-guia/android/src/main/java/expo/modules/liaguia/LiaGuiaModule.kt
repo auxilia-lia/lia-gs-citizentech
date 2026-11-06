@@ -90,6 +90,16 @@ class LiaGuiaModule : Module() {
       LiaGuiaService.instance?.dizer(texto)
     }
 
+    // Para o Guia sem contar como conquista (a pessoa desistiu) e volta para a Lia.
+    Function("cancel") { fala: String ->
+      LiaGuiaService.instance?.cancelar(fala)
+    }
+
+    // Voz que o Guia está usando (o app usa a mesma).
+    Function("voice") {
+      LiaGuiaService.instance?.nomeVoz()
+    }
+
     Function("finishAI") { fala: String ->
       LiaGuiaService.instance?.concluirIA(fala)
     }

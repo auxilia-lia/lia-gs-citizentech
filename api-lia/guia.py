@@ -37,7 +37,9 @@ Tom: calmo, respeitoso e direto, como alguém de confiança. Trate por "você". 
 "vovó") nem diminutivos ("rapidinho", "botãozinho", "cliquezinho").
 
 Dicas do Android que você conhece:
-- Play Store (loja de apps): na busca "Pesquisar apps e jogos" a pessoa pode tocar no microfone e falar o nome do app.
+- Play Store (loja de apps): NUNCA mande tocar em "Instalar" na tela inicial da loja (são outros apps, anúncios).
+  Primeiro vá em "Pesquisa"/"Pesquisar apps e jogos"; a pessoa pode tocar no microfone e falar o nome do app.
+  Só toque em "Instalar" na página do app que ela pediu (o nome dele aparece no alto).
   Na página do app: "Instalar" = ainda não tem; "Abrir" ou "Desinstalar" = JÁ ESTÁ instalado (objetivo de instalar
   já cumprido: diga que já está instalado e concluido=true); "Atualizar" = instalado, mas desatualizado.
 - WhatsApp: o clipe (Anexar) manda foto e documento; a câmera tira foto na hora; segurar o microfone grava áudio.
@@ -186,18 +188,37 @@ def interpretar(r: dict, elementos: list[str]) -> dict:
 
 INSTALADO = ("abrir", "desinstalar")
 PEDE_INSTALAR = ("instalar", "baixar", "instala", "baixa")
+VAZIAS = {"o", "a", "um", "uma", "app", "aplicativo", "aplicativos", "do", "da", "de", "no", "na", "pra", "para", "me", "ajuda",
+          "quero", "preciso", "instalar", "baixar", "instala", "baixa", "como", "eu", "celular", "meu", "loja", "play", "store"}
 
 
-def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str) -> dict | None:
+def nome_do_app(objetivo: str) -> str | None:
+    """'quero instalar o Facebook' -> 'facebook' (None se a pessoa não disse qual app)."""
+    resto = [p for p in normalizar(objetivo).split() if p not in VAZIAS and len(p) > 1]
+    return " ".join(resto) or None
+
+
+def pagina_do_app(nome: str, elementos: list[str], textos: list[str]) -> bool:
+    """Estamos na página DESTE app? (o nome aparece num título/texto e só existe um "Instalar"/"Abrir")."""
+    n = normalizar(nome)
+    cita = any(n in normalizar(t) for t in textos + elementos)
+    botoes = sum(1 for e in elementos if normalizar(e) in ("instalar", "abrir", "atualizar"))
+    return cita and botoes <= 1
+
+
+def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str,
+                   textos: list[str] | None = None) -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(f) for f in feitos}
     nomes = {normalizar(e): e for e in elementos}
-    # Play Store: o app já está instalado
-    if any(p in obj for p in PEDE_INSTALAR) and all(any(n == i or n.startswith(i + " ") for n in nomes) for i in INSTALADO):
-        return resposta("esperar", "Esse app já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
-    if any(p in obj for p in PEDE_INSTALAR) and "instalar" in nomes and "instalar" not in feitos_n:
-        return resposta("tocar", "Toque em Instalar e espere baixar.", nomes["instalar"])
+    # Play Store: só decide sozinho na página DO APP PEDIDO (antes apontava o "Instalar" do primeiro app da lista)
+    app = nome_do_app(objetivo) if any(p in obj for p in PEDE_INSTALAR) else None
+    if app and pagina_do_app(app, elementos, textos or []):
+        if all(any(n == i or n.startswith(i + " ") for n in nomes) for i in INSTALADO):
+            return resposta("esperar", "Esse app já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
+        if "instalar" in nomes and "instalar" not in feitos_n:
+            return resposta("tocar", "Esse é o app certo. Toque em Instalar e espere baixar.", nomes["instalar"])
     # Painel rápido: o item já está na tela
     item = item_do_painel(objetivo)
     if item:

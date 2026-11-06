@@ -154,7 +154,7 @@ async def guia_proximo(t: TelaGuia):
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     if t.motivo != "errou":
-        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela)
+        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos)
         if certeira:
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):

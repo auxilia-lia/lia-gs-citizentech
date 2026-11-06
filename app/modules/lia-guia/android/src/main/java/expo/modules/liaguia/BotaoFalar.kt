@@ -6,7 +6,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
+import kotlin.math.abs
 
 // Botão redondo de microfone que fica por cima dos outros apps enquanto o Guia está ativo.
 // Tocar nele = falar com a Lia ("deixa pra lá", "quero outra coisa", uma dúvida).
@@ -29,10 +32,43 @@ class BotaoFalar(context: Context) : View(context) {
     addUpdateListener { fase = it.animatedValue as Float; invalidate() }
   }
 
+  // Chamado num toque rápido (sem arrastar).
+  var aoTocar: (() -> Unit)? = null
+
+  // Arrastar para tirar o botão da frente de um texto. Mover pouco = toque.
+  private var xIni = 0f
+  private var yIni = 0f
+  private var lpX = 0
+  private var lpY = 0
+  private var arrastou = false
+
   init {
-    contentDescription = "Falar com a Lia"
+    contentDescription = "Falar com a Lia. Segure e arraste para mudar de lugar."
     isClickable = true
   }
+
+  override fun onTouchEvent(e: MotionEvent): Boolean {
+    val lp = layoutParams as? WindowManager.LayoutParams ?: return super.onTouchEvent(e)
+    val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    when (e.actionMasked) {
+      MotionEvent.ACTION_DOWN -> { xIni = e.rawX; yIni = e.rawY; lpX = lp.x; lpY = lp.y; arrastou = false }
+      MotionEvent.ACTION_MOVE -> {
+        val dx = e.rawX - xIni
+        val dy = e.rawY - yIni
+        if (!arrastou && (abs(dx) > 12 * d || abs(dy) > 12 * d)) arrastou = true
+        if (arrastou) {
+          val dm = resources.displayMetrics
+          lp.x = (lpX + dx).toInt().coerceIn(0, dm.widthPixels - width)
+          lp.y = (lpY + dy).toInt().coerceIn(0, dm.heightPixels - height)
+          try { wm.updateViewLayout(this, lp) } catch (_: Exception) {}
+        }
+      }
+      MotionEvent.ACTION_UP -> if (!arrastou) { performClick(); aoTocar?.invoke() }
+    }
+    return true
+  }
+
+  override fun performClick(): Boolean = super.performClick()
 
   override fun onDetachedFromWindow() {
     pulso.cancel()

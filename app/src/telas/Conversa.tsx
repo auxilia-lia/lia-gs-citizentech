@@ -98,7 +98,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
         LiaGuia.say(r.fala); // por cima do outro app
         const a = r.acao;
         if (a?.tipo === 'parar_guia') {
-          LiaGuia.finishAI('Que bom! Você conseguiu.');
+          pararOGuia(!!a.conseguiu);
         } else if (a?.tipo === 'guiar_app' || a?.tipo === 'guiar') {
           guiaAtivo.current = null;
           setTimeout(() => executar(a), 2500); // depois de falar, troca o objetivo do Guia
@@ -112,6 +112,14 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     return () => s.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Conseguiu: conclui e conta como conquista. Desistiu: só para, sem dizer que conseguiu.
+  const pararOGuia = (conseguiu: boolean) => {
+    if (conseguiu) return LiaGuia.finishAI('Que bom! Você conseguiu.');
+    pararGuiaIA(false);
+    guiaAtivo.current = null;
+    LiaGuia.cancel('Tudo bem, parei. Quando quiser, a gente tenta de novo.');
+  };
 
   const parabens = (vezes: number) => {
     const nivel = NOMES_NIVEL[nivelDe(vezes)].toLowerCase();
@@ -144,7 +152,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
-    if (acao.tipo === 'parar_guia') return LiaGuia.finishAI('Que bom! Você conseguiu.');
+    if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
   };
 
   const semGuia = () => dizer('Para eu te mostrar onde tocar, falta ativar uma permissão. Vá na aba Você e toque em Ativar o Guia.');
