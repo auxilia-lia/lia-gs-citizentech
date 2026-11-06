@@ -42,7 +42,10 @@ def responder(mensagens: list[dict], canal: str, contexto: dict, analise: dict) 
     if "whatsapp" in t and any(p in t for p in ("como", "ensina", "foto", "audio", "video", "figurinha")):
         return {"fala": "Vamos juntos no WhatsApp. Vou abrir e te mostrar onde tocar.",
                 "acao": {"tipo": "guiar_app", "app": "whatsapp", "objetivo": mensagens[-1]["texto"]}}
-    if any(p in t for p in ("letra maior", "aumentar a letra", "fonte maior", "ligar o wi", "brilho")):
+    if any(p in t for p in ("wifi", "wi fi", "bluetooth", "lanterna", "modo aviao", "dados moveis")):
+        return {"fala": "Vamos juntos. Vou para a tela inicial e te mostro cada passo.",
+                "acao": {"tipo": "guiar_app", "app": "celular", "objetivo": mensagens[-1]["texto"]}}
+    if any(p in t for p in ("letra maior", "aumentar a letra", "fonte maior", "brilho")):
         return {"fala": "Vamos juntos nas configurações. Vou abrir e te mostrar onde tocar.",
                 "acao": {"tipo": "guiar_app", "app": "configuracoes", "objetivo": mensagens[-1]["texto"]}}
 

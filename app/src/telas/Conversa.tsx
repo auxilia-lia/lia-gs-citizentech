@@ -1,23 +1,30 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
-import { Acao, AnaliseGolpe, api, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
+import { Acao, AnaliseGolpe, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
 import { montarContexto } from '../lia/contexto';
 import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/familia';
+import { guiarComIA, PACOTES } from '../lia/guiaIA';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { useVoz } from '../lia/useVoz';
-import { guiarComIA, PACOTES } from '../lia/guiaIA';
+import { Aviso, Botao } from '../ui/componentes';
+import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
-const BOAS_VINDAS = 'Oi, eu sou a Lia. Me fala o que você quer fazer.';
+export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir'; texto?: string };
+
+const BOAS_VINDAS = 'Oi! Eu sou a Lia. Me fala o que você quer fazer, que eu te ajudo.';
+const SEM_SERVIDOR = 'Não consegui falar com a Lia agora. Confira se o celular está com internet e tente de novo.';
 
 type Pendente = { familiar: Familiar; mensagem: string };
 
-export default function Conversa() {
+export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pedido | null }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([{ papel: 'lia', texto: BOAS_VINDAS }]);
   const [pensando, setPensando] = useState(false);
+  const [escrevendo, setEscrevendo] = useState(false);
   const [digitado, setDigitado] = useState('');
   const [golpe, setGolpe] = useState<AnaliseGolpe | null>(null);
   const [pendente, setPendente] = useState<Pendente | null>(null);
@@ -27,9 +34,11 @@ export default function Conversa() {
   const rolagem = useRef<ComponentRef<typeof ScrollView>>(null);
   const pendenteRef = useRef<Pendente | null>(null);
   pendenteRef.current = pendente;
+  const ativaRef = useRef(ativa);
+  ativaRef.current = ativa;
 
   const voz = useVoz((texto) => {
-    if (!texto) return;
+    if (!texto || !ativaRef.current) return;
     if (pendenteRef.current) return responderConfirmacao(texto);
     enviar(texto);
   });
@@ -39,26 +48,38 @@ export default function Conversa() {
     voz.falar(texto, depois);
   };
 
+  // Atalhos do Início chegam como pedido.
+  useEffect(() => {
+    if (!pedido) return;
+    if (pedido.tipo === 'texto' && pedido.texto) enviar(pedido.texto);
+    else if (pedido.tipo === 'foto') tirarFoto();
+    else if (pedido.tipo === 'ouvir') voz.ouvir();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedido?.id]);
+
   // Quando o Guia termina um serviço, conta para a autonomia progressiva.
   useEffect(() => {
     const s = LiaGuia.addListener('onStep', async (e) => {
       if (e.type !== 'finished' || !guiaAtivo.current) return;
       const servico = guiaAtivo.current;
       guiaAtivo.current = null;
-      const vezes = await registrarConclusao(servico);
-      const nivel = NOMES_NIVEL[nivelDe(vezes)];
-      setMensagens((m) => [...m, { papel: 'lia', texto: `Parabéns! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}. Agora eu ajudo assim: ${nivel.toLowerCase()}.` }]);
+      parabens(await registrarConclusao(servico));
     });
     return () => s.remove();
   }, []);
 
+  const parabens = (vezes: number) => {
+    const nivel = NOMES_NIVEL[nivelDe(vezes)].toLowerCase();
+    setMensagens((m) => [...m, { papel: 'lia', texto: `Parabéns! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}. Da próxima, eu ajudo assim: ${nivel}.` }]);
+  };
+
   // ---------- conversa ----------
   const enviar = async (texto: string) => {
     voz.calar();
+    voz.setErro('');
     const historico: Mensagem[] = [...mensagens, { papel: 'pessoa', texto }];
     setMensagens(historico);
     setPensando(true);
-    voz.setErro('');
     try {
       const r = await conversar(historico.slice(1), mapa.current, 'app', await montarContexto());
       setEscondidos(quantosEscondidos(mapa.current));
@@ -66,13 +87,13 @@ export default function Conversa() {
       setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
       voz.falar(r.fala, () => r.acao && executar(r.acao));
     } catch {
-      voz.setErro(`Não consegui falar com o servidor da Lia (${api()}). Ele está ligado?`);
+      voz.setErro(SEM_SERVIDOR);
     } finally {
       setPensando(false);
     }
   };
 
-  // ---------- ações (Guia, Age, Entende) ----------
+  // ---------- ações ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
     if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo);
@@ -80,52 +101,44 @@ export default function Conversa() {
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
   };
 
+  const semGuia = () => dizer('Para eu te mostrar onde tocar, falta ativar uma permissão. Vá na aba Você e toque em Ativar o Guia.');
+
   const guiar = async (servico: string) => {
     try {
       const fluxo = (await buscarFluxos())[servico];
       if (!fluxo) return;
+      if (!LiaGuia.isEnabled()) return semGuia();
       const nivel = nivelDe((await carregarProgresso())[servico] ?? 0);
-      if (LiaGuia.isEnabled()) {
-        guiaAtivo.current = servico;
-        LiaGuia.start(fluxo.passos, nivel);
-      } else {
-        voz.setErro('O Guia na tela está desligado. Ative na aba "Teste do Guia" para a Lia apontar onde tocar.');
-      }
+      guiaAtivo.current = servico;
+      LiaGuia.start(fluxo.passos, nivel);
       await Linking.openURL(urlGov(fluxo.caminho));
     } catch {
-      voz.setErro(`Não consegui abrir o gov.br simulado (${api()}).`);
+      voz.setErro(SEM_SERVIDOR);
     }
   };
 
-  // Guia genérico: a IA lê a tela do outro app e decide cada toque.
   const guiarApp = async (app: string, objetivo: string) => {
-    if (!LiaGuia.isEnabled()) {
-      return voz.setErro('O Guia na tela está desligado. Ative na aba "Teste do Guia" para a Lia apontar onde tocar.');
-    }
+    if (!LiaGuia.isEnabled()) return semGuia();
     const chave = `app:${app}`;
     const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
-    guiarComIA(objetivo, nivel, async () => {
-      const vezes = await registrarConclusao(chave);
-      setMensagens((m) => [...m, { papel: 'lia', texto: `Muito bem! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}.` }]);
-    });
-    if (!LiaGuia.openApp(PACOTES[app] ?? app)) voz.setErro('Não consegui abrir esse app. Ele está instalado?');
+    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)));
+    if (!LiaGuia.openApp(PACOTES[app] ?? app)) dizer('Não consegui abrir esse app. Ele está instalado?');
   };
 
   const prepararAviso = async (contato: string, mensagem: string) => {
-    const familia = await carregarFamilia();
-    const familiar = acharFamiliar(contato, familia);
-    if (!familiar) return dizer(`Não achei ${contato} na sua família. Peça para alguém cadastrar na aba Minha Lia.`);
-    if (!familiar.telefone) return dizer(`Falta o telefone de ${familiar.nome}. Dá para cadastrar na aba Minha Lia.`);
+    const familiar = acharFamiliar(contato, await carregarFamilia());
+    if (!familiar) return dizer(`Ainda não conheço "${contato}". Cadastre essa pessoa na aba Família, que eu aviso na hora.`);
+    if (!familiar.telefone) return dizer(`Falta o número do WhatsApp de ${familiar.nome}. Dá para colocar na aba Família.`);
     if (!precisaConfirmar('avisar_familiar')) return enviarAviso({ familiar, mensagem });
     const p = { familiar, mensagem };
     setPendente(p);
     pendenteRef.current = p;
-    dizer(`Vou mandar para ${familiar.nome}: ${mensagem}. Posso mandar?`, () => voz.ouvir());
+    dizer(`Vou mandar para ${familiar.nome}: "${mensagem}". Posso mandar?`, () => voz.ouvir());
   };
 
   const responderConfirmacao = (falado: string) => {
     const r = respostaSimNao(falado);
-    if (r === null) return dizer('Não entendi. Posso mandar? Fala sim ou não.', () => voz.ouvir());
+    if (r === null) return dizer('Não entendi. Posso mandar? Pode falar sim ou não.', () => voz.ouvir());
     confirmar(r);
   };
 
@@ -140,24 +153,22 @@ export default function Conversa() {
 
   const enviarAviso = async ({ familiar, mensagem }: Pendente) => {
     const ok = await abrirWhatsApp(familiar.telefone, mensagem);
-    dizer(ok
-      ? `Abri o WhatsApp com a mensagem para ${familiar.nome}. É só tocar no botão verde de enviar.`
-      : 'Não consegui abrir o WhatsApp. Ele está instalado?');
+    dizer(ok ? `Abri o WhatsApp com a mensagem para ${familiar.nome}. Agora é só tocar no botão verde de enviar.` : 'Não consegui abrir o WhatsApp. Ele está instalado?');
   };
 
   const tirarFoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return dizer('Preciso da câmera para ler o papel.');
+    if (!perm.granted) return dizer('Preciso da câmera para ler o papel. Toque em Permitir quando o celular perguntar.');
     const foto = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.5, mediaTypes: ['images'] });
     if (foto.canceled || !foto.assets[0]?.base64) return;
-    setMensagens((m) => [...m, { papel: 'pessoa', texto: '📷 (foto de um papel)' }]);
+    setMensagens((m) => [...m, { papel: 'pessoa', texto: '📷 Foto de um papel' }]);
     setPensando(true);
     try {
       const r = await entenderFoto(foto.assets[0].base64, foto.assets[0].mimeType ?? 'image/jpeg');
       setGolpe(r.golpe ? { golpe: true, nivel: 'alto', motivos: r.motivo ? [r.motivo] : [] } : null);
       dizer(r.golpe ? `${r.fala} Cuidado: isso pode ser golpe. ${r.motivo}` : r.fala);
     } catch {
-      voz.setErro('Não consegui mandar a foto para a Lia.');
+      voz.setErro(SEM_SERVIDOR);
     } finally {
       setPensando(false);
     }
@@ -171,113 +182,119 @@ export default function Conversa() {
     enviar(t);
   };
 
-  const rotulo = voz.ouvindo ? 'Estou ouvindo… toque para parar' : pensando ? 'Pensando…' : 'Toque para falar';
+  const status = voz.ouvindo ? 'Estou ouvindo…' : pensando ? 'Pensando…' : voz.falando ? 'Falando…' : 'Pronta para ajudar';
 
   return (
-    <KeyboardAvoidingView style={styles.tela} behavior="height">
-      <ScrollView
-        ref={rolagem}
-        contentContainerStyle={styles.lista}
-        onContentSizeChange={() => rolagem.current?.scrollToEnd({ animated: true })}
-      >
+    <KeyboardAvoidingView style={st.tela} behavior="height">
+      <View style={st.cab}>
+        <View style={st.avatar}><Ionicons name="chatbubble-ellipses" size={24} color={cores.branco} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={st.nome}>Lia</Text>
+          <Text style={[st.status, (voz.ouvindo || pensando) && { color: cores.primaria }]}>{status}</Text>
+        </View>
+        {escondidos > 0 && (
+          <View style={st.cadeado} accessibilityLabel={`${escondidos} dados pessoais escondidos da inteligência artificial`}>
+            <Ionicons name="lock-closed" size={16} color={cores.sucesso} />
+            <Text style={st.cadeadoTexto}>{escondidos} protegido{escondidos > 1 ? 's' : ''}</Text>
+          </View>
+        )}
+      </View>
+
+      <ScrollView ref={rolagem} contentContainerStyle={st.lista} onContentSizeChange={() => rolagem.current?.scrollToEnd({ animated: true })}>
         {mensagens.map((m, i) => (
-          <Pressable
-            key={i}
-            onPress={() => m.papel === 'lia' && voz.falar(m.texto)}
-            style={[styles.balao, m.papel === 'lia' ? styles.balaoLia : styles.balaoPessoa]}
-          >
-            <Text style={[styles.texto, m.papel === 'pessoa' && { color: '#fff' }]}>{m.texto}</Text>
-          </Pressable>
+          m.papel === 'lia' ? (
+            <Pressable key={i} onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir de novo" style={[st.balao, st.balaoLia]}>
+              <Text style={st.texto}>{m.texto}</Text>
+              <View style={st.ouvir}><Ionicons name="volume-high" size={18} color={cores.primaria} /><Text style={st.ouvirTexto}>Ouvir de novo</Text></View>
+            </Pressable>
+          ) : (
+            <View key={i} style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></View>
+          )
         ))}
-        {voz.parcial ? <Text style={styles.parcial}>{voz.parcial}</Text> : null}
+        {voz.parcial ? <View style={[st.balao, st.balaoPessoa, { opacity: 0.6 }]}><Text style={[st.texto, { color: cores.branco }]}>{voz.parcial}</Text></View> : null}
+        {pensando && <View style={[st.balao, st.balaoLia]}><Text style={st.texto}>…</Text></View>}
       </ScrollView>
 
-      {golpe?.golpe && (
-        <Pressable style={styles.golpe} onPress={() => setGolpe(null)}>
-          <Text style={styles.golpeTitulo}>⚠️ Pode ser golpe</Text>
-          {golpe.motivos.slice(0, 3).map((m, i) => <Text key={i} style={styles.golpeTexto}>• {m}</Text>)}
-          <Text style={styles.golpeTexto}>Não clique, não pague e não passe códigos.</Text>
-        </Pressable>
-      )}
+      <View style={st.extras}>
+        {golpe?.golpe && (
+          <Pressable onPress={() => setGolpe(null)}>
+            <Aviso tipo="perigo" titulo="Cuidado: pode ser golpe" texto={[...golpe.motivos.slice(0, 2), 'Não clique, não pague e não passe códigos.'].join('\n')} />
+          </Pressable>
+        )}
+        {pendente && (
+          <Aviso tipo="info" titulo={`Mandar para ${pendente.familiar.nome}?`} texto={`"${pendente.mensagem}"`}>
+            <View style={{ flexDirection: 'row', gap: espaco.sm }}>
+              <Botao texto="Sim, mandar" icone="checkmark" tipo="sucesso" onPress={() => confirmar(true)} estilo={{ flex: 1 }} />
+              <Botao texto="Não" icone="close" tipo="claro" onPress={() => confirmar(false)} estilo={{ flex: 1 }} />
+            </View>
+          </Aviso>
+        )}
+        {voz.erro ? <Aviso tipo="atencao" titulo="Opa" texto={voz.erro} /> : null}
+      </View>
 
-      {pendente && (
-        <View style={styles.confirmar}>
-          <Text style={styles.confirmarTexto}>
-            Mandar para <Text style={{ fontWeight: '800' }}>{pendente.familiar.nome}</Text> ({pendente.familiar.parentesco}):
-            {'\n'}“{pendente.mensagem}”
-          </Text>
-          <View style={styles.linha}>
-            <Pressable style={[styles.simNao, { backgroundColor: '#2E7D32' }]} onPress={() => confirmar(true)}>
-              <Text style={styles.simNaoTexto}>Sim, pode mandar</Text>
-            </Pressable>
-            <Pressable style={[styles.simNao, { backgroundColor: '#B3261E' }]} onPress={() => confirmar(false)}>
-              <Text style={styles.simNaoTexto}>Não</Text>
-            </Pressable>
-          </View>
+      {escrevendo && (
+        <View style={st.digitar}>
+          <TextInput
+            style={st.input} value={digitado} onChangeText={setDigitado} placeholder="Escreva aqui…"
+            placeholderTextColor="#9AA3B8" onSubmitEditing={enviarDigitado} returnKeyType="send" autoFocus
+          />
+          <Pressable onPress={enviarDigitado} style={st.enviar} accessibilityLabel="Enviar">
+            <Ionicons name="send" size={24} color={cores.branco} />
+          </Pressable>
         </View>
       )}
 
-      {voz.erro ? <Text style={styles.erro}>{voz.erro}</Text> : null}
-      {escondidos > 0 && <Text style={styles.privacidade}>🔒 {escondidos} dado(s) pessoal(is) escondido(s) da IA</Text>}
-
-      <View style={styles.linha}>
+      <View style={st.doca}>
+        <BotaoLado icone="camera" texto="Ler papel" onPress={tirarFoto} disabled={pensando} />
         <Pressable
           onPress={() => (voz.ouvindo ? voz.pararDeOuvir() : voz.ouvir())}
           disabled={pensando}
-          style={[styles.microfone, voz.ouvindo && styles.microfoneAtivo, pensando && { opacity: 0.5 }]}
+          accessibilityRole="button"
+          accessibilityLabel={voz.ouvindo ? 'Parar de ouvir' : 'Falar com a Lia'}
+          style={[st.micro, voz.ouvindo && st.microAtivo, pensando && { opacity: 0.5 }]}
         >
-          <Text style={styles.microfoneIcone}>🎤</Text>
-          <Text style={styles.microfoneTexto}>{rotulo}</Text>
+          <Ionicons name={voz.ouvindo ? 'stop' : 'mic'} size={44} color={cores.branco} />
         </Pressable>
-        <Pressable onPress={tirarFoto} disabled={pensando} style={styles.foto}>
-          <Text style={styles.microfoneIcone}>📷</Text>
-          <Text style={styles.fotoTexto}>Ler papel</Text>
-        </Pressable>
+        <BotaoLado icone={escrevendo ? 'close' : 'create'} texto={escrevendo ? 'Fechar' : 'Escrever'} onPress={() => setEscrevendo(!escrevendo)} />
       </View>
-
-      <View style={styles.digitar}>
-        <TextInput
-          style={styles.input}
-          value={digitado}
-          onChangeText={setDigitado}
-          placeholder="Ou escreva aqui"
-          onSubmitEditing={enviarDigitado}
-          returnKeyType="send"
-        />
-        <Pressable onPress={enviarDigitado} style={styles.enviar}>
-          <Text style={styles.enviarTexto}>Enviar</Text>
-        </Pressable>
-      </View>
+      <Text style={st.dica}>{voz.ouvindo ? 'Pode falar. Toque de novo para parar.' : 'Toque no microfone e fale'}</Text>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: '#fff' },
-  lista: { padding: 16, gap: 10 },
-  balao: { maxWidth: '85%', borderRadius: 20, padding: 14 },
-  balaoLia: { alignSelf: 'flex-start', backgroundColor: '#FFF1E6' },
-  balaoPessoa: { alignSelf: 'flex-end', backgroundColor: '#FF6D00' },
-  texto: { fontSize: 20, lineHeight: 28, color: '#202124' },
-  parcial: { alignSelf: 'flex-end', fontSize: 18, color: '#888', fontStyle: 'italic' },
-  golpe: { marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 16, backgroundColor: '#FDECEA', borderWidth: 2, borderColor: '#B3261E' },
-  golpeTitulo: { fontSize: 20, fontWeight: '800', color: '#B3261E', marginBottom: 4 },
-  golpeTexto: { fontSize: 17, color: '#5F1410' },
-  confirmar: { marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 16, backgroundColor: '#F1F8E9' },
-  confirmarTexto: { fontSize: 19, marginBottom: 10 },
-  simNao: { flex: 1, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  simNaoTexto: { color: '#fff', fontSize: 19, fontWeight: '800' },
-  erro: { color: '#B3261E', fontSize: 16, paddingHorizontal: 16, paddingBottom: 6, textAlign: 'center' },
-  privacidade: { color: '#2E7D32', fontSize: 14, textAlign: 'center', paddingBottom: 6 },
-  linha: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
-  microfone: { flex: 3, borderRadius: 28, backgroundColor: '#FF6D00', paddingVertical: 18, alignItems: 'center' },
-  microfoneAtivo: { backgroundColor: '#C62828' },
-  microfoneIcone: { fontSize: 32 },
-  microfoneTexto: { color: '#fff', fontSize: 19, fontWeight: '700', marginTop: 4, textAlign: 'center' },
-  foto: { flex: 1, borderRadius: 28, backgroundColor: '#202124', paddingVertical: 18, alignItems: 'center' },
-  fotoTexto: { color: '#fff', fontSize: 15, fontWeight: '700', marginTop: 4 },
-  digitar: { flexDirection: 'row', gap: 8, padding: 16 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 14, paddingHorizontal: 14, fontSize: 18 },
-  enviar: { backgroundColor: '#202124', borderRadius: 14, paddingHorizontal: 18, justifyContent: 'center' },
-  enviarTexto: { color: '#fff', fontSize: 18, fontWeight: '700' },
+function BotaoLado({ icone, texto, onPress, disabled }: { icone: 'camera' | 'create' | 'close'; texto: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={texto} style={[st.lado, disabled && { opacity: 0.5 }]}>
+      <View style={st.ladoCirculo}><Ionicons name={icone} size={28} color={cores.primaria} /></View>
+      <Text style={st.ladoTexto}>{texto}</Text>
+    </Pressable>
+  );
+}
+
+const st = StyleSheet.create({
+  tela: { flex: 1, backgroundColor: cores.fundo, paddingBottom: espaco.sm },
+  cab: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, paddingHorizontal: espaco.lg, paddingVertical: espaco.md, backgroundColor: cores.superficie, borderBottomWidth: 1, borderColor: cores.borda },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
+  nome: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.tinta },
+  status: { fontSize: tamanho.mini, color: cores.textoSuave, fontWeight: '700' },
+  cadeado: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.pilula, paddingHorizontal: 10, paddingVertical: 6 },
+  cadeadoTexto: { color: cores.sucesso, fontSize: 13, fontWeight: '800' },
+  lista: { padding: espaco.md, gap: espaco.md },
+  balao: { maxWidth: '88%', borderRadius: raio.md, padding: espaco.md },
+  balaoLia: { alignSelf: 'flex-start', backgroundColor: cores.superficie, borderTopLeftRadius: 6, ...sombra, elevation: 2 },
+  balaoPessoa: { alignSelf: 'flex-end', backgroundColor: cores.primaria, borderTopRightRadius: 6 },
+  texto: { fontSize: tamanho.corpo, lineHeight: 29, color: cores.texto },
+  ouvir: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: espaco.sm },
+  ouvirTexto: { color: cores.primaria, fontSize: tamanho.mini, fontWeight: '800' },
+  extras: { paddingHorizontal: espaco.md, gap: espaco.sm },
+  digitar: { flexDirection: 'row', gap: espaco.sm, paddingHorizontal: espaco.md, paddingTop: espaco.sm },
+  input: { flex: 1, minHeight: 56, borderWidth: 2, borderColor: cores.primariaBorda, borderRadius: raio.md, paddingHorizontal: espaco.md, fontSize: tamanho.corpo, backgroundColor: cores.superficie, color: cores.texto },
+  enviar: { width: 56, height: 56, borderRadius: 28, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
+  doca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', paddingTop: espaco.md },
+  micro: { width: 96, height: 96, borderRadius: 48, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: cores.primariaSuave, ...sombra },
+  microAtivo: { backgroundColor: cores.perigo, borderColor: cores.perigoSuave },
+  lado: { alignItems: 'center', width: 90 },
+  ladoCirculo: { width: 60, height: 60, borderRadius: 30, backgroundColor: cores.superficie, borderWidth: 2, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
+  ladoTexto: { fontSize: tamanho.mini, fontWeight: '800', color: cores.primaria, marginTop: 4 },
+  dica: { textAlign: 'center', color: cores.textoSuave, fontSize: tamanho.mini, fontWeight: '700', marginTop: espaco.sm },
 });

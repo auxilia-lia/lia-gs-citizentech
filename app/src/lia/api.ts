@@ -6,7 +6,7 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes'; objetivo: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular'; objetivo: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'agendar_por_voz'; ubs: string; horario: string; resultado?: { protocolo: string } }
@@ -101,8 +101,24 @@ export async function buscarFluxos(): Promise<Record<string, Fluxo>> {
 
 export const urlGov = (caminho: string) => `${base}${caminho}`;
 
-export type PassoGuia = { alvo: string | null; fala: string; concluido: boolean };
+export type PassoGuia = {
+  tipo: 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
+  alvo: string | null;
+  fala: string;
+  concluido: boolean;
+};
 
-// Guia genérico (#7): manda os textos da tela (já pseudonimizados) e recebe o próximo toque.
-export const proximoPasso = (objetivo: string, app: string, elementos: string[], feitos: string[]) =>
-  post<PassoGuia>('/guia/proximo', { objetivo, app, elementos, feitos }, 30000);
+export type PedidoGuia = {
+  objetivo: string;
+  app: string;
+  tela: 'inicio' | 'painel' | 'app';
+  elementos: string[];
+  textos: string[];
+  rolavel: boolean;
+  motivo: 'mudou' | 'errou' | 'parado';
+  errou: string | null;
+  feitos: string[];
+};
+
+// Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.
+export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, 30000);

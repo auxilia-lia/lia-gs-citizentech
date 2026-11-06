@@ -43,8 +43,10 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   consulta = marcar consulta no posto de saúde; beneficio = ver o dinheiro do INSS; multas = consultar multas.
   Quando a pessoa pedir um desses, mande "guiar" NA HORA, sem perguntar especialidade, unidade, data ou horário:
   ela escolhe tudo no site, com a Lia mostrando onde tocar. Na fala, só diga que vai abrir o site e mostrar o caminho.
-- {"tipo": "guiar_app", "app": "whatsapp" | "configuracoes", "objetivo": "o que a pessoa quer fazer, em poucas palavras"}:
-  abre o app e o Guia lê a tela e aponta onde tocar, passo a passo (ex.: mandar foto ou áudio no WhatsApp, aumentar a letra).
+- {"tipo": "guiar_app", "app": "whatsapp" | "configuracoes" | "celular", "objetivo": "o que a pessoa quer fazer, em poucas palavras"}:
+  o Guia lê a tela e mostra cada passo (tocar, deslizar, voltar), em qualquer app. Use "celular" para coisas do próprio
+  celular que ficam no painel rápido (Wi-Fi, Bluetooth, lanterna, modo avião) ou quando não souber o app: a Lia começa
+  da tela inicial. Use "configuracoes" para letra maior, brilho, toque, tela. Use "whatsapp" para mandar foto, áudio, vídeo.
 - {"tipo": "avisar_familiar", "contato": "como a pessoa chamou (nome ou parentesco)", "mensagem": "texto curto da mensagem"}:
   manda uma mensagem no WhatsApp para alguém da família. O app pergunta antes de mandar.
 - {"tipo": "tirar_foto"}: quando a pessoa quer que você leia ou explique um papel, carta, boleto ou exame."""

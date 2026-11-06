@@ -125,7 +125,7 @@ export default function Ligacao() {
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: '#fff', padding: 24 },
   centro: { alignItems: 'center', justifyContent: 'center' },
-  escura: { backgroundColor: '#1C2833', alignItems: 'center', paddingTop: 48 },
+  escura: { backgroundColor: '#0B1533', alignItems: 'center', paddingTop: 48 },
   explica: { fontSize: 17, color: '#555', textAlign: 'center', marginBottom: 32 },
   numero: { fontSize: 34, fontWeight: '800', letterSpacing: 1 },
   sub: { fontSize: 16, color: '#666', marginTop: 8, marginBottom: 24 },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   nome: { fontSize: 40, fontWeight: '800', color: '#fff' },
   status: { fontSize: 20, color: '#bbb', marginTop: 6 },
   legenda: { fontSize: 22, color: '#fff', textAlign: 'center', marginTop: 40, minHeight: 160, lineHeight: 32 },
-  estadoVoz: { fontSize: 18, color: '#FFB74D', marginTop: 12, minHeight: 24 },
+  estadoVoz: { fontSize: 18, color: '#F5B544', marginTop: 12, minHeight: 24 },
   botoes: { flexDirection: 'row', gap: 56, marginTop: 'auto', marginBottom: 32 },
   botaoRedondo: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
   icone: { fontSize: 36 },

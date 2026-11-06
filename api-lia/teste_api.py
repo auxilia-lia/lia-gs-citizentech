@@ -142,3 +142,34 @@ def test_ia_fora_do_ar_cai_nas_regras(monkeypatch):
     assert g["alvo"] == "Saúde"
     f = c.post("/entende", json={"imagem_base64": "A" * 200}).json()
     assert "tenta de novo" in f["fala"].lower()
+
+
+def test_guia2_painel_rapido():
+    # Na tela inicial não tem Wi-Fi: a Lia manda deslizar do topo.
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "inicio", "elementos": ["Instagram", "Lia"]}).json()
+    assert r["tipo"] == "painel" and r["alvo"] is None
+    # Com o painel aberto, aponta o Wi-Fi.
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Wi-Fi", "Bluetooth", "Lanterna"]}).json()
+    assert r["tipo"] == "tocar" and r["alvo"] == "Wi-Fi"
+    r = c.post("/guia/proximo", json={"objetivo": "ligar o bluetooth", "tela": "painel", "elementos": ["Wi-Fi", "Bluetooth"], "feitos": ["Bluetooth"]}).json()
+    assert r["concluido"]
+
+
+def test_guia2_errou_manda_voltar_e_rolar():
+    r = c.post("/guia/proximo", json={"objetivo": "aumentar a letra", "elementos": ["Som"], "motivo": "errou", "errou": "Som"}).json()
+    assert r["tipo"] == "voltar" and "sem problema" in r["fala"]
+    r = c.post("/guia/proximo", json={"objetivo": "trocar o toque", "elementos": ["Conexões"], "rolavel": True}).json()
+    assert r["tipo"] == "rolar_baixo"
+
+
+def test_guia2_interpretar_gestos():
+    import guia
+    assert guia.interpretar({"tipo": "painel", "fala": "Deslize do topo."}, [])["tipo"] == "painel"
+    assert guia.interpretar({"tipo": "voltar"}, [])["fala"]
+    assert guia.interpretar({"tipo": "pular_de_paraquedas"}, [])["tipo"] == "esperar"
+    assert guia.interpretar({"tipo": "tocar", "indice": 0, "fala": "x"}, ["Pagar agora"])["alvo"] is None
+
+
+def test_conversa_wifi_vai_para_o_celular():
+    r = falar("como eu desligo o wifi?")
+    assert r["acao"] == {"tipo": "guiar_app", "app": "celular", "objetivo": "como eu desligo o wifi?"}

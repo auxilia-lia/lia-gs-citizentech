@@ -37,6 +37,9 @@ class LiaGuiaModule : Module() {
     Function("openApp") { pkg: String ->
       val intent = if (pkg == "settings") {
         Intent(Settings.ACTION_SETTINGS)
+      } else if (pkg == "home") {
+        // Tela inicial do celular (para o Guia começar do começo).
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
       } else {
         context.packageManager.getLaunchIntentForPackage(pkg)
       } ?: return@Function false
@@ -55,8 +58,13 @@ class LiaGuiaModule : Module() {
       LiaGuiaService.instance?.iniciarGuiaIA(nivel) ?: false
     }
 
+    // A IA decidiu: tipo = "tocar" | "painel" | "rolar_baixo" | "rolar_cima" | "voltar" | "inicio" | "esperar".
+    Function("instruct") { tipo: String, alvo: String?, fala: String ->
+      LiaGuiaService.instance?.instruirIA(tipo, alvo, fala)
+    }
+
     Function("point") { label: String, fala: String ->
-      LiaGuiaService.instance?.apontarIA(label, fala)
+      LiaGuiaService.instance?.instruirIA("tocar", label, fala)
     }
 
     Function("finishAI") { fala: String ->

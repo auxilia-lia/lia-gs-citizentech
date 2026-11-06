@@ -29,7 +29,7 @@ export default function TesteGuia() {
   const [testesGov, setTestesGov] = useState<Teste[]>([]);
   const [nivel, setNivel] = useState(0);
   const [objetivoIA, setObjetivoIA] = useState('');
-  const [appIA, setAppIA] = useState<'configuracoes' | 'whatsapp'>('configuracoes');
+  const [appIA, setAppIA] = useState<'celular' | 'configuracoes' | 'whatsapp'>('celular');
   const ultimo = useRef('');
 
   const registrar = (linha: string) => {
@@ -56,6 +56,9 @@ export default function TesteGuia() {
           break;
         case 'done_step':
           registrar(`👆 Tocou no passo ${e.index + 1} "${e.step}"`);
+          break;
+        case 'wrong':
+          registrar(`⚠️ Tocou em "${e.tocado}" em vez de "${e.step}"`);
           break;
         case 'finished':
           registrar(`🎉 Terminou os ${e.total} passos`);
@@ -123,9 +126,10 @@ export default function TesteGuia() {
         style={styles.input}
         value={objetivoIA}
         onChangeText={setObjetivoIA}
-        placeholder="O que a pessoa quer. Ex.: aumentar o tamanho da letra"
+        placeholder="O que a pessoa quer. Ex.: desligar o Wi-Fi"
       />
       <View style={styles.row}>
+        <Chip texto="Celular" ativo={appIA === 'celular'} onPress={() => setAppIA('celular')} />
         <Chip texto="Configurações" ativo={appIA === 'configuracoes'} onPress={() => setAppIA('configuracoes')} />
         <Chip texto="WhatsApp" ativo={appIA === 'whatsapp'} onPress={() => setAppIA('whatsapp')} />
       </View>
@@ -179,13 +183,13 @@ const styles = StyleSheet.create({
   status: { borderRadius: 16, padding: 16, marginBottom: 8 },
   statusText: { fontSize: 18, fontWeight: '600' },
   section: { fontSize: 20, fontWeight: '700', marginTop: 24, marginBottom: 8 },
-  botao: { backgroundColor: '#FF6D00', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 16, marginTop: 10 },
+  botao: { backgroundColor: '#1B3A9E', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 16, marginTop: 10 },
   botaoTexto: { color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 12, padding: 14, fontSize: 18 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  chip: { borderWidth: 1, borderColor: '#FF6D00', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14 },
-  chipAtivo: { backgroundColor: '#FF6D00' },
-  chipTexto: { fontSize: 16, color: '#FF6D00', fontWeight: '600' },
+  chip: { borderWidth: 1, borderColor: '#1B3A9E', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14 },
+  chipAtivo: { backgroundColor: '#1B3A9E' },
+  chipTexto: { fontSize: 16, color: '#1B3A9E', fontWeight: '600' },
   vazio: { color: '#777' },
   log: { fontSize: 13, fontFamily: 'monospace', marginBottom: 6, color: '#222' },
 });

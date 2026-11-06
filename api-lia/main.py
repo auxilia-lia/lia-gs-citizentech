@@ -27,7 +27,7 @@ ACOES_POR_CANAL = {
     "ligacao": {"agendar_por_voz", "consultar_beneficio", "avisar_familiar"},
 }
 SERVICOS = set(gov_simulado.FLUXOS)
-APPS = {"whatsapp", "configuracoes"}
+APPS = {"whatsapp", "configuracoes", "celular"}
 
 
 class Mensagem(BaseModel):
@@ -137,19 +137,26 @@ def verificar_golpe(t: Texto):
 class TelaGuia(BaseModel):
     objetivo: str = Field(min_length=2, max_length=300)
     app: str = Field(default="", max_length=120)
+    tela: str = Field(default="app", pattern="^(app|inicio|painel)$")
     elementos: list[str] = Field(default=[], max_length=80)
+    textos: list[str] = Field(default=[], max_length=40)
+    rolavel: bool = False
+    motivo: str = Field(default="mudou", pattern="^(mudou|errou|parado|inicio)$")
+    errou: str | None = Field(default=None, max_length=120)
     feitos: list[str] = Field(default=[], max_length=30)
 
 
 @app.post("/guia/proximo")
 async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
+    textos = [e.strip()[:80] for e in t.textos if e.strip()]
+    args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou)
     if provedor() not in ("gemini", "claude"):
-        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos), "provedor": provedor()}
+        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
     try:
-        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos, t.feitos),
-                        [{"papel": "pessoa", "texto": "Qual é o próximo toque?"}])
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos, t.feitos, textos=textos, **args),
+                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}])
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
-        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos), "provedor": "regras (IA indisponível)"}
+        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
     return {**guia.interpretar(r, elementos), "provedor": provedor()}

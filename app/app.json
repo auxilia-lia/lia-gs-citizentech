@@ -11,7 +11,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FF6D00",
+        "backgroundColor": "#1B3A9E",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -47,7 +47,7 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 180,
-          "backgroundColor": "#FF6D00",
+          "backgroundColor": "#1B3A9E",
           "resizeMode": "contain"
         }
       ],
@@ -58,7 +58,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "./plugins/gradle-memoria"
     ]
   }
 }
