@@ -6,7 +6,7 @@ import logging
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -92,14 +92,16 @@ async def conversa(c: Conversa):
     analise = antigolpe.analisar(msgs[-1]["texto"])
     contexto = c.contexto.model_dump()
     p = provedor()
-    try:
-        if p in ("gemini", "claude"):
+    if p in ("gemini", "claude"):
+        try:
             r = await gerar(montar_sistema(c.canal, contexto, analise), msgs)
-        else:
+        except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+            # Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo).
+            log.exception("IA indisponível; respondendo pelas regras")
             r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
-    except (httpx.HTTPError, KeyError, IndexError) as e:
-        log.exception("falha na IA")
-        raise HTTPException(502, f"Falha ao falar com a IA: {e}") from e
+            p = "regras (IA indisponível)"
+    else:
+        r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
 
     fala = str(r.get("fala") or "").strip() or "Desculpa, não entendi. Pode repetir?"
     acao = validar_acao(r.get("acao"), c.canal)
@@ -118,9 +120,10 @@ async def entende(f: Foto):
     try:
         r = await gerar(PROMPT_ENTENDE, [{"papel": "pessoa", "texto": "Me explica esse papel."}],
                         imagem={"base64": f.imagem_base64, "mime": f.mime})
-    except (httpx.HTTPError, KeyError, IndexError) as e:
-        log.exception("falha na IA")
-        raise HTTPException(502, f"Falha ao falar com a IA: {e}") from e
+    except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+        log.exception("IA indisponível para a foto")
+        return {"fala": "Agora não consegui ler o papel, a internet está ruim. Tenta de novo daqui a pouco.",
+                "golpe": False, "motivo": "", "provedor": "regras (IA indisponível)"}
     return {"fala": str(r.get("fala") or "Não consegui ler o papel. Tenta tirar a foto de novo, com mais luz."),
             "golpe": bool(r.get("golpe")), "motivo": str(r.get("motivo") or ""), "provedor": p}
 
@@ -146,7 +149,7 @@ async def guia_proximo(t: TelaGuia):
     try:
         r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos, t.feitos),
                         [{"papel": "pessoa", "texto": "Qual é o próximo toque?"}])
-    except (httpx.HTTPError, KeyError, IndexError) as e:
-        log.exception("falha na IA")
-        raise HTTPException(502, f"Falha ao falar com a IA: {e}") from e
+    except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+        log.exception("IA indisponível para o Guia; usando as regras")
+        return {**guia.proximo_teste(t.objetivo, elementos, t.feitos), "provedor": "regras (IA indisponível)"}
     return {**guia.interpretar(r, elementos), "provedor": provedor()}

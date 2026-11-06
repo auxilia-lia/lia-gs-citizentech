@@ -32,7 +32,25 @@ async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None)
 
 
 async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None) -> str:
-    modelo = os.getenv("GEMINI_MODELO", "gemini-2.5-flash")
+    """Tenta os modelos em fila: o principal e depois os reservas (GEMINI_MODELO_RESERVA, separados por vírgula).
+    Passa para o próximo quando o modelo está sobrecarregado (429/500/503) ou demora demais."""
+    principal = os.getenv("GEMINI_MODELO", "gemini-flash-lite-latest")
+    reservas = os.getenv("GEMINI_MODELO_RESERVA", "gemini-3.1-flash-lite,gemini-3.5-flash")
+    fila = [principal] + [m.strip() for m in reservas.split(",") if m.strip() and m.strip() != principal]
+    ultimo_erro: Exception | None = None
+    for modelo in fila:
+        try:
+            return await _gemini_modelo(modelo, sistema, mensagens, imagem, timeout=25)
+        except httpx.TimeoutException as e:
+            ultimo_erro = e
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code not in (429, 500, 503):
+                raise
+            ultimo_erro = e
+    raise ultimo_erro or RuntimeError("nenhum modelo disponível")
+
+
+async def _gemini_modelo(modelo: str, sistema: str, mensagens: list[dict], imagem: dict | None, timeout: int) -> str:
     conteudos = []
     for i, m in enumerate(mensagens):
         partes = [{"text": m["texto"]}]
@@ -45,7 +63,7 @@ async def _gemini(sistema: str, mensagens: list[dict], imagem: dict | None) -> s
         "generationConfig": {"maxOutputTokens": 600, "temperature": 0.5, "responseMimeType": "application/json"},
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
-    async with httpx.AsyncClient(timeout=40) as c:
+    async with httpx.AsyncClient(timeout=timeout) as c:
         r = await c.post(url, json=corpo, headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]})
         r.raise_for_status()
     return "".join(p.get("text", "") for p in r.json()["candidates"][0]["content"]["parts"])
@@ -61,7 +79,7 @@ async def _claude(sistema: str, mensagens: list[dict], imagem: dict | None) -> s
         msgs.append({"role": "user" if m["papel"] == "pessoa" else "assistant", "content": conteudo})
     corpo = {"model": modelo, "max_tokens": 600, "system": sistema, "messages": msgs}
     headers = {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01"}
-    async with httpx.AsyncClient(timeout=40) as c:
+    async with httpx.AsyncClient(timeout=90) as c:
         r = await c.post("https://api.anthropic.com/v1/messages", json=corpo, headers=headers)
         r.raise_for_status()
     return "".join(b.get("text", "") for b in r.json()["content"] if b.get("type") == "text")

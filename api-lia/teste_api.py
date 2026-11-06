@@ -126,3 +126,19 @@ def test_guia_interpretar_valida_resposta_da_ia():
 def test_conversa_pede_guiar_app():
     r = falar("como mando foto no whatsapp?")
     assert r["acao"]["tipo"] == "guiar_app" and r["acao"]["app"] == "whatsapp"
+
+
+def test_ia_fora_do_ar_cai_nas_regras(monkeypatch):
+    import main
+
+    async def falha(*a, **k):
+        raise main.httpx.ConnectError("sem rede")
+
+    monkeypatch.setattr(main, "provedor", lambda: "gemini")
+    monkeypatch.setattr(main, "gerar", falha)
+    r = falar("recebi isso: seu INSS foi bloqueado, pague a taxa no pix em inss-gov.com")
+    assert r["golpe"] and "golpe" in r["fala"].lower() and r["provedor"].startswith("regras")
+    g = c.post("/guia/proximo", json={"objetivo": "marcar consulta", "elementos": ["Saúde"], "feitos": ["Entrar com conta de demonstração"]}).json()
+    assert g["alvo"] == "Saúde"
+    f = c.post("/entende", json={"imagem_base64": "A" * 200}).json()
+    assert "tenta de novo" in f["fala"].lower()
