@@ -46,6 +46,7 @@ class LiaGuiaService : AccessibilityService() {
     // "já consegui", "pronto", "deu certo"… (sem acento)
     private val CONSEGUI = Regex("\\b(ja consegui|consegui|deu certo|ja fiz|ja foi|pronto|ja liguei|ja desliguei|ja abri|obrigad[oa])\\b")
     private val NAO_CONSEGUI = Regex("\\bnao (consegui|deu|foi|fiz)")
+    private val PROTEGER = Regex("\\b(nao (entra|entre|olha|olhe|leia|le)|bloqueia|bloquear|bloqueie|protege|proteger|proteja)\\b.*\\b(nesse|neste|esse|este|aqui|app|aplicativo)\\b")
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
@@ -212,6 +213,18 @@ class LiaGuiaService : AccessibilityService() {
     botao?.ouvindo = false
     when {
       texto.isBlank() -> falar("Não ouvi. Toque no microfone e fale de novo.")
+      PROTEGER.containsMatchIn(Matcher.normalize(texto)) -> {
+        val pkg = raizAtual()?.packageName?.toString()
+        if (pkg == null) return falar("Abra o app que você quer proteger e me peça de novo.")
+        Protecao.definir(this, pkg, true)
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "protegeu" to pkg))
+        falar("Pronto. Não vou mais olhar o ${Protecao.nome(this, pkg)}.")
+        emProtegido = pkg // já falou o aviso
+        alvoAtual = null
+        if (modoIA) { limparInstrucaoIA(); telaEnviada++; ultimaAssinatura = "protegido|$pkg" }
+        overlay?.mostrarMensagem("O ${Protecao.nome(this, pkg)} agora é protegido.")
+        return
+      }
       PARAR.containsMatchIn(Matcher.normalize(texto)) -> {
         // Parar não depende da internet nem do app: resolve aqui mesmo e volta para a Lia.
         LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to true))
@@ -299,7 +312,7 @@ class LiaGuiaService : AccessibilityService() {
 
   // A pessoa travou: repete com calma e mostra o anel. Na 2ª vez, no modo IA, pede outra ideia à IA.
   private fun lembrete() {
-    if (!ativo) return
+    if (!ativo || emProtegido != null) return
     lembretes++
     revelado = true
     val instrucao = when {
@@ -321,6 +334,7 @@ class LiaGuiaService : AccessibilityService() {
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     if (event == null || !ativo) return
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
+    if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
     if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
     when (event.eventType) {
       AccessibilityEvent.TYPE_VIEW_CLICKED -> aoClicar(event)
@@ -396,7 +410,25 @@ class LiaGuiaService : AccessibilityService() {
   private fun avaliarTela() {
     if (!ativo) return
     val root = raizAtual() ?: return
+    val pkg = root.packageName?.toString() ?: ""
+    if (Protecao.bloqueado(this, pkg)) return protegido(pkg)
+    if (emProtegido != null) { emProtegido = null; ultimaAssinatura = "" }
     if (modoIA) avaliarTelaIA(root) else avaliarPassos(root)
+  }
+
+  // App protegido aberto: a Lia não lê nada desta tela (nada sai do celular) e volta a ajudar quando a pessoa sair dele.
+  private var emProtegido: String? = null
+  private fun protegido(pkg: String) {
+    if (emProtegido == pkg) return
+    emProtegido = pkg
+    alvoAtual = null
+    handler.removeCallbacks(lembrar)
+    handler.removeCallbacks(revelar)
+    if (modoIA) { limparInstrucaoIA(); telaEnviada++; ultimaAssinatura = "protegido|$pkg" }
+    val msg = "O ${Protecao.nome(this, pkg)} é um app protegido. Por segurança, eu não olho esta tela. Se precisar, peça ajuda a alguém de confiança."
+    overlay?.mostrarMensagem(msg)
+    falar(msg)
+    LiaGuiaBridge.emit("onStep", mapOf("type" to "protected", "app" to pkg))
   }
 
   private fun avaliarPassos(root: AccessibilityNodeInfo) {
@@ -493,7 +525,7 @@ class LiaGuiaService : AccessibilityService() {
     limparInstrucaoIA()
     telaEnviada++
     rotulosEnviados = ctx.elementos
-    val erro = ultimoErro
+    val erro = ultimoErro?.let { Protecao.limpar(it) }
     ultimoErro = null
     val cumpriu = seguiu
     seguiu = null
@@ -552,7 +584,13 @@ class LiaGuiaService : AccessibilityService() {
 
   private val ANUNCIO = Regex("^(patrocinad[oa]|an[uú]ncio|sponsored|ad|promovid[oa]|publicidade)\\b", RegexOption.IGNORE_CASE)
 
-  private fun nomeDe(n: AccessibilityNodeInfo) = (n.text ?: n.contentDescription)?.toString()?.trim()?.replace('\n', ' ')?.take(60)
+  // Nome do item como vai para a IA: campo de senha nunca; campo de texto vai pela dica, não pelo que a pessoa digitou;
+  // números longos, valores e e-mails apagados.
+  private fun nomeDe(n: AccessibilityNodeInfo): String? {
+    if (n.isPassword) return null
+    if (n.isEditable) return (if (Build.VERSION.SDK_INT >= 26) n.hintText?.toString() else null)?.trim()?.take(60) ?: "Campo de texto"
+    return (n.text ?: n.contentDescription)?.toString()?.trim()?.replace('\n', ' ')?.let { Protecao.limpar(it) }?.take(60)
+  }
 
   // Textos dentro de um nó (até um limite), para dar contexto ao botão.
   private fun textosDe(n: AccessibilityNodeInfo, out: MutableList<String>, prof: Int = 0) {
@@ -620,6 +658,7 @@ class LiaGuiaService : AccessibilityService() {
 
   fun lerTela(): List<Map<String, Any?>> {
     val root = raizAtual() ?: rootInActiveWindow ?: return emptyList()
+    if (Protecao.bloqueado(this, root.packageName?.toString() ?: "")) return emptyList()
     val out = mutableListOf<Map<String, Any?>>()
     fun coletar(n: AccessibilityNodeInfo, prof: Int) {
       if (prof > MAX_PROFUNDIDADE || out.size >= 400) return

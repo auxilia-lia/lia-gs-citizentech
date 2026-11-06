@@ -41,6 +41,15 @@ class LiaGuiaModule : Module() {
       }
     }
 
+    // Apps do celular com o estado de proteção (nos protegidos a Lia não olha a tela).
+    Function("apps") {
+      Protecao.apps(context)
+    }
+
+    Function("setProtected") { pkg: String, proteger: Boolean ->
+      Protecao.definir(context, pkg, proteger)
+    }
+
     Function("isEnabled") {
       LiaGuiaService.instance != null
     }

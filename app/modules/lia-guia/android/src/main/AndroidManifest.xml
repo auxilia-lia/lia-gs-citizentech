@@ -3,6 +3,11 @@
     <package android:name="com.whatsapp" />
     <package android:name="com.whatsapp.w4b" />
     <package android:name="com.android.vending" />
+    <!-- lista dos apps do celular, para a pessoa escolher quais ficam protegidos -->
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
   </queries>
   <application>
     <service

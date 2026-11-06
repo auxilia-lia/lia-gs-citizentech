@@ -10,6 +10,7 @@ import { Botao, Campo, Cartao, IconeCirculo, NomeIcone, Secao, Texto, Titulo } f
 import { Aparecer, BarraAnimada, Flutuar } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 import type { Demo } from '../../App';
+import AppsProtegidos from './AppsProtegidos';
 
 // Nome e ícone de cada coisa que a pessoa pode aprender a fazer sozinha.
 const NOMES: Record<string, { nome: string; icone: NomeIcone }> = {
@@ -186,7 +187,10 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
         <Permissao icone="mic" nome="Ouvir sua voz" ok={micro} explica="Deixa a Lia ouvir o que você fala."
           acao={async () => { await ExpoSpeechRecognitionModule.requestPermissionsAsync(); atualizar(); }} textoAcao="Permitir microfone" />
       </Cartao>
-      <Texto suave estilo={{ marginTop: espaco.sm, fontSize: tamanho.mini }}>A Lia nunca pede senha. CPF, telefone e outros dados pessoais são escondidos antes de ir para a inteligência artificial.</Texto>
+      <Texto suave estilo={{ marginTop: espaco.sm, fontSize: tamanho.mini }}>A Lia nunca pede senha. Senhas, CPF, telefone, cartão, valores e nomes são escondidos antes de ir para a inteligência artificial.</Texto>
+
+      <Secao>Apps protegidos</Secao>
+      <AppsProtegidos />
 
       <Secao>Ajuda</Secao>
       <Botao texto="Ver a apresentação de novo" icone="play-circle" tipo="claro" onPress={reverBoasVindas} />

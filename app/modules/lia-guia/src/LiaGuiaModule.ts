@@ -5,7 +5,11 @@ export type StepEvent =
   | { type: 'not_found'; index: number; total: number; step: string; app?: string; visible?: string[] }
   | { type: 'done_step'; index: number; step?: string }
   | { type: 'wrong'; step: string; tocado: string }
-  | { type: 'finished'; total: number };
+  | { type: 'finished'; total: number }
+  /** A pessoa abriu um app protegido: a Lia não lê a tela dele. */
+  | { type: 'protected'; app: string };
+
+export type AppDoCelular = { pkg: string; nome: string; auto: boolean; protegido: boolean };
 
 export type TelaEvent = {
   app: string;
@@ -40,11 +44,14 @@ type LiaGuiaEvents = {
   onStatus: (e: { enabled: boolean }) => void;
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
-  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean }) => void;
+  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string }) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   isEnabled(): boolean;
+  /** Apps do celular e se cada um é protegido (neles a Lia não olha a tela). */
+  apps(): AppDoCelular[];
+  setProtected(pkg: string, proteger: boolean): void;
   /** Margens das barras do sistema, em dp. */
   insets(): { top: number; bottom: number };
   openAccessibilitySettings(): void;

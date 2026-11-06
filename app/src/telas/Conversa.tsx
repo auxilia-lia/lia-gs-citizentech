@@ -79,6 +79,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   useEffect(() => {
     const s = LiaGuia.addListener('onVoz', async (e) => {
       const guiando = objetivoAtual() ?? (guiaAtivo.current ? `fazer: ${guiaAtivo.current}` : null);
+      if (e.protegeu) return; // "não olha esse app": o Guia já resolveu sozinho
       if (e.conseguiu) {
         // "Já consegui": o Guia conclui e conta para a autonomia (o evento de fim chega em seguida).
         setMensagens((m) => [...m, { papel: 'pessoa', texto: e.texto }]);

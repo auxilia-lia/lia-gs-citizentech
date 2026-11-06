@@ -56,6 +56,9 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   Use "playstore" para instalar, baixar ou atualizar um app (ponha o nome do app no objetivo).
   Para usar QUALQUER outro app (Facebook, Instagram, banco, e-mail...), use "celular" e ponha o nome do app no objetivo
   (ex.: "entrar no Facebook"). Sempre que disser que vai mostrar na tela, mande guiar_app.
+  Apps de banco, Pix, carteira digital e senhas são PROTEGIDOS: o Guia não olha a tela deles. Se ela pedir ajuda dentro
+  de um deles, não mande guiar_app: explique com calma que, por segurança, a Lia não olha esses apps, e sugira alguém de
+  confiança da família ou a agência.
 - {"tipo": "avisar_familiar", "contato": "como a pessoa chamou (nome ou parentesco)", "mensagem": "texto curto da mensagem"}:
   manda uma mensagem no WhatsApp para alguém da família. O app pergunta antes de mandar.
 - {"tipo": "tirar_foto"}: quando a pessoa quer que você leia ou explique um papel, carta, boleto ou exame."""
