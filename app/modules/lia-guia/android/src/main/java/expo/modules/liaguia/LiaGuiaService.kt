@@ -574,7 +574,7 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   // "Instalar — Pier: Seguro Auto [anúncio]" → "Instalar"
-  private fun curto(rotulo: String) = rotulo.substringBefore(" — ").replace(" [anúncio]", "").trim()
+  private fun curto(rotulo: String) = rotulo.substringBefore(" — ").replace(Regex("\\s*\\[[^\\]]*\\]"), "").trim()
 
   private fun emitirTela(ctx: Contexto, motivo: String) {
     limparInstrucaoIA()
@@ -679,7 +679,7 @@ class LiaGuiaService : AccessibilityService() {
             // Só o que está de fato na tela e uma vez por botão (vários textos podem levar ao mesmo botão).
             if (!b.isEmpty && Rect.intersects(b, telaToda) && vistos.add(b.flattenToString())) {
               val nome = nomeDe(c)?.takeIf { it.isNotEmpty() } ?: label
-              elementos.add(nome + contextoDe(c, nome))
+              elementos.add(nome + estadoDe(c) + contextoDe(c, nome))
               alvos.add(b)
             }
           }
@@ -694,6 +694,29 @@ class LiaGuiaService : AccessibilityService() {
       else -> "app"
     }
     return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos)
+  }
+
+  // " [ligado]" / " [desligado]" / " [selecionado]" / " [indisponível]": o estado do botão, de qualquer app.
+  // Interruptores (Wi-Fi, Bluetooth, opções das Configurações) costumam ter o estado num filho "marcável".
+  private fun estadoDe(c: AccessibilityNodeInfo): String {
+    fun marcavel(n: AccessibilityNodeInfo, prof: Int): AccessibilityNodeInfo? {
+      if (n.isCheckable) return n
+      if (prof >= 3) return null
+      for (i in 0 until n.childCount) n.getChild(i)?.let { f -> marcavel(f, prof + 1)?.let { return it } }
+      return null
+    }
+    marcavel(c, 0)?.let { return if (it.isChecked) " [ligado]" else " [desligado]" }
+    val desc = listOfNotNull(
+      if (Build.VERSION.SDK_INT >= 30) c.stateDescription?.toString() else null,
+      c.contentDescription?.toString(),
+    ).joinToString(" ").lowercase()
+    when {
+      Regex("\\b(desligad[oa]|desativad[oa]|off)\\b").containsMatchIn(desc) -> return " [desligado]"
+      Regex("\\b(ligad[oa]|ativad[oa]|on)\\b").containsMatchIn(desc) -> return " [ligado]"
+    }
+    if (c.isSelected) return " [selecionado]"
+    if (!c.isEnabled) return " [indisponível]"
+    return ""
   }
 
   // " — Pier: Seguro Auto [anúncio]": o que está ao redor do botão, para a IA saber de qual item ele é.

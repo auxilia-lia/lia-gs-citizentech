@@ -263,3 +263,19 @@ def test_guiar_app_de_qualquer_app_comeca_da_tela_inicial():
     from main import validar_acao
     assert validar_acao({"tipo": "guiar_app", "app": "facebook", "objetivo": "entrar no Facebook"}, "app")["app"] == "celular"
     assert validar_acao({"tipo": "guiar_app", "app": "facebook"}, "app") is None
+
+
+def test_guia5_sabe_se_ja_esta_ligado():
+    import guia
+    # já está no estado pedido: conclui sem mandar tocar
+    r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "elementos": ["Wi-Fi [ligado]", "Bluetooth [ligado]"]}).json()
+    assert r["concluido"] and "já está ligado" in r["fala"]
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Wi-Fi [desligado]"]}).json()
+    assert r["concluido"]
+    # ainda não está: manda tocar no botão certo
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Bluetooth [ligado]", "Wi-Fi [ligado]"]}).json()
+    assert r["tipo"] == "tocar" and r["indice"] == 1 and r["fala"].endswith("Toque em Wi-Fi.")
+    # vale para a resposta da IA em qualquer app (ex.: interruptor das Configurações)
+    els = ["Modo escuro [ligado] — Tela"]
+    assert guia.interpretar({"tipo": "tocar", "indice": 0}, els, "ativar o modo escuro")["concluido"]
+    assert guia.curto("Bluetooth [ligado] — Conexões [anúncio]") == "Bluetooth"

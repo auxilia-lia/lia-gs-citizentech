@@ -48,8 +48,11 @@ Dicas do Android que você conhece:
 - Se a pessoa precisa escrever, peça para tocar no campo e usar o microfone do teclado para falar.
 A pessoa quer: "{objetivo}".
 
-Como ler a lista de botões: "nome — o que está ao redor" (o contexto diz de qual item o botão é).
+Como ler a lista de botões: "nome [estado] — o que está ao redor" (o contexto diz de qual item o botão é).
 "[anúncio]" = propaganda: NUNCA escolha um botão de anúncio.
+"[ligado]"/"[desligado]" = estado atual do interruptor; "[selecionado]" = opção já escolhida; "[indisponível]" = não dá
+para tocar agora. Se ela quer ligar algo que já está [ligado] (ou desligar algo [desligado]), o objetivo já está
+cumprido: concluido=true e diga que já estava assim.
 
 Celular Samsung: puxar do alto pelo meio ou pela esquerda abre as NOTIFICAÇÕES; puxar do alto pelo lado DIREITO abre o
 painel rápido (Wi-Fi, Bluetooth, lanterna). Se ela está no painel e os botões rápidos não aparecem, ela abriu as notificações:
@@ -105,7 +108,33 @@ ANUNCIO = "[anúncio]"
 
 def curto(elemento: str) -> str:
     """'Instalar — Pier: Seguro Auto [anúncio]' -> 'Instalar' (o nome que a pessoa vê no botão)."""
-    return elemento.split(" — ")[0].replace(ANUNCIO, "").strip()
+    return re.sub(r"\s*\[[^\]]*\]", "", elemento.split(" — ")[0]).strip()
+
+
+def estado(elemento: str) -> str | None:
+    """'Bluetooth [ligado] — ...' -> 'ligado'."""
+    m = re.search(r"\[(ligado|desligado|selecionado|indisponível)\]", elemento.split(" — ")[0])
+    return m.group(1) if m else None
+
+
+def quer_estado(objetivo: str) -> str | None:
+    """'desligar o wifi' -> 'desligado'; 'ligar a lanterna' -> 'ligado'."""
+    o = normalizar(objetivo)
+    if re.search(r"\b(desligar|desliga|desligue|desativar|desativa|desative|apagar a|apaga a|tirar o|tirar a)\b", o):
+        return "desligado"
+    if re.search(r"\b(ligar|liga|ligue|ativar|ativa|ative|acender|acende|acenda)\b", o):
+        return "ligado"
+    return None
+
+
+def ja_esta(objetivo: str, elemento: str) -> dict | None:
+    """Ela quer ligar/desligar este botão e ele já está assim: objetivo cumprido."""
+    q, e = quer_estado(objetivo), estado(elemento)
+    nome = curto(elemento)
+    junto = lambda t: re.sub(r"[^a-z0-9]", "", normalizar(t))  # noqa: E731  ("Wi-Fi" e "wifi" viram "wifi")
+    if q and e == q and len(junto(nome)) > 1 and (palavras(nome) & palavras(objetivo) or junto(nome) in junto(objetivo)):
+        return resposta("esperar", f"O {nome} já está {q}. Não precisa fazer nada!", concluido=True)
+    return None
 
 
 def contexto(elemento: str) -> str:
@@ -233,7 +262,7 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
                   rolavel: bool = False, motivo: str = "mudou", errou: str | None = None, seguiu: str | None = None) -> dict:
     """Modo regras (sem IA): fluxos do gov.br, itens do painel rápido e sobreposição de palavras."""
     obj = normalizar(objetivo)
-    feitos_n = {normalizar(f) for f in feitos}
+    feitos_n = {normalizar(curto(f)) for f in feitos}
     if motivo == "errou" and not seguiu:
         return resposta("voltar", f"Você entrou em outro lugar, sem problema. {FALAS_GESTO['voltar']}")
 
@@ -254,7 +283,9 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
     item = item_do_painel(objetivo)
     if item:
         i = achar_i(elementos, item)
-        if i is not None and normalizar(curto(elementos[i])) in feitos_n:
+        if i is not None and ja_esta(objetivo, elementos[i]):
+            return ja_esta(objetivo, elementos[i])
+        if i is not None and estado(elementos[i]) is None and normalizar(curto(elementos[i])) in feitos_n:
             return resposta("esperar", f"Pronto! Você tocou em {item}.", concluido=True)
         if i is not None:
             return tocar(elementos, i, "É aqui que liga e desliga.")
@@ -307,6 +338,9 @@ def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[
             alvo = elementos[i]
             if FINAIS.search(normalizar(curto(alvo))):
                 return resposta("esperar", f"O próximo passo é {curto(alvo)}. Essa decisão é sua: se tiver certeza, toque você.")
+            pronto = ja_esta(objetivo, alvo)
+            if pronto:
+                return pronto
             porque = confere(objetivo, elementos, textos or [], i)
             if porque:
                 return recusado(objetivo, elementos, porque, rolavel)
@@ -343,7 +377,7 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
                    textos: list[str] | None = None) -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
-    feitos_n = {normalizar(f) for f in feitos}
+    feitos_n = {normalizar(curto(f)) for f in feitos}
     nomes = {}
     for i, e in enumerate(elementos):
         if not anuncio(e):
@@ -359,7 +393,9 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     item = item_do_painel(objetivo)
     if item:
         i = achar_i(elementos, item)
-        if i is not None and normalizar(curto(elementos[i])) in feitos_n:
+        if i is not None and ja_esta(objetivo, elementos[i]):
+            return ja_esta(objetivo, elementos[i])
+        if i is not None and estado(elementos[i]) is None and normalizar(curto(elementos[i])) in feitos_n:
             return resposta("esperar", f"Pronto! Você mexeu no {item}.", concluido=True)
         if i is not None:
             return tocar(elementos, i)
