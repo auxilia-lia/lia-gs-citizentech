@@ -51,6 +51,12 @@ class LiaGuiaService : AccessibilityService() {
   private var passosIA = 0
 
   private val avaliar = Runnable { avaliarTela() }
+
+  // Tudo que mexe na camada (criar, desenhar, remover) precisa rodar na thread principal do Android.
+  // As funções públicas são chamadas pelo módulo a partir da thread do JavaScript, então elas repassam.
+  private fun naPrincipal(bloco: () -> Unit) {
+    if (Looper.myLooper() == Looper.getMainLooper()) bloco() else handler.post(bloco)
+  }
   private val revelar = Runnable { revelado = true; avaliarTela() }
 
   override fun onServiceConnected() {
@@ -76,9 +82,14 @@ class LiaGuiaService : AccessibilityService() {
   // ---------- controle (chamado pelo módulo) ----------
 
   fun iniciarGuia(lista: List<String>, nivelPedido: Int = 0): Boolean {
-    modoIA = false
     val limpos = lista.map { it.trim() }.filter { it.isNotEmpty() }
     if (limpos.isEmpty()) return false
+    naPrincipal { iniciarGuiaNaPrincipal(limpos, nivelPedido) }
+    return true
+  }
+
+  private fun iniciarGuiaNaPrincipal(limpos: List<String>, nivelPedido: Int) {
+    modoIA = false
     passos = limpos
     indice = 0
     falado = -1
@@ -88,10 +99,14 @@ class LiaGuiaService : AccessibilityService() {
     reiniciarRevelacao()
     mostrarOverlay()
     agendar(800)
-    return true
   }
 
   fun iniciarGuiaIA(nivelPedido: Int = 0): Boolean {
+    naPrincipal { iniciarGuiaIANaPrincipal(nivelPedido) }
+    return true
+  }
+
+  private fun iniciarGuiaIANaPrincipal(nivelPedido: Int) {
     modoIA = true
     passos = emptyList()
     indice = 0
@@ -106,12 +121,11 @@ class LiaGuiaService : AccessibilityService() {
     mostrarOverlay()
     overlay?.show(null, "Deixa eu ver a tela…")
     agendar(900)
-    return true
   }
 
   // A IA escolheu: aponta para esse elemento e fala a instrução.
-  fun apontarIA(label: String, fala: String) {
-    if (!modoIA) return
+  fun apontarIA(label: String, fala: String) = naPrincipal {
+    if (!modoIA) return@naPrincipal
     alvoIA = label
     falaIA = fala
     falado = -1
@@ -120,8 +134,8 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   // A IA disse que o objetivo foi alcançado (ou não sabe seguir).
-  fun concluirIA(fala: String) {
-    if (!modoIA) return
+  fun concluirIA(fala: String) = naPrincipal {
+    if (!modoIA) return@naPrincipal
     if (fala.isNotBlank()) falar(fala)
     overlay?.show(null, fala)
     LiaGuiaBridge.emit("onStep", mapOf("type" to "finished", "total" to passosIA))
@@ -136,7 +150,7 @@ class LiaGuiaService : AccessibilityService() {
     revelado = nivel == 0
   }
 
-  fun pararGuia() {
+  fun pararGuia() = naPrincipal {
     modoIA = false
     alvoIA = null
     handler.removeCallbacks(avaliar)
