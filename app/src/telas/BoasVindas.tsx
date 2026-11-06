@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMargens } from '../ui/margens';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import LiaGuia from '../../modules/lia-guia';
 import { NomeIcone } from '../ui/componentes';
@@ -22,7 +22,7 @@ const PASSOS: Passo[] = [
 export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) => void }) {
   const [i, setI] = useState(0);
   const [feito, setFeito] = useState(false);
-  const ins = useSafeAreaInsets();
+  const ins = useMargens();
   const passo = PASSOS[i];
   const ultimo = i === PASSOS.length - 1;
 

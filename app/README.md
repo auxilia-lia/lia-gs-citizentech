@@ -17,22 +17,18 @@ Para outro endereço, crie `.env` aqui com `EXPO_PUBLIC_LIA_API=http://IP:8000`.
 
 O APK aceita HTTP na rede local (`usesCleartextTraffic`), porque a API roda no notebook sem HTTPS.
 
-## Telas
-Barra de abas embaixo, sempre com ícone e nome:
-- **Início:** saudação, botão grande "Fale comigo" e atalhos (marcar consulta, ver o INSS, ler um papel, avisar a família, me ensina no celular).
-- **Conversar:** voz (pt-BR) ou texto. A Lia guia no gov.br simulado (#6) e em qualquer app (#7), lê papéis pela câmera (#5), avisa a família no WhatsApp com confirmação (#8) e alerta golpes.
-- **Família:** quem a Lia pode avisar, com validação do nome e do WhatsApp.
-- **Você:** o que a pessoa já faz sozinha (#10), permissões e "Ajustes avançados" (servidor, demonstrações de ligação e de teste do Guia).
+## Abas
+- **Conversar:** voz (pt-BR) ou texto. A Lia pode:
+  - **Guiar** no gov.br simulado (consulta, INSS, multas): abre o site e o Guia aponta onde tocar (#6).
+  - **Guiar em qualquer app** (#7): o Guia manda os textos da tela, pseudonimizados, para a IA, que escolhe o próximo toque. Exemplos: "como mando foto no WhatsApp?" ou "quero aumentar a letra".
+  - **Ler um papel** pela câmera e avisar se parece golpe (#5).
+  - **Avisar um familiar** no WhatsApp, com confirmação por voz ou botão (#8).
+  - Mostrar alerta de golpe quando a mensagem tiver link ou pedido suspeito (#5).
+- **Ligação:** simulação do canal por ligação comum, só voz e mãos livres (#11).
+- **Minha Lia:** família (nome, parentesco, WhatsApp) e o progresso de autonomia por serviço (#10).
+- **Teste do Guia:** teste de 1 dia do Guia, com os três níveis de autonomia (veja `TESTE-GUIA.md`).
 
-Na primeira vez, 4 telas faladas explicam a Lia e pedem as permissões (microfone e Guia), dizendo o porquê.
-
-## Guia na tela (2.0)
-- Mostra **tocar** (anel âmbar) e **gestos animados**: deslizar do topo (painel rápido), rolar, voltar e ir para a tela inicial.
-- Lê a janela de cima (inclusive o painel rápido), percebe **toque no lugar errado** e avisa na hora.
-- Se a pessoa travar, repete com calma depois de 12 s; na segunda vez, pede outro caminho para a IA.
-
-## Design
-Azul royal profundo (`#1B3A9E`) como cor principal, âmbar para destaque, textos grandes (corpo de 20) e área de toque mínima de 56. As cores e os tamanhos ficam em `src/ui/tema.ts`.
+Na primeira vez, o app mostra 4 telas faladas (o que a Lia faz e a permissão de acessibilidade).
 
 ## Privacidade (#9)
 - `src/lia/pseudonimizar.ts`: CPF, telefone, e-mail, cartão e CEP viram etiquetas (`[CPF_1]`) antes de sair do celular. A resposta volta com os dados reais.

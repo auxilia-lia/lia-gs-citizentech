@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useMargens } from './src/ui/margens';
 import Inicio from './src/telas/Inicio';
 import Conversa, { Pedido } from './src/telas/Conversa';
 import Familia from './src/telas/Familia';
@@ -23,6 +23,7 @@ export default function App() {
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [pronto, setPronto] = useState(false);
   const [primeiraVez, setPrimeiraVez] = useState(false);
+  const margens = useMargens();
 
   useEffect(() => {
     Promise.all([carregarEnderecoSalvo(), ler('lia:boas-vindas', false)]).then(([, viu]) => {
@@ -41,21 +42,21 @@ export default function App() {
 
   if (primeiraVez) {
     return (
-      <SafeAreaProvider>
+      <>
         <StatusBar style="light" />
         <BoasVindas aoTerminar={(irPara) => {
           gravar('lia:boas-vindas', true);
           setPrimeiraVez(false);
           if (irPara) setAba(irPara);
         }} />
-      </SafeAreaProvider>
+      </>
     );
   }
 
   return (
-    <SafeAreaProvider>
+    <>
       <StatusBar style="dark" />
-      <SafeAreaView style={st.app} edges={['top']}>
+      <View style={[st.app, { paddingTop: margens.top }]}>
         {demo ? (
           <View style={{ flex: 1 }}>
             <Cabecalho titulo={demo === 'ligacao' ? 'Lia por ligação' : 'Teste do Guia'} voltar={() => setDemo(null)} />
@@ -73,8 +74,8 @@ export default function App() {
             <BarraAbas aba={aba} mudar={setAba} />
           </View>
         )}
-      </SafeAreaView>
-    </SafeAreaProvider>
+      </View>
+    </>
   );
 }
 

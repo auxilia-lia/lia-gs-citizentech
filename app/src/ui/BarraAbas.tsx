@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMargens } from './margens';
 import { cores, raio, sombra } from './tema';
 import { NomeIcone } from './componentes';
 
@@ -15,7 +15,7 @@ const ABAS: { id: Aba; texto: string; icone: NomeIcone; iconeAtivo: NomeIcone }[
 
 // Barra flutuante embaixo, sempre com ícone + nome (nunca só ícone).
 export default function BarraAbas({ aba, mudar }: { aba: Aba; mudar: (a: Aba) => void }) {
-  const ins = useSafeAreaInsets();
+  const ins = useMargens();
   return (
     <View style={[st.fora, { paddingBottom: Math.max(ins.bottom, 10) }]}>
       <View style={st.barra}>

@@ -39,6 +39,8 @@ type LiaGuiaEvents = {
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   isEnabled(): boolean;
+  /** Margens das barras do sistema, em dp. */
+  insets(): { top: number; bottom: number };
   openAccessibilitySettings(): void;
   /** "settings", "home" (tela inicial) ou o pacote do app */
   openApp(pkg: string): boolean;
