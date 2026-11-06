@@ -3,6 +3,7 @@ A chave da IA fica aqui no servidor, nunca dentro do app (RNF05).
 Rodar: uvicorn main:app --host 0.0.0.0 --port 8000
 """
 import logging
+import time
 
 import httpx
 from dotenv import load_dotenv
@@ -148,6 +149,15 @@ class TelaGuia(BaseModel):
     feitos: list[str] = Field(default=[], max_length=30)
 
 
+# Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
+_CACHE_GUIA: dict[tuple, tuple[float, dict]] = {}
+CACHE_GUIA_S = 180
+
+
+def _chave_guia(t: "TelaGuia", elementos: list[str]) -> tuple:
+    return (t.objetivo, t.app, t.tela, tuple(elementos), tuple(t.feitos), t.motivo, t.seguiu)
+
+
 @app.post("/guia/proximo")
 async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
@@ -159,10 +169,21 @@ async def guia_proximo(t: TelaGuia):
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
+    # "parado" e "errou" pedem um caminho novo: não usam a resposta guardada.
+    chave = _chave_guia(t, elementos) if t.motivo in ("mudou", "inicio") else None
+    agora = time.monotonic()
+    if chave and chave in _CACHE_GUIA and agora - _CACHE_GUIA[chave][0] < CACHE_GUIA_S:
+        return {**_CACHE_GUIA[chave][1], "provedor": f"{provedor()} (guardado)"}
+    lista = elementos[:45]
     try:
-        r = await gerar(guia.montar_prompt(t.objetivo, t.app, elementos[:45], t.feitos, textos=textos[:20], **args),
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args),
                         [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
-    return {**guia.interpretar(r, elementos), "provedor": provedor()}
+    passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel)
+    if chave:
+        if len(_CACHE_GUIA) > 300:
+            _CACHE_GUIA.clear()
+        _CACHE_GUIA[chave] = (agora, passo)
+    return {**passo, "provedor": provedor()}

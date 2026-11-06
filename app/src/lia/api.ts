@@ -105,6 +105,8 @@ export const urlGov = (caminho: string) => `${base}${caminho}`;
 export type PassoGuia = {
   tipo: 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
   alvo: string | null;
+  /** Número do botão na lista "elementos" enviada (-1 quando não é tocar). */
+  indice: number;
   fala: string;
   concluido: boolean;
 };

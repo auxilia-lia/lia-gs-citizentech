@@ -214,3 +214,46 @@ def test_config_pensamento():
     import ia
     assert ia._config_pensamento("gemini-2.5-flash") == {"thinkingConfig": {"thinkingBudget": 0}}
     assert "thinkingLevel" in ia._config_pensamento("gemini-flash-lite-latest")["thinkingConfig"]
+
+
+def test_guia4_indice_e_fala_montada_pelo_servidor():
+    import guia
+    els = ["Pesquisar apps e jogos", "Instalar — Pier: Seguro Auto [anúncio]", "Instalar — Facebook, Meta Platforms", "Abrir — Spotify"]
+    # a fala é montada a partir do botão escolhido: nunca cita outro botão, e o índice vai junto
+    r = guia.interpretar({"tipo": "tocar", "indice": 2, "fala": "É o app certo. Depois toque em Abrir."}, els, "instalar o facebook")
+    assert r["indice"] == 2 and r["fala"] == "É o app certo. Toque em Instalar."
+    # anúncio nunca é escolhido: vai para a pesquisa
+    r = guia.interpretar({"tipo": "tocar", "indice": 1, "fala": ""}, els, "instalar o facebook")
+    assert r["indice"] == 0 and "Pesquisar" in r["fala"]
+
+
+def test_guia4_botao_que_confirma_so_na_tela_certa():
+    import guia
+    loja = ["Pesquisar apps e jogos", "Instalar — Pier: Seguro Auto", "Instalar — Kwai"]
+    r = guia.interpretar({"tipo": "tocar", "indice": 1}, loja, "quero instalar o facebook")
+    assert r["indice"] == 0  # leva para a pesquisa primeiro
+    pagina = ["Instalar", "Voltar"]
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, pagina, "quero instalar o facebook", ["Facebook", "Meta Platforms"])
+    assert r["tipo"] == "tocar" and r["indice"] == 0
+
+
+def test_guia4_botao_fora_da_lista_nao_vira_fala():
+    import guia
+    r = guia.interpretar({"tipo": "tocar", "indice": 7, "fala": "Toque em Enviar mensagem."}, ["Conversas"], "mandar mensagem")
+    assert "Enviar" not in r["fala"] and r["indice"] == -1
+    r = guia.interpretar({"tipo": "esperar", "fala": "Espere carregar. Depois toque em Confirmar."}, ["Conversas"], "x")
+    assert "Confirmar" not in r["fala"] and "Espere carregar." in r["fala"]
+    r = guia.interpretar({"tipo": "painel", "fala": "Abra o painel e toque em Wi-Fi."}, [], "desligar o wifi")
+    assert "Wi-Fi" not in r["fala"] and r["fala"] == guia.FALAS_GESTO["painel"]
+
+
+def test_guia4_extrato_de_pagamento_nao_e_acao_final():
+    import guia
+    els = ["Extrato de pagamento", "Pagar agora"]
+    assert guia.interpretar({"tipo": "tocar", "indice": 0}, els, "ver meu extrato do inss")["tipo"] == "tocar"
+    assert guia.interpretar({"tipo": "tocar", "indice": 1}, els, "ver meu extrato do inss")["tipo"] == "esperar"
+
+
+def test_guia4_regras_mandam_indice():
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Bluetooth", "Wi-Fi — Casa"]}).json()
+    assert r["tipo"] == "tocar" and r["indice"] == 1 and r["fala"].endswith("Toque em Wi-Fi.")

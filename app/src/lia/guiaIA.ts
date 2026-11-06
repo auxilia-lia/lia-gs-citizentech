@@ -66,11 +66,13 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         feitos: estado.feitos.map(p),
       });
       if (atual !== estado) return;
+      // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.
+      if (estado.pendente) return;
       const fala = restaurar(r.fala, mapa);
       if (r.concluido) LiaGuia.finishAI(fala);
-      else LiaGuia.instruct(r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala);
+      else LiaGuia.instruct(r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1, tela.id ?? -1);
     } catch {
-      if (atual === estado) LiaGuia.instruct('esperar', null, 'A internet está ruim. Espere um pouquinho, que eu já te mostro.');
+      if (atual === estado && !estado.pendente) LiaGuia.instruct('esperar', null, 'A internet está ruim. Espere um momento, que eu já te mostro.', -1, tela.id ?? -1);
     } finally {
       estado.ocupado = false;
       const pend = estado.pendente;

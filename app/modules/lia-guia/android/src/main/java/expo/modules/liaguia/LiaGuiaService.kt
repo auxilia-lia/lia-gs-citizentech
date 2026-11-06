@@ -51,8 +51,10 @@ class LiaGuiaService : AccessibilityService() {
 
   private data class Alvo(val label: String, val bounds: Rect, val score: Double, val area: Int)
 
+  // elementos[i] é o nome do botão (com o que está ao redor) e alvos[i] é o lugar exato dele na tela.
   private data class Contexto(
     val app: String, val tela: String, val elementos: List<String>, val textos: List<String>, val rolavel: Boolean,
+    val alvos: List<Rect> = emptyList(),
   )
 
   private val handler = Handler(Looper.getMainLooper())
@@ -89,6 +91,9 @@ class LiaGuiaService : AccessibilityService() {
   private var assinaturaDaInstrucao = ""
   private var passosIA = 0
   private var faltas = 0 // leituras seguidas sem achar o botão que a IA pediu
+  private var indiceIA = -1 // número do botão escolhido na última tela enviada
+  private var telaEnviada = 0 // conta as telas enviadas para a IA (resposta de tela antiga é descartada)
+  private var rotulosEnviados: List<String> = emptyList()
 
   private val avaliar = Runnable { agendadoPara = 0L; avaliarTela() }
   private val revelar = Runnable { revelado = true; avaliarTela() }
@@ -148,8 +153,12 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   // A IA decidiu o próximo passo: "tocar" (com alvo), um gesto, ou "esperar" (só falar).
-  fun instruirIA(tipo: String, alvo: String?, fala: String) = naPrincipal {
+  fun instruirIA(tipo: String, alvo: String?, fala: String, indice: Int = -1, tela: Int = -1) = naPrincipal {
     if (!ativo || !modoIA) return@naPrincipal
+    // Resposta para uma tela que já não é a atual: ignora e espera a resposta da tela nova.
+    if (tela >= 0 && tela != telaEnviada) return@naPrincipal
+    indiceIA = indice
+    faltas = 0
     tipoIA = tipo
     alvoIA = alvo?.takeIf { it.isNotBlank() }
     falaIA = fala
@@ -159,7 +168,7 @@ class LiaGuiaService : AccessibilityService() {
     novaInstrucao()
     when {
       tipo in GESTOS -> { overlay?.mostrarGesto(tipo, fala); falarUmaVez(fala) }
-      tipo == "tocar" && alvoIA != null -> agendar(50)
+      tipo == "tocar" && (alvoIA != null || indice >= 0) -> { overlay?.mostrarMensagem("…"); agendar(50) }
       else -> { overlay?.mostrarMensagem(fala); falarUmaVez(fala) }
     }
   }
@@ -432,16 +441,16 @@ class LiaGuiaService : AccessibilityService() {
     when {
       tipo == null -> if (mudou) emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
       tipo == "tocar" -> {
-        val achado = alvoIA?.let { melhorAlvo(root, it) }
+        val achado = localizar(root, ctx)
         when {
-          achado != null -> desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" })
+          achado != null -> { faltas = 0; desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" }) }
           mudou && mudouDesdeInstrucao -> emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
           else -> {
-            // A IA citou um botão que não está na tela: em vez de esperar o lembrete, pede outra ideia logo.
+            // O botão escolhido não está na tela: a Lia não mostra nem fala a instrução, e pede outra ideia logo.
             alvoAtual = null
-            overlay?.mostrarMensagem(falaIA)
+            overlay?.mostrarMensagem("Deixa eu ver a tela…")
             faltas++
-            if (faltas >= 3) emitirTela(ctx, "parado") else agendar(500)
+            if (faltas >= 2) emitirTela(ctx, "parado") else agendar(400)
           }
         }
       }
@@ -460,8 +469,30 @@ class LiaGuiaService : AccessibilityService() {
   private val DIGITOS = Regex("\\d+")
   private fun estavel(elementos: List<String>) = elementos.joinToString("|") { it.replace(DIGITOS, "#").lineSequence().first() }
 
+  // Acha na tela o botão que a IA escolheu: primeiro pelo número (lugar exato), depois pelo nome completo,
+  // e só por último pelo nome parecido. Nunca aponta para outro botão "parecido" quando o número bate.
+  private fun localizar(root: AccessibilityNodeInfo, ctx: Contexto): Alvo? {
+    val i = indiceIA
+    if (i in rotulosEnviados.indices) {
+      val rotulo = rotulosEnviados[i]
+      val j = if (i < ctx.elementos.size && ctx.elementos[i] == rotulo) i else ctx.elementos.indexOf(rotulo)
+      if (j >= 0 && j < ctx.alvos.size) {
+        val b = ctx.alvos[j]
+        return Alvo(curto(rotulo), b, 0.0, b.width() * b.height())
+      }
+      // O número não vale mais (a tela mudou): o nome curto ainda pode estar em outro lugar.
+      return melhorAlvo(root, curto(rotulo))
+    }
+    return alvoIA?.let { melhorAlvo(root, curto(it)) }
+  }
+
+  // "Instalar — Pier: Seguro Auto [anúncio]" → "Instalar"
+  private fun curto(rotulo: String) = rotulo.substringBefore(" — ").replace(" [anúncio]", "").trim()
+
   private fun emitirTela(ctx: Contexto, motivo: String) {
     limparInstrucaoIA()
+    telaEnviada++
+    rotulosEnviados = ctx.elementos
     val erro = ultimoErro
     ultimoErro = null
     val cumpriu = seguiu
@@ -469,13 +500,14 @@ class LiaGuiaService : AccessibilityService() {
     overlay?.mostrarMensagem("Deixa eu ver a tela…")
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
-      "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu,
+      "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,
     ))
   }
 
   private fun limparInstrucaoIA() {
     tipoIA = null
     alvoIA = null
+    indiceIA = -1
     alvoAtual = null
     handler.removeCallbacks(lembrar)
     handler.removeCallbacks(revelar)
@@ -518,19 +550,43 @@ class LiaGuiaService : AccessibilityService() {
     return if (r.packageName?.toString() == packageName) null else r
   }
 
+  private val ANUNCIO = Regex("^(patrocinad[oa]|an[uú]ncio|sponsored|ad|promovid[oa]|publicidade)\\b", RegexOption.IGNORE_CASE)
+
+  private fun nomeDe(n: AccessibilityNodeInfo) = (n.text ?: n.contentDescription)?.toString()?.trim()?.replace('\n', ' ')?.take(60)
+
+  // Textos dentro de um nó (até um limite), para dar contexto ao botão.
+  private fun textosDe(n: AccessibilityNodeInfo, out: MutableList<String>, prof: Int = 0) {
+    if (prof > 6 || out.size >= 10) return
+    nomeDe(n)?.takeIf { it.isNotEmpty() }?.let { out.add(it) }
+    for (i in 0 until n.childCount) n.getChild(i)?.let { textosDe(it, out, prof + 1) }
+  }
+
   private fun lerContexto(root: AccessibilityNodeInfo): Contexto {
     val app = root.packageName?.toString() ?: ""
-    val elementos = LinkedHashSet<String>()
+    val dm = resources.displayMetrics
+    val telaToda = Rect(0, 0, dm.widthPixels, dm.heightPixels)
+    val elementos = mutableListOf<String>()
+    val alvos = mutableListOf<Rect>()
+    val vistos = HashSet<String>()
     val textos = LinkedHashSet<String>()
     var rolavel = false
     fun andar(n: AccessibilityNodeInfo, prof: Int) {
       if (prof > MAX_PROFUNDIDADE) return
       if (n.isVisibleToUser) {
         if (n.isScrollable) rolavel = true
-        val label = (n.text ?: n.contentDescription)?.toString()?.trim()?.take(80)
+        val label = nomeDe(n)
         if (!label.isNullOrEmpty()) {
-          if (acharClicavel(n) != null) { if (elementos.size < 60) elementos.add(label) }
-          else if (textos.size < 25) textos.add(label)
+          val c = acharClicavel(n)
+          if (c == null) { if (textos.size < 25) textos.add(label) }
+          else if (elementos.size < 60) {
+            val b = Rect().also { c.getBoundsInScreen(it) }
+            // Só o que está de fato na tela e uma vez por botão (vários textos podem levar ao mesmo botão).
+            if (!b.isEmpty && Rect.intersects(b, telaToda) && vistos.add(b.flattenToString())) {
+              val nome = nomeDe(c)?.takeIf { it.isNotEmpty() } ?: label
+              elementos.add(nome + contextoDe(c, nome))
+              alvos.add(b)
+            }
+          }
         }
       }
       for (i in 0 until n.childCount) n.getChild(i)?.let { andar(it, prof + 1) }
@@ -541,7 +597,25 @@ class LiaGuiaService : AccessibilityService() {
       app == "com.android.systemui" -> "painel"
       else -> "app"
     }
-    return Contexto(app, tela, elementos.toList(), textos.toList(), rolavel)
+    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos)
+  }
+
+  // " — Pier: Seguro Auto [anúncio]": o que está ao redor do botão, para a IA saber de qual item ele é.
+  private fun contextoDe(c: AccessibilityNodeInfo, nome: String): String {
+    val perto = mutableListOf<String>()
+    var anuncio = false
+    var p: AccessibilityNodeInfo? = c
+    for (nivelAcima in 0..2) {
+      p = p ?: break
+      val t = mutableListOf<String>()
+      textosDe(p, t)
+      if (t.any { ANUNCIO.containsMatchIn(it) }) anuncio = true
+      if (nivelAcima >= 1 && perto.isEmpty()) perto += t.filter { it != nome && !ANUNCIO.containsMatchIn(it) && it.length > 1 }.distinct().take(2)
+      p = p.parent
+      if (perto.isNotEmpty() && nivelAcima >= 1) break
+    }
+    val ctx = if (perto.isEmpty()) "" else " — " + perto.joinToString(", ") { it.take(40) }
+    return ctx + if (anuncio) " [anúncio]" else ""
   }
 
   fun lerTela(): List<Map<String, Any?>> {

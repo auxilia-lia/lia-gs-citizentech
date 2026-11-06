@@ -17,6 +17,8 @@ export type TelaEvent = {
   errou: string | null;
   /** A instrução que a pessoa acabou de cumprir (para a IA não culpar a pessoa). */
   seguiu: string | null;
+  /** Número desta tela: a resposta da IA volta com ele, e resposta de tela antiga é descartada. */
+  id: number;
 };
 
 export type TipoPasso = 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
@@ -53,7 +55,8 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   stop(): void;
   /** Guia com IA: a tela chega pelo evento onScreen e a IA decide o passo. */
   startAI(nivel: number): boolean;
-  instruct(tipo: TipoPasso, alvo: string | null, fala: string): void;
+  /** indice = número do botão na lista "elementos" da tela (lugar exato); tela = id da tela respondida. */
+  instruct(tipo: TipoPasso, alvo: string | null, fala: string, indice: number, tela: number): void;
   point(label: string, fala: string): void;
   finishAI(fala: string): void;
   /** Para sem contar como conquista (a pessoa desistiu) e volta para a Lia. */

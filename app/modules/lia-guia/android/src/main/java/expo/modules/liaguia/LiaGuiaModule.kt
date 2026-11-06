@@ -77,8 +77,9 @@ class LiaGuiaModule : Module() {
     }
 
     // A IA decidiu: tipo = "tocar" | "painel" | "rolar_baixo" | "rolar_cima" | "voltar" | "inicio" | "esperar".
-    Function("instruct") { tipo: String, alvo: String?, fala: String ->
-      LiaGuiaService.instance?.instruirIA(tipo, alvo, fala)
+    // indice = número do botão na lista enviada (lugar exato); tela = id da tela a que a resposta se refere.
+    Function("instruct") { tipo: String, alvo: String?, fala: String, indice: Int, tela: Int ->
+      LiaGuiaService.instance?.instruirIA(tipo, alvo, fala, indice, tela)
     }
 
     Function("point") { label: String, fala: String ->
