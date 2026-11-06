@@ -180,3 +180,14 @@ def test_conversa_durante_o_guia_troca_objetivo():
     assert r["acao"]["tipo"] == "guiar_app" and r["acao"]["app"] == "celular"
     from prompt_lia import montar_sistema
     assert "AGORA o Guia está na tela" in montar_sistema("app", {"guia": "ligar o bluetooth"}, None)
+
+
+def test_guia3_lado_direito_e_sem_culpa():
+    r = c.post("/guia/proximo", json={"objetivo": "ligar o bluetooth", "tela": "inicio", "elementos": ["WhatsApp"]}).json()
+    assert r["tipo"] == "painel" and "direito" in r["fala"]
+    # Abriu as notificações (painel sem os botões rápidos): explica o lado direito, sem culpa.
+    r = c.post("/guia/proximo", json={"objetivo": "ligar o bluetooth", "tela": "painel", "elementos": ["Limpar", "Configurações de notificação"]}).json()
+    assert r["tipo"] == "painel" and "notificações" in r["fala"] and "direito" in r["fala"]
+    import guia
+    p = guia.montar_prompt("ligar o bluetooth", "x", ["A"], [], seguiu="Bluetooth")
+    assert 'fez exatamente o que você pediu: "Bluetooth"' in p and "o erro foi SEU" in p

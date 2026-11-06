@@ -15,6 +15,8 @@ export type TelaEvent = {
   rolavel: boolean;
   motivo: 'mudou' | 'errou' | 'parado';
   errou: string | null;
+  /** A instrução que a pessoa acabou de cumprir (para a IA não culpar a pessoa). */
+  seguiu: string | null;
 };
 
 export type TipoPasso = 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';

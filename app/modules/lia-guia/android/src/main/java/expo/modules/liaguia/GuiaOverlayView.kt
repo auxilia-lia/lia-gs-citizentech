@@ -89,7 +89,7 @@ class GuiaOverlayView(context: Context) : View(context) {
       Modo.GESTO -> {
         // início e fim do movimento do dedo, em fração da tela
         val (ini, fim, topoBalao) = when (gesto) {
-          "painel" -> Triple(floatArrayOf(0.5f, 0.01f), floatArrayOf(0.5f, 0.38f), 0.46f)
+          "painel" -> Triple(floatArrayOf(0.82f, 0.01f), floatArrayOf(0.82f, 0.38f), 0.46f)
           "rolar_baixo" -> Triple(floatArrayOf(0.5f, 0.72f), floatArrayOf(0.5f, 0.38f), 0.14f)
           "rolar_cima" -> Triple(floatArrayOf(0.5f, 0.38f), floatArrayOf(0.5f, 0.72f), 0.14f)
           "voltar" -> Triple(floatArrayOf(0.01f, 0.5f), floatArrayOf(0.4f, 0.5f), 0.2f)

@@ -144,6 +144,7 @@ class TelaGuia(BaseModel):
     rolavel: bool = False
     motivo: str = Field(default="mudou", pattern="^(mudou|errou|parado|inicio)$")
     errou: str | None = Field(default=None, max_length=120)
+    seguiu: str | None = Field(default=None, max_length=120)  # a instrução que a pessoa acabou de cumprir
     feitos: list[str] = Field(default=[], max_length=30)
 
 
@@ -151,7 +152,7 @@ class TelaGuia(BaseModel):
 async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
-    args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou)
+    args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     if provedor() not in ("gemini", "claude"):
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
     try:

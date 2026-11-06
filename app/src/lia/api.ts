@@ -117,6 +117,7 @@ export type PedidoGuia = {
   rolavel: boolean;
   motivo: 'mudou' | 'errou' | 'parado';
   errou: string | null;
+  seguiu: string | null;
   feitos: string[];
 };
 

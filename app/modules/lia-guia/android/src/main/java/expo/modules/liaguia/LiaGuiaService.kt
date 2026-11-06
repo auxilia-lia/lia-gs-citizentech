@@ -35,7 +35,8 @@ class LiaGuiaService : AccessibilityService() {
 
     private const val LIMIAR = 0.30
     private const val MAX_PROFUNDIDADE = 60
-    private const val LEMBRETE_MS = 12000L
+    private const val LEMBRETE_MS = 15000L
+    private const val ESPERA_CARREGAR_MS = 2500L
     private const val MAX_LEMBRETES = 2
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
 
@@ -68,6 +69,8 @@ class LiaGuiaService : AccessibilityService() {
   private var lembretes = 0
   private var ultimaAssinatura = ""
   private var ultimoErro: String? = null
+  private var seguiu: String? = null // a última instrução que a pessoa cumpriu (para a IA não culpar a pessoa)
+  private var ultimaMudanca = 0L
 
   // modo passos
   private var passos: List<String> = emptyList()
@@ -285,6 +288,7 @@ class LiaGuiaService : AccessibilityService() {
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     if (event == null || !ativo) return
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
+    if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
     when (event.eventType) {
       AccessibilityEvent.TYPE_VIEW_CLICKED -> aoClicar(event)
       AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_WINDOWS_CHANGED -> agendar(450)
@@ -292,11 +296,20 @@ class LiaGuiaService : AccessibilityService() {
     }
   }
 
+  // A pessoa mexeu na tela: o lembrete espera de novo (não repete enquanto ela está agindo).
+  private fun adiarLembrete() {
+    if (!ativo) return
+    handler.removeCallbacks(lembrar)
+    if (!modoIA || tipoIA != null) handler.postDelayed(lembrar, LEMBRETE_MS)
+  }
+
   private fun aoClicar(event: AccessibilityEvent) {
     val src = event.source ?: return agendar(250)
     val b = Rect().also { src.getBoundsInScreen(it) }
     val alvo = alvoAtual
-    if (alvo != null && Rect.intersects(b, alvo)) return acertou()
+    // Margem generosa: dedos menos precisos tocam na borda do botão, e isso conta como acerto.
+    val margem = (40 * resources.displayMetrics.density).toInt()
+    if (alvo != null && Rect.intersects(b, Rect(alvo).apply { inset(-margem, -margem) })) return acertou()
     val tocado = rotulo(src)
     if (alvo != null && tocado != null) errou(tocado)
     agendar(400)
@@ -305,13 +318,14 @@ class LiaGuiaService : AccessibilityService() {
   private fun acertou() {
     ultimoErro = null
     if (!modoIA) return avancar()
+    seguiu = alvoIA
     LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to alvoIA))
     passosIA++
     limparInstrucaoIA()
     if (nivel >= 1) falar("Isso!")
-    overlay?.mostrarMensagem("…")
+    overlay?.mostrarMensagem("Boa! Deixa eu ver…")
     ultimaAssinatura = "" // força mandar a próxima tela para a IA
-    agendar(800)
+    agendar(500)
   }
 
   // Tocou em outro lugar: avisa na hora. Se a tela mudou, a IA recebe o erro e diz como voltar.
@@ -348,6 +362,8 @@ class LiaGuiaService : AccessibilityService() {
   private fun avaliarPassos(root: AccessibilityNodeInfo) {
     if (indice >= passos.size) return
     val passo = passos[indice]
+    val assinatura = "${root.packageName}|${lerContexto(root).elementos.joinToString("|")}"
+    if (assinatura != ultimaAssinatura) { ultimaAssinatura = assinatura; ultimaMudanca = System.currentTimeMillis() }
     nomeAlvo = passo
     val achado = melhorAlvo(root, passo)
     // O passo atual sumiu e o próximo já apareceu: a pessoa avançou (alguns apps não avisam o toque).
@@ -358,6 +374,12 @@ class LiaGuiaService : AccessibilityService() {
         "label" to achado.label, "score" to achado.score, "nivel" to nivel, "revealed" to revelado, "app" to root.packageName?.toString()))
     } else {
       alvoAtual = null
+      // A tela acabou de mudar (página carregando): espera um pouco em vez de mandar procurar.
+      val desde = System.currentTimeMillis() - ultimaMudanca
+      if (desde < ESPERA_CARREGAR_MS) {
+        overlay?.mostrarMensagem("…")
+        return agendar(ESPERA_CARREGAR_MS - desde + 100)
+      }
       val ctx = lerContexto(root)
       val msg = if (ctx.rolavel) "Arraste a tela devagar para procurar \"$passo\"" else "Procurando \"$passo\"…"
       if (ctx.rolavel && (nivel < 2 || revelado)) overlay?.mostrarGesto("rolar_baixo", msg) else overlay?.mostrarMensagem(if (nivel == 2 && !revelado) "" else msg)
@@ -387,6 +409,7 @@ class LiaGuiaService : AccessibilityService() {
       }
       tipo in GESTOS -> if (mudou && mudouDesdeInstrucao) {
         // A tela mudou: o gesto foi feito.
+        seguiu = tipo
         LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to tipo))
         passosIA++
         if (nivel >= 1) falar("Isso!")
@@ -400,10 +423,12 @@ class LiaGuiaService : AccessibilityService() {
     limparInstrucaoIA()
     val erro = ultimoErro
     ultimoErro = null
+    val cumpriu = seguiu
+    seguiu = null
     overlay?.mostrarMensagem("Deixa eu ver a tela…")
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
-      "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro,
+      "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu,
     ))
   }
 

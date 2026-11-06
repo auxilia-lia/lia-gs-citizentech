@@ -62,6 +62,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         rolavel: tela.rolavel,
         motivo: tela.motivo,
         errou: tela.errou ? p(tela.errou) : null,
+        seguiu: tela.seguiu ? p(tela.seguiu) : null,
         feitos: estado.feitos.map(p),
       });
       if (atual !== estado) return;

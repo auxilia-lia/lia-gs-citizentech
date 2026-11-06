@@ -25,7 +25,7 @@ PAINEL = {
 }
 
 FALAS_GESTO = {
-    "painel": "Deslize o dedo do alto da tela para baixo, bem devagar.",
+    "painel": "Coloque o dedo no alto da tela, do lado direito, e deslize para baixo.",
     "rolar_baixo": "Arraste o dedo de baixo para cima, devagar, para ver mais coisas.",
     "rolar_cima": "Arraste o dedo de cima para baixo, devagar, para voltar ao começo.",
     "voltar": "Vamos voltar uma tela. Deslize o dedo da beirada esquerda para o meio, ou toque na seta de voltar.",
@@ -35,12 +35,16 @@ FALAS_GESTO = {
 PROMPT_GUIA = """Você é o Guia da Lia, que ensina pessoas idosas ou com pouca leitura a usar o celular (Android, Samsung).
 A pessoa quer: "{objetivo}".
 
+Celular Samsung: puxar do alto pelo meio ou pela esquerda abre as NOTIFICAÇÕES; puxar do alto pelo lado DIREITO abre o
+painel rápido (Wi-Fi, Bluetooth, lanterna). Se ela está no painel e os botões rápidos não aparecem, ela abriu as notificações:
+explique com calma e peça para fechar e puxar de novo pelo lado direito.
+
 Agora ela está em: {onde} (app "{app}").
 Botões que dá para tocar (número: texto):
 {elementos}
 Outros textos na tela: {textos}
 Dá para rolar a tela: {rolavel}.
-O que aconteceu: {motivo}
+O que aconteceu: {motivo}{seguiu}
 Passos que ela já fez, em ordem: {feitos}.
 
 Escolha UM próximo passo:
@@ -54,7 +58,9 @@ Escolha UM próximo passo:
 Se o objetivo já foi alcançado (ex.: o Wi-Fi aparece desligado e ela queria desligar), responda concluido=true.
 Nunca escolha pagar, transferir, Pix, comprar ou apagar: explique e deixe a decisão com ela (tipo "esperar").
 "fala": no máximo 2 frases curtas, simples, carinhosas, em português do Brasil, sem jargão, tratando por "você".
-Se ela errou, comece explicando com calma o que aconteceu ("Você entrou em outro lugar, sem problema.").
+Quem errou: se ela FEZ o que você pediu e a tela não é a esperada, o erro foi SEU. Assuma com leveza
+("Me enganei, esse não era o caminho. Vamos voltar.") e NUNCA diga que ela tocou errado.
+Só diga que ela tocou em outro lugar quando "O que aconteceu" disser isso, e mesmo assim sem culpa ("sem problema").
 Responda SOMENTE com JSON: {{"tipo": "...", "indice": número ou null, "fala": "...", "concluido": true ou false}}"""
 
 ONDE = {"inicio": "a tela inicial do celular", "painel": "o painel rápido (aberto do alto da tela)", "app": "dentro de um app"}
@@ -88,11 +94,11 @@ def achar(elementos: list[str], nome: str) -> str | None:
 
 
 def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: str = "app",
-                  rolavel: bool = False, motivo: str = "mudou", errou: str | None = None) -> dict:
+                  rolavel: bool = False, motivo: str = "mudou", errou: str | None = None, seguiu: str | None = None) -> dict:
     """Modo regras (sem IA): fluxos do gov.br, itens do painel rápido e sobreposição de palavras."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(f) for f in feitos}
-    if motivo == "errou":
+    if motivo == "errou" and not seguiu:
         return resposta("voltar", f"Você entrou em outro lugar, sem problema. {FALAS_GESTO['voltar']}")
 
     chaves = {"consulta": ("consulta", "medico", "posto"), "beneficio": ("inss", "beneficio", "aposentadoria"), "multas": ("multa",)}
@@ -116,6 +122,8 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
             return resposta("esperar", f"Pronto! Você tocou em {item}.", concluido=True)
         if e:
             return resposta("tocar", f"Toque em {e} para ligar ou desligar.", e)
+        if tela == "painel":
+            return resposta("painel", "Isso abriu as notificações, sem problema. Puxe de novo do alto, mas pelo lado direito da tela.")
         return resposta("painel", FALAS_GESTO["painel"])
 
     if len(feitos) >= 10:
@@ -136,12 +144,14 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 
 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
-                  textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None) -> str:
+                  textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
+                  seguiu: str | None = None) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
         textos=" | ".join(textos or []) or "(nenhum)", rolavel="sim" if rolavel else "não",
         motivo=MOTIVOS.get(motivo, MOTIVOS["mudou"]).format(errou=errou or ""), feitos=", ".join(feitos) or "nada ainda",
+        seguiu=f'. Ela fez exatamente o que você pediu: "{seguiu}".' if seguiu else "",
     )
 
 
