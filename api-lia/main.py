@@ -57,9 +57,13 @@ class Texto(BaseModel):
     texto: str = Field(min_length=1, max_length=4000)
 
 
+# Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
+VERSAO = "2026-11-07.3"
+
+
 @app.get("/saude")
 def saude():
-    return {"ok": True, "provedor": provedor()}
+    return {"ok": True, "provedor": provedor(), "versao": VERSAO}
 
 
 def validar_acao(acao, canal: str) -> dict | None:
@@ -274,7 +278,7 @@ async def _guia_proximo(t: TelaGuia) -> dict:
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
     passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel, com_imagem=bool(t.imagem), tela=t.tela,
-                             repetindo=t.repetindo, feitos=t.feitos)
+                             repetindo=t.repetindo, feitos=t.feitos, seguiu=t.seguiu)
     if chave:
         if len(_CACHE_GUIA) > 300:
             _CACHE_GUIA.clear()

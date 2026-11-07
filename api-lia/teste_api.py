@@ -417,3 +417,25 @@ def test_painel_detalhe_bluetooth_conclui():
     r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "app": "com.android.systemui",
                                       "elementos": ["Ativado [ligado] — Bluetooth, Ative o Bluetooth", "Concluído"]}).json()
     assert r["concluido"]
+
+
+def test_robo_rodada2():
+    import guia
+    # pesquisa: nunca a "por voz"; campo antes da lupa
+    assert guia.busca(["Pesquisa por voz", "Pesquisar"]) == 1
+    assert guia.busca(["Pesquisar", "Pesquise aqui [campo]"]) == 1
+    # campo de pesquisa aberto: escrever, não tocar de novo
+    r = guia.regra_certeira("quero assistir um vídeo de receita de bolo", ["Voltar", "Pesquisar no YouTube [campo aberto]"], ["Pesquisar"], "app", [], app="com.google.android.youtube")
+    assert r["tipo"] == "esperar" and "escreva" in r["fala"].lower()
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Pesquisar [campo aberto]"], "achar fotos de ontem")
+    assert r["tipo"] == "esperar"
+    # procurar algo num app: a pesquisa primeiro (Maps: nada de "Compartilhar localização")
+    els = ["Compartilhar localização atual — Camadas", "Pesquise aqui [campo]", "Pesquisa por voz"]
+    r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", els, [], "app", [], app="com.google.android.apps.maps")
+    assert r["tipo"] == "tocar" and r["indice"] == 1
+    # tocou num item que é só informação: se queria ver, conclui
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Versão Android — Versão do One UI, 9.0"], "como eu vejo a versão do Android",
+                         seguiu="Versão Android — Versão do One UI, 9.0")
+    assert r["concluido"]
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Status da bateria — Carregando"], "ligar o modo economia", seguiu="Status da bateria")
+    assert r["tipo"] == "esperar" and not r["concluido"]

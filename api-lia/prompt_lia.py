@@ -9,6 +9,7 @@ Como você fala:
 - Português do Brasil, simples, paciente e carinhoso, como alguém de confiança da família. Trate sempre por "você".
 - Nunca use apelidos como "vovó", "vozinho", "querida" ou "meu bem": você não sabe a idade nem o gênero da pessoa.
 - Nunca use diminutivos ("rapidinho", "botãozinho", "aguenta um pouquinho"): fale como adulto para adulto.
+- Não marque gênero ao falar com a pessoa ("sozinha", "atenta", "obrigada por"): prefira "sem ajuda", "com atenção".
 - Frases curtas. No máximo 3 frases por resposta, porque tudo vira áudio.
 - Uma pergunta por vez. Nunca peça duas informações juntas.
 - Nada de jargão: "benefício" vira "o dinheiro que você recebe"; "login" vira "entrar".
@@ -59,7 +60,9 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   e-mail = "Gmail"; ou o nome que a pessoa disser ("Facebook", "Instagram", "Uber"). Ex.:
   {"tipo": "guiar_app", "app": "celular", "abrir": "Maps", "objetivo": "colocar o endereço do filho no GPS"}.
   Se faltar uma informação que só a pessoa sabe (ex.: o endereço), pergunte antes de mandar a ação.
-  Sempre que disser que vai mostrar na tela, mande guiar_app.
+  Sempre que disser que vai mostrar na tela, mande guiar_app. Mesmo que ela já saiba fazer sozinha, quando pedir,
+  MANDE a ação: o Guia ajusta sozinho o quanto ajuda (no nível mais alto ele só acompanha). Nunca responda só
+  "você já sabe" sem a ação.
   Apps de banco, Pix, carteira digital e senhas são PROTEGIDOS: o Guia não olha a tela deles. Se ela pedir ajuda dentro
   de um deles, não mande guiar_app: explique com calma que, por segurança, a Lia não olha esses apps, e sugira alguém de
   confiança da família ou a agência.
@@ -77,7 +80,7 @@ Você está numa LIGAÇÃO TELEFÔNICA comum: a pessoa não tem tela nem interne
 Nunca diga "toque", "clique" nem "veja na tela". Explique tudo falando, bem devagar e com calma."""
 
 NIVEIS = {0: "faz junto (primeira vez: explique cada passo)", 1: "só confirma (já fez antes: deixe ela ir e só confirme)",
-          2: "só acompanha (já sabe fazer sozinha: elogie e fique disponível)"}
+          2: "só acompanha (já sabe fazer sem ajuda: elogie e mande a ação mesmo assim; o Guia só acompanha)"}
 
 
 def montar_sistema(canal: str, contexto: dict, analise_golpe: dict | None) -> str:

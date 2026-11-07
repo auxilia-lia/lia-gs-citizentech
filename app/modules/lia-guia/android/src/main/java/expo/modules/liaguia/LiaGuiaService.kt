@@ -147,6 +147,9 @@ class LiaGuiaService : AccessibilityService() {
   private var ultimoAlvoRect: Rect? = null // onde o botão estava quando a Lia apontou
   private var appAtual = ""
   private var appDaInstrucao = ""
+  private var tituloAtual = ""
+  private var tituloDaInstrucao = ""
+  private var instrucaoDesdeUp = 0L
   private var trocaEsperada = false
   private var avisouErro = false
   private var pausado = false
@@ -253,6 +256,8 @@ class LiaGuiaService : AccessibilityService() {
     faltas = 0
     pararVigia()
     appDaInstrucao = appAtual
+    tituloDaInstrucao = tituloAtual
+    instrucaoDesdeUp = SystemClock.uptimeMillis()
     trocaEsperada = false
     ultimoAlvoRect = null
     tipoIA = tipo
@@ -570,6 +575,8 @@ class LiaGuiaService : AccessibilityService() {
     }
     when (event.eventType) {
       AccessibilityEvent.TYPE_VIEW_CLICKED -> aoClicar(event)
+      // Tocar num campo de escrever às vezes não gera "clique", só "foco": se é o campo apontado, conta como acerto.
+      AccessibilityEvent.TYPE_VIEW_FOCUSED -> if (event.source?.isEditable == true) aoClicar(event) else agendar(250)
       AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_WINDOWS_CHANGED -> agendar(450)
       else -> agendar(250)
     }
@@ -582,7 +589,9 @@ class LiaGuiaService : AccessibilityService() {
     if (!modoIA || tipoIA != null) handler.postDelayed(lembrar, LEMBRETE_MS)
   }
 
+  private var ultimoClique = 0L
   private fun aoClicar(event: AccessibilityEvent) {
+    ultimoClique = SystemClock.uptimeMillis()
     val src = event.source ?: return agendar(250)
     val b = Rect().also { src.getBoundsInScreen(it) }
     val alvo = alvoAtual
@@ -729,6 +738,7 @@ class LiaGuiaService : AccessibilityService() {
     val assinatura = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
     ultimaAssinatura = assinatura
     appAtual = ctx.app
+    tituloAtual = ctx.titulo
     val mudouDesdeInstrucao = assinatura != assinaturaDaInstrucao
     val tipo = tipoIA
     val motivo = if (ultimoErro != null) "errou" else "mudou"
@@ -740,14 +750,19 @@ class LiaGuiaService : AccessibilityService() {
       tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) enviarTela(ctx, motivo)
       tipo == "tocar" && trocouEstado(ctx) -> acertou()
       tipo == "tocar" -> {
-        val achado = localizar(root, ctx)
+        val achado = localizar(root, ctx, parecido = !mudouDesdeInstrucao)
         val rolandoAgora = SystemClock.uptimeMillis() - ultimaRolagem < ROLANDO_MS
         when {
           achado != null && !bemVisivel(achado.bounds) -> { faltas = 0; pedirRolagem(achado) }
           achado != null -> { faltas = 0; desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" }) }
           // Ela rolou e o botão (que já estava na tela) saiu de vista: a instrução continua a mesma, só volta a rolagem.
-          rolandoAgora && ultimoAlvoRect != null && ctx.app == appDaInstrucao -> voltarRolagem()
-          mudouDesdeInstrucao -> if (assentou(assinatura)) emitirTela(ctx, motivo)
+          rolandoAgora && ultimoAlvoRect != null && ctx.app == appDaInstrucao && ctx.titulo == tituloDaInstrucao &&
+            ultimoClique < instrucaoDesdeUp -> voltarRolagem()
+          // A tela mudou e o botão sumiu: ela tocou nele (alguns apps não avisam o toque). A IA vê a tela nova.
+          mudouDesdeInstrucao -> if (assentou(assinatura)) {
+            if (ultimoErro == null) { seguiu = alvoIA; trocaEsperada = true }
+            emitirTela(ctx, motivo)
+          }
           else -> {
             // O botão escolhido não está na tela: a Lia não mostra nem fala a instrução, e pede outra ideia logo.
             alvoAtual = null
@@ -779,6 +794,9 @@ class LiaGuiaService : AccessibilityService() {
   // Da tela inicial para um app não conta (é o caminho normal), nem o painel rápido.
   private fun saiuPorContaPropria(ctx: Contexto): Boolean {
     if (trocaEsperada || appDaInstrucao.isEmpty() || ctx.app == appDaInstrucao) return false
+    // Outro app que abriu (compartilhar, busca das Configurações…) quase sempre veio do toque: a IA olha a tela nova.
+    // Pausa só quando ela vai para a tela inicial no meio do passo.
+    if (ctx.tela != "inicio") return false
     if (ctx.tela == "painel" || appDaInstrucao.contains("launcher") || appDaInstrucao == "com.android.systemui") return false
     // O app novo tem o nome do botão pedido (tocou nele e o toque não foi avisado): é o caminho certo.
     val nomeApp = Matcher.normalize(Protecao.nome(this, ctx.app))
@@ -834,7 +852,7 @@ class LiaGuiaService : AccessibilityService() {
 
   // Acha na tela o botão que a IA escolheu: primeiro pelo número (lugar exato), depois pelo nome completo,
   // e só por último pelo nome parecido. Nunca aponta para outro botão "parecido" quando o número bate.
-  private fun localizar(root: AccessibilityNodeInfo, ctx: Contexto): Alvo? {
+  private fun localizar(root: AccessibilityNodeInfo, ctx: Contexto, parecido: Boolean = true): Alvo? {
     val i = indiceIA
     if (i in rotulosEnviados.indices) {
       val rotulo = rotulosEnviados[i]
@@ -845,8 +863,11 @@ class LiaGuiaService : AccessibilityService() {
       }
       // O número não vale mais (a tela mudou): o nome curto ainda pode estar em outro lugar,
       // mas nunca o "oposto" ("Ativado" não é "Desativado": era o mesmo botão, que já mudou de estado).
+      // Só na MESMA tela: numa tela nova, um nome parecido é outro botão ("Pesquisa" ≠ "Pesquisa por voz").
+      if (!parecido) return null
       return melhorAlvo(root, curto(rotulo))?.takeUnless { oposto(it.label, curto(rotulo)) }
     }
+    if (!parecido) return null
     return alvoIA?.let { a -> melhorAlvo(root, curto(a))?.takeUnless { oposto(it.label, curto(a)) } }
   }
 
@@ -1143,7 +1164,10 @@ class LiaGuiaService : AccessibilityService() {
             if (!b.isEmpty && Rect.intersects(b, telaToda) && vistos.add(b.flattenToString())) {
               val nome = nomeDe(c)?.takeIf { it.isNotEmpty() } ?: label
               if (bemVisivel(b, util)) {
-                elementos.add(nome + estadoDe(c) + contextoDe(c, nome))
+                // Campo de escrever: "[campo]"; já aberto, com o cursor nele: "[campo aberto]" (aí é hora de escrever, não de tocar).
+                val campo = n.isEditable || c.isEditable
+                val marca = if (!campo) "" else if (n.isFocused || c.isFocused) " [campo aberto]" else " [campo]"
+                elementos.add(nome + estadoDe(c) + marca + contextoDe(c, nome))
                 alvos.add(b)
               } else if (escondidos.size < 15) {
                 escondidos.add(nome + if (b.centerY() > util.centerY()) " (mais abaixo)" else " (mais acima)")

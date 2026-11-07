@@ -76,6 +76,9 @@ O que aconteceu: {motivo}{seguiu}
 Passos que ela já fez, em ordem: {feitos}.
 
 Antes de tudo, veja se o objetivo JÁ foi cumprido nesta tela; se foi, concluido=true.
+Se ela quer VER uma informação (versão, bateria, horário, saldo de algo) e a informação já aparece na tela (no título,
+nos textos ou ao lado de um botão), concluido=true e diga a informação na fala. Não mande tocar nela.
+"[campo]" = campo de escrever; "[campo aberto]" = o cursor já está nele: mande "esperar" dizendo O QUE escrever.
 {repetindo}Escolha UM próximo passo:
 - "tocar": tocar num dos botões da lista (diga o número em "indice").
 - "painel": deslizar do alto da tela para baixo (abre o painel rápido com Wi-Fi, Bluetooth, lanterna, modo avião).
@@ -142,9 +145,9 @@ def estado(elemento: str) -> str | None:
 def quer_estado(objetivo: str) -> str | None:
     """'desligar o wifi' -> 'desligado'; 'ligar a lanterna' -> 'ligado'."""
     o = normalizar(objetivo)
-    if re.search(r"\b(desligar|desliga|desligue|desativar|desativa|desative|apagar a|apaga a|tirar o|tirar a)\b", o):
+    if re.search(r"\b(desligar|desliga|desligo|desligue|desativar|desativa|desativo|desative|apagar a|apaga a|apago a|tirar o|tirar a)\b", o):
         return "desligado"
-    if re.search(r"\b(ligar|liga|ligue|ativar|ativa|ative|acender|acende|acenda)\b", o):
+    if re.search(r"\b(ligar|liga|ligo|ligue|ativar|ativa|ativo|ative|acender|acende|acendo|acenda)\b", o):
         return "ligado"
     return None
 
@@ -228,10 +231,26 @@ def entidades(objetivo: str) -> set[str]:
 
 
 def busca(elementos: list[str]) -> int | None:
+    """O lugar de pesquisar (lupa ou campo), nunca a "pesquisa por voz"."""
+    achados = [i for i, e in enumerate(elementos)
+               if not anuncio(e) and BUSCA.search(normalizar(curto(e))) and not re.search(r"\bvoz\b", normalizar(curto(e)))]
+    if not achados:
+        return None
+    campos = [i for i in achados if "[campo" in elementos[i]]
+    return (campos or achados)[0]
+
+
+def campo_aberto(elementos: list[str]) -> int | None:
     for i, e in enumerate(elementos):
-        if not anuncio(e) and BUSCA.search(normalizar(curto(e))):
+        if "[campo aberto]" in e:
             return i
     return None
+
+
+# Objetivos de procurar algo dentro do app: o caminho mais certo é a pesquisa do próprio app.
+PROCURA = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|rota|como chego|assistir|video|musica|receita)\b")
+# Objetivos de só VER uma informação: quando ela aparece na tela, acabou.
+VER = re.compile(r"\b(ver|vejo|saber|sei|olhar|olho|conferir|confiro|qual|quanto|quantos|quantas|onde)\b")
 
 
 def confere(objetivo: str, elementos: list[str], textos: list[str], i: int) -> str | None:
@@ -264,6 +283,9 @@ def recusado(objetivo: str, elementos: list[str], motivo: str, rolavel: bool) ->
 
 
 def item_do_painel(objetivo: str) -> str | None:
+    """Só quando ela quer LIGAR ou DESLIGAR algo do painel ("ligar o GPS"); "procurar no GPS" é coisa do Maps."""
+    if quer_estado(objetivo) is None:
+        return None
     obj = normalizar(objetivo).replace("-", " ")
     for nome, chaves in PAINEL.items():
         if any(k in obj for k in chaves):
@@ -359,8 +381,16 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
 
 def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[str] | None = None,
                 rolavel: bool = False, com_imagem: bool = False, tela: str = "app", repetindo: bool = False,
-                feitos: list[str] | None = None) -> dict:
+                feitos: list[str] | None = None, seguiu: str | None = None) -> dict:
     p = _interpretar(r, elementos, objetivo, textos, rolavel, com_imagem)
+    # Mandou tocar de novo no botão que ela ACABOU de tocar e nada mudou de verdade (ex.: "Versão Android",
+    # "Status da bateria": são só informação). Se ela queria VER algo, já está na tela.
+    if p["tipo"] == "tocar" and seguiu and normalizar(curto(seguiu)) == normalizar(curto(p["alvo"] or "")):
+        if VER.search(normalizar(objetivo)):
+            info = p["alvo"].replace(" — ", ": ", 1)
+            info = re.sub(r"\s*\[[^\]]*\]", "", info)
+            return resposta("esperar", f"Pronto! O que você queria ver está aqui na tela. {info}.", concluido=True)
+        return resposta("esperar", "Esse botão não abriu nada novo. Me fala com outras palavras o que você quer fazer.")
     # Na tela inicial não há para onde voltar (no Samsung, deslizar da beirada abre as notícias do Google
     # e a pessoa entrava num ciclo "voltar → notícias → voltar").
     if p["tipo"] == "voltar" and tela == "inicio":
@@ -390,6 +420,9 @@ def _interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list
             pronto = ja_esta(objetivo, alvo)
             if pronto:
                 return pronto
+            if "[campo aberto]" in alvo:  # o campo já está aberto: hora de escrever
+                o_que = explicacao(fala)
+                return resposta("esperar", f"{o_que} Agora escreva no campo o que você procura. Se preferir, toque no microfone do teclado e fale.".strip())
             porque = confere(objetivo, elementos, textos or [], i)
             if porque:
                 return recusado(objetivo, elementos, porque, rolavel)
@@ -543,6 +576,20 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
             return tocar(elementos, i)
         if tela in ("inicio", "app"):
             return resposta("painel", FALAS_GESTO["painel"])
+    # Campo de pesquisa aberto (cursor nele): é hora de escrever, não de tocar de novo.
+    k = campo_aberto(elementos)
+    ja_pesquisou = any(BUSCA.search(normalizar(curto(f))) for f in feitos)
+    if k is not None and (ja_pesquisou or BUSCA.search(normalizar(curto(elementos[k])))):
+        termo = " ".join(sorted(entidades(objetivo))) or "o que você procura"
+        return resposta("esperar", f"Agora escreva {termo} no campo e toque na lupa ou no Enter. "
+                                   "Se preferir, toque no microfone do teclado e fale.")
+    # Procurar algo dentro de um app (endereço, vídeo, música…): a pesquisa do app primeiro.
+    j = busca(elementos)
+    if tela == "app" and j is not None and not ja_pesquisou and PROCURA.search(normalizar(objetivo)) and "settings" not in (app or ""):
+        ent = entidades(objetivo)
+        visivel = set().union(*[palavras(x) for x in (textos or []) + elementos]) if (textos or elementos) else set()
+        if not (ent & visivel):
+            return tocar(elementos, j, "Vamos usar a pesquisa.")
     # Configurações: se nada na tela tem a ver com o objetivo, pesquisar é mais certeiro que adivinhar menus.
     if "settings" in (app or "").lower():
         ent = entidades(objetivo)

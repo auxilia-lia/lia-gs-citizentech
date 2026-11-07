@@ -12,6 +12,7 @@ import { guiarComIA, objetivoAtual, PACOTES, pararGuiaIA } from '../lia/guiaIA';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { distanciaRelativa, normalizar } from '../lia/texto';
+import { modoRobo } from '../lia/robo';
 import { useVoz } from '../lia/useVoz';
 import type { Aula } from '../lia/aulas';
 import type { Caminho } from '../lia/caminhos';
@@ -99,7 +100,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       if (e.type !== 'finished' || !guiaAtivo.current) return;
       const servico = guiaAtivo.current;
       guiaAtivo.current = null;
-      parabens(await registrarConclusao(servico), NOMES_SERVICO[servico]);
+      if (!modoRobo()) parabens(await registrarConclusao(servico), NOMES_SERVICO[servico]);
     });
     return () => s.remove();
   }, []);
@@ -152,6 +153,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   };
 
   const parabens = async (vezes: number, oque?: string) => {
+    if (modoRobo()) return;
     const nivel = NOMES_NIVEL[nivelDe(vezes)].toLowerCase();
     setMensagens((m) => [...m, { papel: 'lia', texto: `Parabéns! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}. Da próxima, eu ajudo assim: ${nivel}.` }]);
     // Família comemorando: na 1ª vez (aprendeu) e na 3ª (fez sozinho), a Lia oferece contar para alguém da família.
@@ -233,17 +235,16 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number, abrir?: string) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
-    const nivel = nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
+    const nivel = modoRobo() ? 0 : nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
     // Um app específico (Maps, YouTube, Facebook…): procura entre os apps do celular e abre direto nele.
     const alvo = abrir ? acharApp(abrir) : null;
-    if (abrir && !alvo) dizer(`Não achei o ${abrir} no seu celular. Vou para a tela inicial, e a gente procura junto.`);
     if (alvo) {
       // O caminho guardado lembra o app ("abrir:Maps"), para praticar depois abrindo direto nele.
-      guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave), objetivo), `abrir:${alvo.nome}`, { appAlvo: alvo });
+      guiarComIA(objetivo, nivel, async () => { if (!modoRobo()) parabens(await registrarConclusao(chave), objetivo); }, `abrir:${alvo.nome}`, { appAlvo: alvo });
       if (!LiaGuia.openApp(alvo.pkg)) dizer(`Não consegui abrir o ${alvo.nome}.`);
       return;
     }
-    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave), objetivo), app);
+    guiarComIA(objetivo, nivel, async () => { if (!modoRobo()) parabens(await registrarConclusao(chave), objetivo); }, app);
     const abriu = app === 'playstore' && atalhoApp
       ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)
       : LiaGuia.openApp(PACOTES[app] ?? app);

@@ -28,13 +28,13 @@ CENARIOS = [
     {"nome": "bluetooth", "texto": "quero ligar o bluetooth"},
     {"nome": "bluetooth-ja-ligado", "texto": "quero ligar o bluetooth"},  # roda logo depois: tem que dizer que já está
     {"nome": "lanterna", "texto": "como eu acendo a lanterna"},
-    {"nome": "spotify-ja-instalado", "texto": "quero instalar o Spotify"},
+    {"nome": "spotify-ja-instalado", "texto": "quero instalar o Spotify", "escrever": "Spotify"},
     {"nome": "gps", "texto": "quero procurar a Avenida Paulista no GPS", "escrever": "Avenida Paulista"},
     {"nome": "whatsapp-arquivadas", "texto": "como eu vejo as conversas arquivadas no WhatsApp"},
-    {"nome": "versao-android", "texto": "como eu vejo a versão do Android do meu celular"},
-    {"nome": "bateria", "texto": "onde eu vejo quanto de bateria tem e o que está gastando"},
-    {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "parar_antes": ["aplicar", "salvar"]},
-    {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "parar_antes": ["definir", "aplicar", "salvar"]},
+    {"nome": "versao-android", "texto": "como eu vejo a versão do Android do meu celular", "escrever": "versão do Android"},
+    {"nome": "bateria", "texto": "onde eu vejo quanto de bateria tem e o que está gastando", "escrever": "bateria"},
+    {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "escrever": "tamanho da fonte", "parar_antes": ["aplicar", "salvar"]},
+    {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "escrever": "papel de parede", "parar_antes": ["definir", "aplicar", "salvar"]},
     {"nome": "galeria", "texto": "quero ver as fotos que eu tirei ontem"},
     {"nome": "youtube", "texto": "quero assistir um vídeo de receita de bolo no YouTube", "escrever": "receita de bolo"},
 ]
@@ -106,7 +106,7 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
     adb("logcat", "-c")
     adb("shell", "am", "start", "-n", f"{PACOTE}/.MainActivity")
     time.sleep(3)
-    url = "lia://pedir?texto=" + urllib.parse.quote(cenario["texto"])
+    url = "lia://pedir?texto=" + urllib.parse.quote(cenario["texto"]) + "&robo=1"
     adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url, PACOTE)
 
     vistos: set = set()
@@ -166,7 +166,7 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
             adb("shell", "input", "tap", str(acao["x"]), str(acao["y"]))
         elif acao.get("tipo") == "esperar":
             fala = str(acao.get("fala") or "").lower()
-            if cenario.get("escrever") and not escreveu and re.search(r"escrev|digit|fale o|diga o", fala):
+            if cenario.get("escrever") and not escreveu and re.search(r"escrev|digit", fala):
                 print_tela(pasta, passos, "escrever")
                 print(f"  robô: escreve \"{cenario['escrever']}\"")
                 escrever(cenario["escrever"])
@@ -197,6 +197,13 @@ def main():
     a = ap.parse_args()
     if "device" not in adb("devices").split("List of devices attached")[-1]:
         sys.exit("Nenhum celular conectado. Rode 'adb devices' e confira o cabo.")
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://localhost:8000/saude", timeout=5) as r:
+            s = json.loads(r.read())
+        print(f"API: {s.get('provedor')} · versão {s.get('versao', 'ANTIGA - reinicie a API')}")
+    except Exception:
+        print("Aviso: a API não respondeu em localhost:8000. Ela está ligada?")
     cenarios = [{"nome": "pedido", "texto": a.texto, "escrever": a.escrever}] if a.texto else CENARIOS
     pasta = RAIZ / "testes-robo" / dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
     resumos = [rodar(c, pasta) for c in cenarios]

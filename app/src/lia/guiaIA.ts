@@ -3,6 +3,7 @@ import { explicarTela, planoGuia, proximoPasso } from './api';
 import { aprenderPalavra, carregarPalavras } from './palavras';
 import { acharCaminho, fraseDoPasso, nomeCurto, PassoCaminho, salvarCaminho } from './caminhos';
 import { novoMapa, pseudonimizar, restaurar } from './pseudonimizar';
+import { modoRobo } from './robo';
 import { normalizar } from './texto';
 
 // Guia com IA (#7): o serviço nativo manda o contexto da tela (evento onScreen) e o próximo passo sai, nesta ordem:
@@ -120,7 +121,7 @@ export function guiarComIA(
 
   // Caminho aprendido (instantâneo) ou plano da IA (pedido em paralelo, sem segurar o começo).
   (async () => {
-    const aprendido = await acharCaminho(objetivo);
+    const aprendido = modoRobo() ? null : await acharCaminho(objetivo);
     if (atual !== estado) return;
     if (aprendido) {
       estado.plano = aprendido.passos;
@@ -265,7 +266,7 @@ export function guiarComIA(
     }
     if (e.type === 'finished') {
       // Deu certo: o caminho fica guardado para a próxima vez (e para "Meus caminhos").
-      salvarCaminho(objetivo, app, estado.trilha, nivel);
+      if (!modoRobo()) salvarCaminho(objetivo, app, estado.trilha, nivel);
       // Terminou pelo "já consegui": o resumo vem logo depois do "Que bom!".
       const resumo = estado.resumoDito ? '' : resumoDoCaminho(estado.trilha);
       if (resumo) setTimeout(() => LiaGuia.say(resumo), 2500);

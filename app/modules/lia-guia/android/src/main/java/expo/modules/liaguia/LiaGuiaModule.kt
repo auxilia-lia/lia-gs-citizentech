@@ -85,7 +85,10 @@ class LiaGuiaModule : Module() {
       } else {
         context.packageManager.getLaunchIntentForPackage(pkg)
       } ?: return@Function false
-      context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      // Abre do começo (tela principal do app), não onde a pessoa parou da última vez:
+      // o Guia pensa a partir do início do app.
+      val limpar = if (pkg == "home") 0 else Intent.FLAG_ACTIVITY_CLEAR_TASK
+      context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or limpar))
       true
     }
 
