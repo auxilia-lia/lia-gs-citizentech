@@ -561,6 +561,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun acertou() {
     ultimoErro = null
     vibrar() // ela sente que acertou, mesmo sem ouvir
+    overlay?.mostrarAcerto(alvoAtual) // e vê: círculo verde com "check" no lugar tocado
     if (!modoIA) return avancar()
     seguiu = alvoIA
     LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to alvoIA))

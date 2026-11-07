@@ -27,7 +27,7 @@ class BotaoFalar(context: Context) : View(context) {
   private val traco = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 4 * d; color = Color.WHITE; strokeCap = Paint.Cap.ROUND }
 
   private val pulso = ValueAnimator.ofFloat(0f, 1f).apply {
-    duration = 900
+    duration = 1200
     repeatCount = ValueAnimator.INFINITE
     addUpdateListener { fase = it.animatedValue as Float; invalidate() }
   }
@@ -51,7 +51,10 @@ class BotaoFalar(context: Context) : View(context) {
     val lp = layoutParams as? WindowManager.LayoutParams ?: return super.onTouchEvent(e)
     val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     when (e.actionMasked) {
-      MotionEvent.ACTION_DOWN -> { xIni = e.rawX; yIni = e.rawY; lpX = lp.x; lpY = lp.y; arrastou = false }
+      MotionEvent.ACTION_DOWN -> {
+        xIni = e.rawX; yIni = e.rawY; lpX = lp.x; lpY = lp.y; arrastou = false
+        animate().scaleX(0.9f).scaleY(0.9f).setDuration(90).start() // afunda ao tocar
+      }
       MotionEvent.ACTION_MOVE -> {
         val dx = e.rawX - xIni
         val dy = e.rawY - yIni
@@ -63,7 +66,10 @@ class BotaoFalar(context: Context) : View(context) {
           try { wm.updateViewLayout(this, lp) } catch (_: Exception) {}
         }
       }
-      MotionEvent.ACTION_UP -> if (!arrastou) { performClick(); aoTocar?.invoke() }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        animate().scaleX(1f).scaleY(1f).setDuration(180).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()
+        if (e.actionMasked == MotionEvent.ACTION_UP && !arrastou) { performClick(); aoTocar?.invoke() }
+      }
     }
     return true
   }
@@ -81,11 +87,20 @@ class BotaoFalar(context: Context) : View(context) {
     val r = 30 * d
     val cor = if (ouvindo) Color.parseColor("#C2362B") else Color.parseColor("#1B3A9E")
     if (ouvindo) {
-      halo.color = Color.argb((90 * (1 - fase)).toInt(), 194, 54, 43)
-      canvas.drawCircle(cx, cy, r + 14 * d * fase, halo)
+      // Duas ondas saindo do botão enquanto ouve.
+      for (k in 0..1) {
+        val f = (fase + k * 0.5f) % 1f
+        halo.color = Color.argb((110 * (1 - f)).toInt(), 194, 54, 43)
+        canvas.drawCircle(cx, cy, r + 12 * d * f, halo)
+      }
     }
+    // Sombra macia e um leve brilho no alto: parece um botão de verdade, que dá vontade de tocar.
+    halo.color = Color.argb(70, 0, 0, 0)
+    canvas.drawCircle(cx, cy + 3 * d, r, halo)
     fundo.color = cor
     canvas.drawCircle(cx, cy, r, fundo)
+    halo.color = Color.argb(40, 255, 255, 255)
+    canvas.drawCircle(cx, cy - r * 0.35f, r * 0.62f, halo)
     canvas.drawCircle(cx, cy, r, anel)
     // microfone: cápsula + arco + haste
     val w = 8 * d
