@@ -28,13 +28,18 @@ CENARIOS = [
     {"nome": "bluetooth", "texto": "quero ligar o bluetooth"},
     {"nome": "bluetooth-ja-ligado", "texto": "quero ligar o bluetooth"},  # roda logo depois: tem que dizer que já está
     {"nome": "lanterna", "texto": "como eu acendo a lanterna"},
+    # Apaga a lanterna pela própria Lia (também testa o "desligar").
+    {"nome": "lanterna-apagar", "texto": "quero apagar a lanterna"},
     {"nome": "spotify-ja-instalado", "texto": "quero instalar o Spotify", "escrever": "Spotify"},
     {"nome": "gps", "texto": "quero procurar a Avenida Paulista no GPS", "escrever": "Avenida Paulista"},
     {"nome": "whatsapp-arquivadas", "texto": "como eu vejo as conversas arquivadas no WhatsApp"},
     {"nome": "versao-android", "texto": "como eu vejo a versão do Android do meu celular", "escrever": "versão do Android"},
     {"nome": "bateria", "texto": "onde eu vejo quanto de bateria tem e o que está gastando", "escrever": "bateria"},
-    {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "escrever": "tamanho da fonte", "parar_antes": ["aplicar", "salvar"]},
-    {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "escrever": "papel de parede", "parar_antes": ["definir", "aplicar", "salvar"]},
+    # Estes dois param ANTES de mudar algo: chegar na tela certa já é o teste.
+    {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "escrever": "tamanho da fonte",
+     "parar_antes": ["aumentar", "reduzir", "diminuir", "aplicar", "salvar", "fonte padrão", "estilo da fonte"], "sucesso_ao_parar": True},
+    {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "escrever": "papel de parede",
+     "parar_antes": ["galeria", "definir", "aplicar", "salvar", "concluído", "tela de bloqueio", "tela inicial"], "sucesso_ao_parar": True},
     {"nome": "galeria", "texto": "quero ver as fotos que eu tirei ontem"},
     {"nome": "youtube", "texto": "quero assistir um vídeo de receita de bolo no YouTube", "escrever": "receita de bolo"},
 ]
@@ -170,7 +175,7 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
         if ev == "tocar":
             nome = str(acao.get("nome") or "")
             if any(p in nome.lower() for p in cenario.get("parar_antes", [])):
-                resultado = f"parado antes de '{nome}' (de propósito)"
+                resultado = f"chegou e parou antes de '{nome}' (de propósito, para não mudar o celular)"
                 break
             # A Lia mandando tocar 3x no mesmo lugar sem a tela avançar = bug (ex.: liga/desliga sem fim).
             toques.append((acao["x"], acao["y"]))
