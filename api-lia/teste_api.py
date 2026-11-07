@@ -493,3 +493,15 @@ def test_rodada5():
     assert r["tipo"] == "esperar"
     # conversa sem IA: fotos vão para a Galeria
     assert falar("quero ver as fotos que eu tirei ontem")["acao"]["abrir"] == "Galeria"
+
+
+def test_rodada6_galeria():
+    import guia
+    assert guia.tocar(["Botão — Ontem"], 0)["fala"] == "Toque em Ontem."
+    # ver fotos de ontem: depois de um passo, "Ontem" na tela = pronto
+    r = guia.regra_certeira("quero ver as fotos que eu tirei ontem", ["Agrupar por data", "Botão — Ontem"], ["Pesquisar"], "app",
+                            ["Ontem", "22 itens"], app="com.sec.android.gallery3d", titulo="Resultados da pesquisa", seguiu="Pesquisar")
+    assert r["concluido"]
+    # tela da Galeria só conta como "escolher foto" quando o pedido é de escolher (papel de parede, mandar foto)
+    r = guia.interpretar({"tipo": "voltar"}, ["Recentes"], "ver as fotos de ontem", seguiu="Ontem", titulo="Galeria")
+    assert r["tipo"] == "voltar"

@@ -179,9 +179,22 @@ def anuncio(elemento: str) -> bool:
     return ANUNCIO in elemento
 
 
+GENERICOS = {"botao", "button", "imagem", "image", "icone", "item", "opcao", "elemento", "link"}
+
+
+def nome_falado(elemento: str) -> str:
+    """O nome que a pessoa reconhece: "Botão — Ontem" vira "Ontem" (rótulos genéricos não ajudam ninguém)."""
+    nome = curto(elemento)
+    if normalizar(nome) in GENERICOS:
+        perto = contexto(elemento).split(",")[0].strip()
+        if perto:
+            return perto
+    return nome
+
+
 def tocar(elementos: list[str], i: int, explicacao: str = "") -> dict:
     """A instrução é sempre montada aqui, a partir do botão escolhido: a fala nunca cita outro botão."""
-    nome = curto(elementos[i])
+    nome = nome_falado(elementos[i])
     fala = f"{explicacao.strip()} Toque em {nome}.".strip()
     return resposta("tocar", fala, elementos[i], indice=i)
 
@@ -253,7 +266,9 @@ def termo_de_busca(objetivo: str) -> str:
     """'quero procurar a Avenida Paulista no GPS' -> 'Avenida Paulista' (na ordem da frase, sem as palavras do pedido)."""
     fora = GENERICAS | {"procurar", "pesquisar", "buscar", "achar", "encontrar", "gps", "mapa", "maps", "youtube", "galeria",
                         "assistir", "video", "videos", "fotos", "foto", "que", "eu", "tirei", "no", "na", "nos", "nas", "um", "uma",
-                        "o", "a", "os", "as", "de", "do", "da", "em", "e", "ver", "quero", "minha", "meu", "app"}
+                        "o", "a", "os", "as", "de", "do", "da", "em", "e", "ver", "quero", "minha", "meu", "app",
+                        "vejo", "olhar", "olho", "saber", "sei", "conferir", "confiro", "qual", "quanto", "onde", "tem",
+                        "esta", "isso", "mudo", "mudar", "fica"}
     palavras_ = [w for w in re.findall(r"[\wÀ-ÿ]+", objetivo) if normalizar(w) not in fora]
     return " ".join(palavras_[:5])
 
@@ -261,6 +276,8 @@ def termo_de_busca(objetivo: str) -> str:
 # Objetivos de procurar algo dentro do app: o caminho mais certo é a pesquisa do próprio app.
 PROCURA = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|rota|como chego|assistir|video|musica|receita)\b")
 AJUSTE = re.compile(r"\b(aumentar|diminuir|reduzir|mais|menos|maior|menor|subir|baixar|proximo|anterior)\b")
+# Objetivos em que escolher uma foto/arquivo faz parte do caminho (trocar papel de parede, mandar foto…).
+ESCOLHE_ALGO = re.compile(r"\b(troc\w*|mand\w*|envi\w*|anex\w*|escolh\w*|coloc\w*|defin\w*|post\w*|compartilh\w*|papel de parede)\b")
 ESCOLHER = re.compile(r"\b(selecion\w*|escolh\w*|nenhum item|galeria|fotos|imagens|albuns|arquivos)\b")
 # Objetivos de só VER uma informação: quando ela aparece na tela, acabou.
 ACHAR = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|onde fica|localizar)\b")
@@ -403,7 +420,8 @@ def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[
         return resposta("esperar", "Agora escreva no campo o que você procura e toque na lupa ou no Enter. "
                                    "Se preferir, toque no microfone do teclado e fale.")
     # Tela de escolher foto/arquivo que abriu pelo passo anterior: faz parte do caminho (não é "me enganei").
-    if p["tipo"] == "voltar" and seguiu and ESCOLHER.search(normalizar(titulo + " " + " ".join((textos or [])[:5]))):
+    if (p["tipo"] == "voltar" and seguiu and ESCOLHE_ALGO.search(normalizar(objetivo))
+            and ESCOLHER.search(normalizar(titulo + " " + " ".join((textos or [])[:5])))):
         return resposta("esperar", "Agora escolha a foto que você quer, tocando nela.")
     # Mandou tocar de novo, NA MESMA TELA, no botão que ela acabou de tocar.
     if p["tipo"] == "tocar" and seguiu and mesma_tela and normalizar(curto(seguiu)) == normalizar(curto(p["alvo"] or "")):
@@ -636,6 +654,13 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
         visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [curto(e) for e in elementos]]) if elementos or textos else set()
         if alvo_t and cobre(alvo_t, visivel_t):
             return resposta("esperar", f"Pronto! Achei {termo}: está aqui na tela.", concluido=True)
+    # Só VER algo ("as fotos de ontem"): depois de pelo menos um passo, se o que ela quer ver está na tela, pronto.
+    if seguiu and VER.search(obj) and not ACHAR.search(obj) and k is None and not quer_estado(objetivo):
+        termo = termo_de_busca(objetivo)
+        alvo_t = fichas(termo)
+        visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [curto(e) for e in elementos]]) if elementos or textos else set()
+        if alvo_t and cobre(alvo_t, visivel_t):
+            return resposta("esperar", "Pronto! Está aqui na tela. É só tocar para ver em tamanho grande.", concluido=True)
     # Procurar algo dentro de um app (endereço, vídeo, música…): a pesquisa do app primeiro.
     j = busca(elementos)
     if tela == "app" and j is not None and not ja_pesquisou and PROCURA.search(normalizar(objetivo)) and "settings" not in (app or ""):
