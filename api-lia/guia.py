@@ -655,10 +655,11 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
         if alvo_t and cobre(alvo_t, visivel_t):
             return resposta("esperar", f"Pronto! Achei {termo}: está aqui na tela.", concluido=True)
     # Só VER algo ("as fotos de ontem"): depois de pelo menos um passo, se o que ela quer ver está na tela, pronto.
-    if seguiu and VER.search(obj) and not ACHAR.search(obj) and k is None and not quer_estado(objetivo):
+    if seguiu and VER.search(obj) and not ACHAR.search(obj) and k is None and not teclado and not quer_estado(objetivo):
         termo = termo_de_busca(objetivo)
         alvo_t = fichas(termo)
-        visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [curto(e) for e in elementos]]) if elementos or textos else set()
+        # inclui o que está ao redor dos botões ("Botão — Ontem"); com o teclado fechado (não são sugestões de busca)
+        visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [e.replace(ANUNCIO, "") for e in elementos]]) if elementos or textos else set()
         if alvo_t and cobre(alvo_t, visivel_t):
             return resposta("esperar", "Pronto! Está aqui na tela. É só tocar para ver em tamanho grande.", concluido=True)
     # Procurar algo dentro de um app (endereço, vídeo, música…): a pesquisa do app primeiro.

@@ -53,7 +53,7 @@ type Estado = {
   visitas: Record<string, number>; // quantas vezes passou por cada tela (para perceber quando anda em círculos)
   ultimaTela: string;
   ultimaInstrucao: string;
-  repeticoes: number; // a mesma instrução seguida, sem avanço
+  vezes: Record<string, number>; // quantas vezes cada instrução apareceu neste guia
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -115,7 +115,7 @@ export function guiarComIA(
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '', ultimaInstrucao: '', repeticoes: 0,
+    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '', ultimaInstrucao: '', vezes: {},
     ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
@@ -143,10 +143,11 @@ export function guiarComIA(
 
   const instruir = (tela: TelaEvent, tipo: TipoPasso, alvo: string | null, fala: string, indice: number) => {
     // A mesma instrução 3 vezes seguidas (mesmo com outras palavras em volta): não está avançando. Para com calma.
+    // (conta no guia todo, não só seguidas: "tocar → voltar → tocar → voltar" também é ciclo)
     const chave = `${tipo}|${alvo ? nomeCurto(alvo) : ''}|${tipo === 'esperar' ? fala : ''}`;
-    estado.repeticoes = chave === estado.ultimaInstrucao ? estado.repeticoes + 1 : 1;
+    estado.vezes[chave] = (estado.vezes[chave] ?? 0) + 1;
     estado.ultimaInstrucao = chave;
-    if (estado.repeticoes >= 3) {
+    if (tipo !== 'voltar' && estado.vezes[chave] >= 3) {
       LiaGuia.cancel('Não estou conseguindo avançar por aqui. Vou voltar para a Lia, e você me explica de outro jeito.');
       pararGuiaIA(false);
       return;

@@ -505,3 +505,14 @@ def test_rodada6_galeria():
     # tela da Galeria só conta como "escolher foto" quando o pedido é de escolher (papel de parede, mandar foto)
     r = guia.interpretar({"tipo": "voltar"}, ["Recentes"], "ver as fotos de ontem", seguiu="Ontem", titulo="Galeria")
     assert r["tipo"] == "voltar"
+
+
+def test_rodada7_galeria_ver_ontem():
+    import guia
+    r = guia.regra_certeira("quero ver as fotos que eu tirei ontem", ["Agrupar por data", "Botão — Ontem"], ["Pesquisar", "Agrupar por data"], "app",
+                            ["22 itens"], app="com.sec.android.gallery3d", titulo="Resultados da pesquisa", seguiu="Agrupar por data")
+    assert r["concluido"]
+    # sugestões da busca (teclado aberto) não contam
+    r = guia.regra_certeira("quero ver as fotos que eu tirei ontem", ["ontem — Excluir"], ["Pesquisar"], "app", [],
+                            app="com.sec.android.gallery3d", titulo="Resultados da pesquisa", seguiu="Pesquisar", teclado=True)
+    assert not (r and r.get("concluido"))
