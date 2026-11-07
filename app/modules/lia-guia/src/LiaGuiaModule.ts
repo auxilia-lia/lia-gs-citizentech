@@ -23,6 +23,8 @@ export type TelaEvent = {
   seguiu: string | null;
   /** Número desta tela: a resposta da IA volta com ele, e resposta de tela antiga é descartada. */
   id: number;
+  /** Botões cortados ou atrás das barras do sistema: só aparecem rolando. */
+  escondidos?: string[];
 };
 
 export type TipoPasso = 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';

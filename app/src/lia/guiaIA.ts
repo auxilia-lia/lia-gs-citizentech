@@ -64,6 +64,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         errou: tela.errou ? p(tela.errou) : null,
         seguiu: tela.seguiu ? p(tela.seguiu) : null,
         feitos: estado.feitos.map(p),
+        escondidos: (tela.escondidos ?? []).map(p),
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.

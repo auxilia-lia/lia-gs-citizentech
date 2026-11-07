@@ -279,3 +279,10 @@ def test_guia5_sabe_se_ja_esta_ligado():
     els = ["Modo escuro [ligado] — Tela"]
     assert guia.interpretar({"tipo": "tocar", "indice": 0}, els, "ativar o modo escuro")["concluido"]
     assert guia.curto("Bluetooth [ligado] — Conexões [anúncio]") == "Bluetooth"
+
+
+def test_guia6_prompt_mostra_botoes_cortados():
+    import guia
+    p = guia.montar_prompt("trocar o papel de parede", "com.android.settings", ["Conexões", "Sons"], [],
+                           escondidos=["Visor (mais abaixo)"])
+    assert "Visor (mais abaixo)" in p and "rolar_baixo" in p

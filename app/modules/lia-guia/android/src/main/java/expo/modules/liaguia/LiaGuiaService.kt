@@ -58,6 +58,7 @@ class LiaGuiaService : AccessibilityService() {
   private data class Contexto(
     val app: String, val tela: String, val elementos: List<String>, val textos: List<String>, val rolavel: Boolean,
     val alvos: List<Rect> = emptyList(),
+    val escondidos: List<String> = emptyList(), // botões cortados/atrás das barras: só aparecem rolando
   )
 
   private val handler = Handler(Looper.getMainLooper())
@@ -339,6 +340,7 @@ class LiaGuiaService : AccessibilityService() {
     lembretes = 0
     handler.removeCallbacks(revelar)
     revelarAgendado = false
+    dicaRolar = false
     revelado = nivel == 0
     handler.removeCallbacks(lembrar)
     handler.postDelayed(lembrar, LEMBRETE_MS)
@@ -495,6 +497,7 @@ class LiaGuiaService : AccessibilityService() {
     val achado = melhorAlvo(root, passo)
     // O passo atual sumiu e o próximo já apareceu: a pessoa avançou (alguns apps não avisam o toque).
     if (achado == null && indice + 1 < passos.size && melhorAlvo(root, passos[indice + 1]) != null) return avancar()
+    if (achado != null && !bemVisivel(achado.bounds)) return pedirRolagem(achado)
     if (achado != null) {
       desenharAlvo(achado, if (nivel == 0) "Toque em ${achado.label}" else "Está aqui: ${achado.label}")
       LiaGuiaBridge.emit("onStep", mapOf("type" to "found", "index" to indice, "total" to passos.size, "step" to passo,
@@ -530,6 +533,7 @@ class LiaGuiaService : AccessibilityService() {
       tipo == "tocar" -> {
         val achado = localizar(root, ctx)
         when {
+          achado != null && !bemVisivel(achado.bounds) -> { faltas = 0; pedirRolagem(achado) }
           achado != null -> { faltas = 0; desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" }) }
           mudou && mudouDesdeInstrucao -> emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
           else -> {
@@ -591,6 +595,7 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
       "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,
+      "escondidos" to ctx.escondidos,
     ))
   }
 
@@ -603,7 +608,22 @@ class LiaGuiaService : AccessibilityService() {
     handler.removeCallbacks(revelar)
   }
 
+  // O botão existe, mas está cortado (atrás da barra do voltar, por exemplo): primeiro rolar, depois apontar.
+  // Antes, o anel aparecia no pedacinho visível, em cima da barra de navegação.
+  private var dicaRolar = false
+  private fun pedirRolagem(achado: Alvo) {
+    alvoAtual = null
+    val abaixo = achado.bounds.centerY() > areaUtil().centerY()
+    val msg = if (abaixo) "Arraste a tela devagar para cima, para aparecer \"${achado.label}\"."
+      else "Arraste a tela devagar para baixo, para aparecer \"${achado.label}\"."
+    if (!dicaRolar) falado = false
+    dicaRolar = true
+    overlay?.mostrarGesto(if (abaixo) "rolar_baixo" else "rolar_cima", msg)
+    falarUmaVez(msg)
+  }
+
   private fun desenharAlvo(achado: Alvo, fala: String) {
+    if (dicaRolar) { dicaRolar = false; falado = false } // agora sim fala "Toque em…"
     alvoAtual = achado.bounds
     nomeAlvo = achado.label
     if (revelado) {
@@ -657,10 +677,30 @@ class LiaGuiaService : AccessibilityService() {
     for (i in 0 until n.childCount) n.getChild(i)?.let { textosDe(it, out, prof + 1) }
   }
 
+  // A parte da tela onde a pessoa toca de verdade: sem a barra de status (em cima) e a de navegação (voltar, embaixo).
+  private fun dimen(nome: String): Int {
+    val id = resources.getIdentifier(nome, "dimen", "android")
+    return if (id > 0) resources.getDimensionPixelSize(id) else 0
+  }
+  private fun areaUtil(): Rect {
+    val dm = resources.displayMetrics
+    return Rect(0, dimen("status_bar_height"), dm.widthPixels, dm.heightPixels - dimen("navigation_bar_height"))
+  }
+
+  // O botão está bem visível? (quase todo dentro da área útil; um pedacinho atrás da barra não conta)
+  private fun bemVisivel(b: Rect, util: Rect = areaUtil()): Boolean {
+    val v = Rect(b)
+    if (!v.intersect(util)) return false
+    val d = resources.displayMetrics.density
+    return v.height() >= b.height() * 0.6f || v.height() >= 72 * d
+  }
+
   private fun lerContexto(root: AccessibilityNodeInfo): Contexto {
     val app = root.packageName?.toString() ?: ""
     val dm = resources.displayMetrics
     val telaToda = Rect(0, 0, dm.widthPixels, dm.heightPixels)
+    val util = areaUtil()
+    val escondidos = LinkedHashSet<String>()
     val elementos = mutableListOf<String>()
     val alvos = mutableListOf<Rect>()
     val vistos = HashSet<String>()
@@ -679,8 +719,12 @@ class LiaGuiaService : AccessibilityService() {
             // Só o que está de fato na tela e uma vez por botão (vários textos podem levar ao mesmo botão).
             if (!b.isEmpty && Rect.intersects(b, telaToda) && vistos.add(b.flattenToString())) {
               val nome = nomeDe(c)?.takeIf { it.isNotEmpty() } ?: label
-              elementos.add(nome + estadoDe(c) + contextoDe(c, nome))
-              alvos.add(b)
+              if (bemVisivel(b, util)) {
+                elementos.add(nome + estadoDe(c) + contextoDe(c, nome))
+                alvos.add(b)
+              } else if (escondidos.size < 15) {
+                escondidos.add(nome + if (b.centerY() > util.centerY()) " (mais abaixo)" else " (mais acima)")
+              }
             }
           }
         }
@@ -693,7 +737,7 @@ class LiaGuiaService : AccessibilityService() {
       app == "com.android.systemui" -> "painel"
       else -> "app"
     }
-    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos)
+    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos, escondidos.toList())
   }
 
   // " [ligado]" / " [desligado]" / " [selecionado]" / " [indisponível]": o estado do botão, de qualquer app.

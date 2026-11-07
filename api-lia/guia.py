@@ -63,6 +63,8 @@ Botões que dá para tocar (número: texto):
 {elementos}
 Outros textos na tela: {textos}
 Dá para rolar a tela: {rolavel}.
+Botões cortados, que só aparecem rolando (NÃO estão na lista acima): {escondidos}
+Se o caminho certo está entre os cortados, mande "rolar_baixo" (se está mais abaixo) ou "rolar_cima" (mais acima).
 O que aconteceu: {motivo}{seguiu}
 Passos que ela já fez, em ordem: {feitos}.
 
@@ -312,13 +314,14 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
-                  seguiu: str | None = None) -> str:
+                  seguiu: str | None = None, escondidos: list[str] | None = None) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
         textos=" | ".join(textos or []) or "(nenhum)", rolavel="sim" if rolavel else "não",
         motivo=MOTIVOS.get(motivo, MOTIVOS["mudou"]).format(errou=errou or ""), feitos=", ".join(feitos) or "nada ainda",
         seguiu=f'. Ela fez exatamente o que você pediu: "{seguiu}".' if seguiu else "",
+        escondidos=", ".join(escondidos or []) or "(nenhum)",
     )
 
 

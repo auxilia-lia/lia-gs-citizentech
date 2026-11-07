@@ -154,6 +154,7 @@ class TelaGuia(BaseModel):
     errou: str | None = Field(default=None, max_length=120)
     seguiu: str | None = Field(default=None, max_length=120)  # a instrução que a pessoa acabou de cumprir
     feitos: list[str] = Field(default=[], max_length=30)
+    escondidos: list[str] = Field(default=[], max_length=20)  # botões cortados: só aparecem rolando
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -170,6 +171,7 @@ async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
+    extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()])
     if t.motivo != "errou":
         certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos)
         if certeira:
@@ -183,7 +185,7 @@ async def guia_proximo(t: TelaGuia):
         return {**_CACHE_GUIA[chave][1], "provedor": f"{provedor()} (guardado)"}
     lista = elementos[:45]
     try:
-        r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args),
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args, **extra),
                         [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180, prazo=7)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
