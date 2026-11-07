@@ -29,6 +29,8 @@ export type TelaEvent = {
   escondidos?: string[];
   /** Nome da tela atual ("Visor", "Papel de parede e estilo"). */
   titulo?: string;
+  /** O teclado está aberto. */
+  teclado?: boolean;
   /** Imagem da tela em JPEG/base64, com os dados pessoais cobertos (só quando o Guia travou). */
   imagem?: string | null;
 };

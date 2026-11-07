@@ -58,7 +58,7 @@ class Texto(BaseModel):
 
 
 # Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
-VERSAO = "2026-11-07.6"
+VERSAO = "2026-11-07.7"
 
 
 @app.get("/saude")
@@ -115,11 +115,14 @@ async def conversa(c: Conversa):
     p = provedor()
     if p in ("gemini", "claude"):
         try:
-            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=10)
+            r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=14)
         except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
             # Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo).
             log.exception("IA indisponível; respondendo pelas regras")
             r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
+            if not r.get("acao") and str(r.get("fala", "")).startswith("Modo teste"):
+                # A IA não respondeu a tempo e as regras não entenderam: diz a verdade em vez do texto do modo teste.
+                r = {"fala": "A internet oscilou e eu não consegui pensar agora. Pode repetir o que você quer?", "acao": None}
             if contexto.get("guia") and not r.get("acao"):
                 # Durante o Guia, a resposta genérica das regras confunde: avisa e deixa o Guia seguir.
                 r = {"fala": "A internet está lenta agora. Continuo com você: o Guia segue na tela.", "acao": None}
@@ -177,6 +180,7 @@ class TelaGuia(BaseModel):
     palavras: list[str] = Field(default=[], max_length=40)  # palavras do celular que ela já aprendeu
     repetindo: bool = False  # ela já passou por esta tela várias vezes (andando em círculos)
     mesma_tela: bool = False  # a tela é a mesma da resposta anterior (o toque não levou a outro lugar)
+    teclado: bool = False  # o teclado está aberto
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -258,7 +262,8 @@ async def _guia_proximo(t: TelaGuia) -> dict:
                  caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()],
                  repetindo=t.repetindo)
     if t.motivo != "errou" or t.app == guia.LOJA:  # na loja o roteiro vale sempre (ele confere o app)
-        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app, titulo=t.titulo)
+        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app, titulo=t.titulo,
+                                       teclado=t.teclado, seguiu=t.seguiu)
         if certeira:
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):

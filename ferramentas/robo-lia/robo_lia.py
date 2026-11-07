@@ -141,7 +141,7 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
     telas: dict = {}
     nomes_tocados: list = []
     ultima_novidade = time.time()
-    escreveu = False
+    escreveu = 0
     resultado = "limite de tempo"
     while time.time() - inicio < LIMITE_S:
         time.sleep(1.5)
@@ -155,7 +155,8 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
                 print(f"  Lia: {ev.get('texto')}" + ("" if ev.get("tts") else "   [SEM VOZ: o TTS não estava pronto]"))
             elif tipo == "tela":
                 print(f"  tela {ev.get('id')}: {ev.get('titulo') or ev.get('app')} ({ev.get('motivo')}, {ev.get('botoes')} botões{', com imagem' if ev.get('imagem') else ''})")
-                chave_tela = f"{ev.get('app')}|{ev.get('titulo')}"
+                # título + quantidade de botões (no painel do Samsung várias telas têm o mesmo "título")
+                chave_tela = f"{ev.get('app')}|{ev.get('titulo')}|{ev.get('botoes')}"
                 telas[chave_tela] = telas.get(chave_tela, 0) + 1
                 if telas[chave_tela] >= 4:
                     return f"LOOP: passou 4 vezes pela mesma tela ({ev.get('titulo') or ev.get('app')})"
@@ -207,11 +208,11 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
             adb("shell", "input", "tap", str(acao["x"]), str(acao["y"]))
         elif acao.get("tipo") == "esperar":
             fala = str(acao.get("fala") or "").lower()
-            if cenario.get("escrever") and not escreveu and re.search(r"escrev|digit", fala):
+            if cenario.get("escrever") and escreveu < 2 and re.search(r"escrev|digit", fala):
                 print_tela(pasta, passos, "escrever")
                 print(f"  robô: escreve \"{cenario['escrever']}\"")
                 escrever(cenario["escrever"])
-                escreveu = True
+                escreveu += 1
         elif acao.get("tipo") in ("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio"):
             gestos.append(acao["tipo"])
             if len(gestos) >= 4 and len(set(gestos[-4:])) == 1:

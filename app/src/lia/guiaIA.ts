@@ -219,6 +219,7 @@ export function guiarComIA(
         palavras: estado.palavras,
         repetindo: voltas >= 3,
         mesma_tela: mesmaTela,
+        teclado: !!tela.teclado,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.

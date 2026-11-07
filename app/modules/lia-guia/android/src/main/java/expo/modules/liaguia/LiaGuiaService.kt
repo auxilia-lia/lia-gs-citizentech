@@ -999,7 +999,7 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
       "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,
-      "escondidos" to ctx.escondidos, "titulo" to ctx.titulo, "imagem" to imagem,
+      "escondidos" to ctx.escondidos, "titulo" to ctx.titulo, "imagem" to imagem, "teclado" to (tecladoTopo != null),
     ))
   }
 

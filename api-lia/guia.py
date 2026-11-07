@@ -398,6 +398,10 @@ def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[
                 feitos: list[str] | None = None, seguiu: str | None = None, mesma_tela: bool = False,
                 titulo: str = "") -> dict:
     p = _interpretar(r, elementos, objetivo, textos, rolavel, com_imagem)
+    # Acabou de tocar na pesquisa: a tela nova (lista de recentes, sugestões) é a da pesquisa. Hora de escrever.
+    if p["tipo"] == "voltar" and seguiu and BUSCA.search(normalizar(curto(seguiu))):
+        return resposta("esperar", "Agora escreva no campo o que você procura e toque na lupa ou no Enter. "
+                                   "Se preferir, toque no microfone do teclado e fale.")
     # Tela de escolher foto/arquivo que abriu pelo passo anterior: faz parte do caminho (não é "me enganei").
     if p["tipo"] == "voltar" and seguiu and ESCOLHER.search(normalizar(titulo + " " + " ".join((textos or [])[:5]))):
         return resposta("esperar", "Agora escolha a foto que você quer, tocando nela.")
@@ -578,7 +582,8 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
 
 
 def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str,
-                   textos: list[str] | None = None, app: str = "", titulo: str = "") -> dict | None:
+                   textos: list[str] | None = None, app: str = "", titulo: str = "", teclado: bool = False,
+                   seguiu: str | None = None) -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(curto(f)) for f in feitos}
@@ -617,7 +622,9 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     # Campo de pesquisa aberto (cursor nele): é hora de escrever, não de tocar de novo.
     k = campo_aberto(elementos)
     ja_pesquisou = any(BUSCA.search(normalizar(curto(f))) for f in feitos)
-    if k is not None and (ja_pesquisou or BUSCA.search(normalizar(curto(elementos[k])))):
+    acabou_de_pesquisar = bool(seguiu and BUSCA.search(normalizar(curto(seguiu))))
+    # (o campo do Maps e de outros apps nem sempre se diz "aberto": teclado aberto logo depois de tocar na pesquisa vale)
+    if (k is not None and (ja_pesquisou or BUSCA.search(normalizar(curto(elementos[k]))))) or (teclado and acabou_de_pesquisar):
         termo = termo_de_busca(objetivo) or "o que você procura"
         return resposta("esperar", f"Agora escreva {termo} no campo e toque na lupa ou no Enter. "
                                    "Se preferir, toque no microfone do teclado e fale.")

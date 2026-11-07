@@ -481,3 +481,15 @@ def test_robo_rodada4():
     r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", ["Iniciar — Rotas", "Av. Paulista"], ["Busque aqui"], "app",
                             ["Avenida Paulista, São Paulo"], app="com.google.android.apps.maps", titulo="Maps")
     assert r["concluido"]
+
+
+def test_rodada5():
+    import guia
+    # Maps: depois de tocar na pesquisa, o teclado abriu numa lista de recentes: escrever, não voltar
+    r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", ["Voltar", "Casa", "Trabalho"], ["Busque aqui"], "app", [],
+                            app="com.google.android.apps.maps", titulo="Recentes", teclado=True, seguiu="Busque posto/caixa 24h")
+    assert r["tipo"] == "esperar" and "Avenida Paulista" in r["fala"]
+    r = guia.interpretar({"tipo": "voltar"}, ["Casa"], "procurar a Paulista", seguiu="Busque aqui")
+    assert r["tipo"] == "esperar"
+    # conversa sem IA: fotos vão para a Galeria
+    assert falar("quero ver as fotos que eu tirei ontem")["acao"]["abrir"] == "Galeria"
