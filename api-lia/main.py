@@ -58,7 +58,7 @@ class Texto(BaseModel):
 
 
 # Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
-VERSAO = "2026-11-07.3"
+VERSAO = "2026-11-07.4"
 
 
 @app.get("/saude")
@@ -176,6 +176,7 @@ class TelaGuia(BaseModel):
     imagem: str | None = Field(default=None, max_length=3_000_000)  # JPEG base64 com tarjas, só quando travou
     palavras: list[str] = Field(default=[], max_length=40)  # palavras do celular que ela já aprendeu
     repetindo: bool = False  # ela já passou por esta tela várias vezes (andando em círculos)
+    mesma_tela: bool = False  # a tela é a mesma da resposta anterior (o toque não levou a outro lugar)
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -278,7 +279,8 @@ async def _guia_proximo(t: TelaGuia) -> dict:
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
     passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel, com_imagem=bool(t.imagem), tela=t.tela,
-                             repetindo=t.repetindo, feitos=t.feitos, seguiu=t.seguiu)
+                             repetindo=t.repetindo, feitos=t.feitos, seguiu=t.seguiu, mesma_tela=t.mesma_tela,
+                             titulo=t.titulo)
     if chave:
         if len(_CACHE_GUIA) > 300:
             _CACHE_GUIA.clear()

@@ -435,7 +435,20 @@ def test_robo_rodada2():
     assert r["tipo"] == "tocar" and r["indice"] == 1
     # tocou num item que é só informação: se queria ver, conclui
     r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Versão Android — Versão do One UI, 9.0"], "como eu vejo a versão do Android",
-                         seguiu="Versão Android — Versão do One UI, 9.0")
+                         seguiu="Versão Android — Versão do One UI, 9.0", mesma_tela=True)
     assert r["concluido"]
-    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Status da bateria — Carregando"], "ligar o modo economia", seguiu="Status da bateria")
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Status da bateria — Carregando"], "ligar o modo economia", seguiu="Status da bateria",
+                         mesma_tela=True)
     assert r["tipo"] == "esperar" and not r["concluido"]
+    # tela nova com item de mesmo nome (resultado da busca → página): NÃO é repetição
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Tamanho e estilo da fonte — Claro, Escuro"], "onde eu mudo o tamanho da letra",
+                         seguiu="Tamanho e estilo da fonte", mesma_tela=False)
+    assert r["tipo"] == "tocar"
+    # botão de ajuste: um toque já basta
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Aumentar tam. da fonte — Reduzir"], "aumentar a letra",
+                         seguiu="Aumentar tam. da fonte", mesma_tela=True)
+    assert r["concluido"]
+    # tela de escolher foto aberta pelo passo anterior: escolher, não "me enganei"
+    r = guia.interpretar({"tipo": "voltar", "fala": "Me enganei."}, ["Recentes"], "trocar o papel de parede", seguiu="Galeria",
+                         titulo="Nenhum item foi selecionado")
+    assert r["tipo"] == "esperar" and "escolha a foto" in r["fala"]

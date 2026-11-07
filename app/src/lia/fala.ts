@@ -30,19 +30,20 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   // Se o Guia foi ligado depois de abrir o app, passa a usar a voz dele.
   if (!tentouGuia) { tentouGuia = true; try { const n = LiaGuia.voice(); if (n) voz = n; } catch { /* sem Guia */ } }
   if (!voz) return Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
-  // Se a voz escolhida não começar a falar (voz indisponível), larga ela e fala com a voz padrão.
-  let comecou = false;
-  const reserva = setTimeout(() => {
-    if (comecou) return;
-    voz = undefined;
-    Speech.stop();
-    Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
-  }, 2500);
+  // Se a voz escolhida der erro, fala com a voz padrão SÓ desta vez. Antes, um atraso qualquer (o Guia falando
+  // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
   Speech.speak(texto, {
     language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes,
-    onStart: () => { comecou = true; clearTimeout(reserva); opcoes.onStart?.(); },
-    onError: (e) => { if (!comecou) { clearTimeout(reserva); comecou = true; voz = undefined; Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes }); } else opcoes.onError?.(e); },
+    onError: (e) => {
+      falhas++;
+      if (falhas >= 3) voz = undefined; // a voz sumiu do celular de verdade
+      Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+      opcoes.onError?.(e);
+    },
+    onDone: () => { falhas = 0; opcoes.onDone?.(); },
   });
 }
+
+let falhas = 0;
 
 export const calar = () => Speech.stop();

@@ -51,6 +51,7 @@ type Estado = {
   appAlvo: { nome: string; pkg: string } | null; // o app que a conversa já sabe que é o certo (ex.: Maps para GPS)
   reaberturas: number;
   visitas: Record<string, number>; // quantas vezes passou por cada tela (para perceber quando anda em círculos)
+  ultimaTela: string;
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -112,7 +113,7 @@ export function guiarComIA(
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {},
+    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '',
     ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
@@ -157,6 +158,8 @@ export function guiarComIA(
         return;
       }
       const nomeTela = tela.titulo ? `${tela.titulo} (${tela.app})` : tela.app;
+      const mesmaTela = nomeTela === estado.ultimaTela;
+      estado.ultimaTela = nomeTela;
       if (estado.caminho[estado.caminho.length - 1] !== nomeTela) {
         estado.caminho = [...estado.caminho, nomeTela].slice(-8);
         estado.visitas[nomeTela] = (estado.visitas[nomeTela] ?? 0) + 1;
@@ -204,6 +207,7 @@ export function guiarComIA(
         imagem: tela.imagem ?? null,
         palavras: estado.palavras,
         repetindo: voltas >= 3,
+        mesma_tela: mesmaTela,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.

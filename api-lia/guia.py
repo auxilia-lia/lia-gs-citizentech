@@ -96,6 +96,8 @@ nela, nem do passo seguinte (ele aparece só depois deste toque).
 "fala": para "tocar" e gestos, no máximo 1 frase curta dizendo o PORQUÊ, sem mandar tocar (a instrução "Toque em ..." eu
 mesmo acrescento) ou "" se não precisar. Para "esperar", até 2 frases curtas dizendo o que fazer. Português do Brasil,
 simples, calmo, sem jargão, tratando por "você".
+Telas de escolher foto, arquivo ou contato que abriram pelo passo anterior fazem parte do caminho: peça para ela
+escolher (tipo "esperar"), nunca diga que errou.
 Quem errou: se ela FEZ o que você pediu e a tela não é a esperada, o erro foi SEU. Assuma com leveza
 ("Me enganei, esse não era o caminho. Vamos voltar.") e NUNCA diga que ela tocou errado.
 Só diga que ela tocou em outro lugar quando "O que aconteceu" disser isso, e mesmo assim sem culpa ("sem problema").
@@ -249,6 +251,8 @@ def campo_aberto(elementos: list[str]) -> int | None:
 
 # Objetivos de procurar algo dentro do app: o caminho mais certo é a pesquisa do próprio app.
 PROCURA = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|rota|como chego|assistir|video|musica|receita)\b")
+AJUSTE = re.compile(r"\b(aumentar|diminuir|reduzir|mais|menos|maior|menor|subir|baixar|proximo|anterior)\b")
+ESCOLHER = re.compile(r"\b(selecion\w*|escolh\w*|nenhum item|galeria|fotos|imagens|albuns|arquivos)\b")
 # Objetivos de só VER uma informação: quando ela aparece na tela, acabou.
 VER = re.compile(r"\b(ver|vejo|saber|sei|olhar|olho|conferir|confiro|qual|quanto|quantos|quantas|onde)\b")
 
@@ -381,11 +385,19 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
 
 def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[str] | None = None,
                 rolavel: bool = False, com_imagem: bool = False, tela: str = "app", repetindo: bool = False,
-                feitos: list[str] | None = None, seguiu: str | None = None) -> dict:
+                feitos: list[str] | None = None, seguiu: str | None = None, mesma_tela: bool = False,
+                titulo: str = "") -> dict:
     p = _interpretar(r, elementos, objetivo, textos, rolavel, com_imagem)
-    # Mandou tocar de novo no botão que ela ACABOU de tocar e nada mudou de verdade (ex.: "Versão Android",
-    # "Status da bateria": são só informação). Se ela queria VER algo, já está na tela.
-    if p["tipo"] == "tocar" and seguiu and normalizar(curto(seguiu)) == normalizar(curto(p["alvo"] or "")):
+    # Tela de escolher foto/arquivo que abriu pelo passo anterior: faz parte do caminho (não é "me enganei").
+    if p["tipo"] == "voltar" and seguiu and ESCOLHER.search(normalizar(titulo + " " + " ".join((textos or [])[:5]))):
+        return resposta("esperar", "Agora escolha a foto que você quer, tocando nela.")
+    # Mandou tocar de novo, NA MESMA TELA, no botão que ela acabou de tocar.
+    if p["tipo"] == "tocar" and seguiu and mesma_tela and normalizar(curto(seguiu)) == normalizar(curto(p["alvo"] or "")):
+        nome = curto(p["alvo"] or "")
+        # Botão de ajuste (aumentar, diminuir, +, -): tocar de novo é normal; um toque já fez o que ela pediu.
+        if AJUSTE.search(normalizar(nome)) or nome.strip() in ("+", "-"):
+            return resposta("esperar", f"Pronto! Já mudou. Se quiser mais, é só tocar de novo em {nome}.", concluido=True)
+        # Item que é só informação ("Versão Android", "Status da bateria"): se ela queria VER, já está na tela.
         if VER.search(normalizar(objetivo)):
             info = p["alvo"].replace(" — ", ": ", 1)
             info = re.sub(r"\s*\[[^\]]*\]", "", info)

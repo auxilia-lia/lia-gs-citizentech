@@ -137,6 +137,7 @@ export type PedidoGuia = {
   palavras?: string[];
   /** Ela já passou por esta tela várias vezes (andando em círculos): a IA precisa mudar de caminho. */
   repetindo?: boolean;
+  mesma_tela?: boolean;
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.

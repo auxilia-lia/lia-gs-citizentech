@@ -55,6 +55,9 @@ class LiaGuiaService : AccessibilityService() {
     private const val ESPERA_CARREGAR_MS = 2500L
     private const val MAX_LEMBRETES = 2
     private const val DIGITANDO_MS = 2500L
+    // Só isso conta como "a pessoa está mexendo" (adia o lembrete). Mudanças de janela vêm do próprio app.
+    private val ACOES_DA_PESSOA = setOf(AccessibilityEvent.TYPE_VIEW_CLICKED, AccessibilityEvent.TYPE_VIEW_SCROLLED,
+      AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, AccessibilityEvent.TYPE_VIEW_FOCUSED)
     private const val ID_INSTRUCAO = "lia-instrucao"
     private const val ASSENTAR_MS = 600L // a tela precisa ficar parada esse tempo antes de ir para a IA
     private const val ROLANDO_MS = 5000L
@@ -350,14 +353,20 @@ class LiaGuiaService : AccessibilityService() {
   private fun ouvir() {
     if (!SpeechRecognizer.isRecognitionAvailable(this)) return falar("Não consigo ouvir neste celular.")
     handler.removeCallbacks(escutar)
-    if (escutaAutomatica) reconhecedor?.cancel()
+    val estavaEscutando = escutaAutomatica
+    if (estavaEscutando) try { reconhecedor?.cancel() } catch (_: Exception) {}
     escutaAutomatica = false
     botao?.atento = false
     tts?.stop()
     handler.removeCallbacks(lembrar)
+    pararVigia() // nada da Lia falando por cima enquanto a pessoa fala
     escutaManual = true
-    iniciarEscuta()
+    tentativasManual = 0
+    botao?.ouvindo = true
+    // Se a escuta automática estava ligada, espera ela soltar o microfone (senão vinha "ocupado" e o botão "soltava sozinho").
+    if (estavaEscutando) handler.postDelayed({ iniciarEscuta() }, 300) else iniciarEscuta()
   }
+  private var tentativasManual = 0
 
   private fun iniciarEscuta() {
     val r = reconhecedor ?: SpeechRecognizer.createSpeechRecognizer(this).also {
@@ -469,6 +478,13 @@ class LiaGuiaService : AccessibilityService() {
         agendarEscuta(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 1200 else 300)
         return
       }
+      if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY && tentativasManual < 2) {
+        tentativasManual++
+        botao?.ouvindo = true
+        try { reconhecedor?.cancel() } catch (_: Exception) {}
+        handler.postDelayed({ iniciarEscuta() }, 400)
+        return
+      }
       escutaManual = false
       agendarEscuta(1500)
       falar("Não ouvi direito. Toque no microfone e fale de novo.")
@@ -564,7 +580,7 @@ class LiaGuiaService : AccessibilityService() {
     if (event == null || !ativo) return
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
-    if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
+    if (event.eventType in ACOES_DA_PESSOA) adiarLembrete()
     if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
       ultimaRolagem = SystemClock.uptimeMillis()
       if (Build.VERSION.SDK_INT >= 28 && event.scrollDeltaY != 0) ultimoDeltaY = event.scrollDeltaY
@@ -786,7 +802,11 @@ class LiaGuiaService : AccessibilityService() {
         if (nivel >= 1) falar("Isso!")
         emitirTela(ctx, "mudou")
       }
-      else -> if (mudouDesdeInstrucao && assentou(assinatura)) emitirTela(ctx, "mudou")
+      else -> when {
+        mudouDesdeInstrucao && assentou(assinatura) -> emitirTela(ctx, "mudou")
+        // "esperar" parado há muito tempo (ex.: ela escreveu e a tela não mudou o bastante): olha de novo.
+        SystemClock.uptimeMillis() - instrucaoDesdeUp > 40000 && !digitando() -> enviarTela(ctx, "parado")
+      }
     }
   }
 
@@ -1304,7 +1324,7 @@ class LiaGuiaService : AccessibilityService() {
     }
     // Voz que roda no próprio celular primeiro: a "de rede" fica muda quando a internet oscila.
     val melhor = pt.maxWithOrNull(compareBy<Voice>({ if (it.isNetworkConnectionRequired) 0 else 1 }, { it.quality }, { it.name }))
-    if (melhor != null) t.voice = melhor
+    if (melhor != null) { t.voice = melhor; vozEscolhida = melhor }
   }
 
   // Volta para o app da Lia (quando a pessoa pede para parar).
@@ -1315,7 +1335,17 @@ class LiaGuiaService : AccessibilityService() {
     }
   }
 
+  private var vozEscolhida: Voice? = null
+  // O motor de voz às vezes volta sozinho para a voz padrão (troca de áudio, outro app falando): reaplica a da Lia.
+  private fun garantirVoz() {
+    val v = vozEscolhida ?: return
+    try { if (tts?.voice?.name != v.name) tts?.voice = v } catch (_: Exception) {}
+  }
+
   private fun falar(texto: String) {
+    garantirVoz()
+    // A pessoa está falando (tocou no microfone): a Lia não fala por cima, senão o microfone ouve a própria Lia.
+    if (escutaManual && botao?.ouvindo == true) { robo("fala_suprimida", "texto" to texto); return }
     if (texto.isNotBlank()) robo("fala", "texto" to texto, "tts" to ttsPronto)
     if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "lia-guia")
   }
@@ -1323,6 +1353,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun falarUmaVez(texto: String) {
     if (falado) return
     falado = true
+    garantirVoz()
     if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, ID_INSTRUCAO)
   }
 

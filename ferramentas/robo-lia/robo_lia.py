@@ -75,8 +75,10 @@ def print_tela(pasta: pathlib.Path, n: int, nome: str):
 
 
 def escrever(texto: str):
-    # adb input text não aceita espaço direto: usa %s
-    adb("shell", "input", "text", texto.replace(" ", "%s"))
+    # adb input text não aceita acento nem espaço direto: tira os acentos e usa %s
+    import unicodedata
+    sem_acento = "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+    adb("shell", "input", "text", sem_acento.replace(" ", "%s"))
     time.sleep(0.6)
     adb("shell", "input", "keyevent", "66")  # Enter
 
@@ -116,6 +118,21 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
     ultima_novidade = time.time()
     escreveu = False
     toques: list = []
+    gestos: list = []
+    resultado = "limite de tempo"
+    try:
+        resultado = seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos)
+    except KeyboardInterrupt:
+        resultado = "INTERROMPIDO (Ctrl+C)"
+        print("\n  interrompido: salvando o que já tem…")
+    passos = len([e for e in historico if e.get("evento") in ("tocar", "instrucao")])
+    return salvar(cenario, pasta, historico, resultado, passos, inicio)
+
+
+def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
+    passos = 0
+    ultima_novidade = time.time()
+    escreveu = False
     resultado = "limite de tempo"
     while time.time() - inicio < LIMITE_S:
         time.sleep(1.5)
@@ -172,9 +189,18 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
                 escrever(cenario["escrever"])
                 escreveu = True
         elif acao.get("tipo") in ("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio"):
+            gestos.append(acao["tipo"])
+            if len(gestos) >= 4 and len(set(gestos[-4:])) == 1:
+                resultado = f"LOOP: mandou o mesmo gesto 4 vezes ({acao['tipo']})"
+                print_tela(pasta, passos, "loop")
+                break
             print_tela(pasta, passos, acao["tipo"])
             print(f"  robô: gesto {acao['tipo']}")
             gesto(acao["tipo"], w, h)
+    return resultado
+
+
+def salvar(cenario, pasta, historico, resultado, passos, inicio):
     # Encerra o Guia (senão ele continua no próximo cenário), fecha o painel e guarda tudo.
     adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "lia://parar", PACOTE)
     time.sleep(1.5)
@@ -206,7 +232,11 @@ def main():
         print("Aviso: a API não respondeu em localhost:8000. Ela está ligada?")
     cenarios = [{"nome": "pedido", "texto": a.texto, "escrever": a.escrever}] if a.texto else CENARIOS
     pasta = RAIZ / "testes-robo" / dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-    resumos = [rodar(c, pasta) for c in cenarios]
+    resumos = []
+    for c in cenarios:
+        resumos.append(rodar(c, pasta))
+        if resumos[-1]["resultado"].startswith("INTERROMPIDO"):
+            break  # Ctrl+C: salvou este cenário e para tudo
     print("\nResumo:")
     for r in resumos:
         print(f"  {r['cenario']['nome']}: {r['resultado']} ({r['passos']} passos, {r['segundos']} s)")
