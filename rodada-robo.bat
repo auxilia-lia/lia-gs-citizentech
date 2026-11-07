@@ -22,6 +22,10 @@ start "Lia API" /min cmd /k "cd /d %~dp0api-lia && py -m uvicorn main:app --host
 echo api ok >> %STATUS%
 
 echo [3/5] Gerando e instalando o app (demora alguns minutos)...
+REM reinicia o adb (as vezes ele trava entre uma rodada e outra) e confere o celular
+adb kill-server >nul 2>&1
+adb start-server >nul 2>&1
+adb wait-for-device
 cd app
 call npx expo prebuild --platform android --clean > ..\testes-robo\build.log 2>&1
 call npx expo run:android --no-bundler >> ..\testes-robo\build.log 2>&1
