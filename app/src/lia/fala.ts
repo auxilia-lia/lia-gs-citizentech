@@ -29,7 +29,7 @@ let tentouGuia = false;
 export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   // Se o Guia foi ligado depois de abrir o app, passa a usar a voz dele.
   if (!tentouGuia) { tentouGuia = true; try { const n = LiaGuia.voice(); if (n) voz = n; } catch { /* sem Guia */ } }
-  if (!voz) return Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+  // Sem voz escolhida (o motor de voz do app não respondeu ao abrir) também passa pela reserva abaixo.
   // Se a voz escolhida der erro, fala com a voz padrão SÓ desta vez. Antes, um atraso qualquer (o Guia falando
   // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
   // Se a voz da Lia não começar em 3 s (motor de voz preso nela), fala esta frase com a voz padrão.
@@ -42,7 +42,7 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
     try { LiaGuia.say(texto); } catch { Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes }); }
   }, 3000);
   Speech.speak(texto, {
-    language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes,
+    language: 'pt-BR', rate: RITMO, ...(voz ? { voice: voz } : {}), ...opcoes,
     onStart: () => { comecou = true; clearTimeout(reserva); opcoes.onStart?.(); },
     onError: (e) => {
       comecou = true;
