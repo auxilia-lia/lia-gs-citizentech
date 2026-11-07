@@ -30,6 +30,13 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   // Se o Guia foi ligado depois de abrir o app, passa a usar a voz dele.
   if (!tentouGuia) { tentouGuia = true; try { const n = LiaGuia.voice(); if (n) voz = n; } catch { /* sem Guia */ } }
   // Sem voz escolhida (o motor de voz do app não respondeu ao abrir) também passa pela reserva abaixo.
+  // Com o Guia ligado, quem fala é sempre o serviço do Guia: a voz do app às vezes fica muda sem dar erro
+  // (o motor de voz se solta), e a do Guia reconecta sozinha. Assim a Lia soa igual no app e no Guia.
+  let guiaLigado = false;
+  try { guiaLigado = !!LiaGuia.isEnabled(); } catch { guiaLigado = false; }
+  if (guiaLigado) {
+    try { LiaGuia.say(texto); opcoes.onStart?.(); return; } catch { /* segue com a voz do app */ }
+  }
   // Se a voz escolhida der erro, fala com a voz padrão SÓ desta vez. Antes, um atraso qualquer (o Guia falando
   // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
   // Se a voz da Lia não começar em 3 s (motor de voz preso nela), fala esta frase com a voz padrão.
