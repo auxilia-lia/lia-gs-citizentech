@@ -299,3 +299,11 @@ def test_guia6_configuracoes_pesquisa_primeiro_e_prompt_sabe_onde_esta():
     p = guia.montar_prompt("trocar o plano de fundo", "com.android.settings", els, [], titulo="Visor",
                            caminho=["Configurações", "Visor"])
     assert 'na tela "Visor"' in p and "Configurações > Visor" in p
+
+
+def test_guia7_plano():
+    import guia
+    r = c.post("/guia/plano", json={"objetivo": "ligar o bluetooth", "app": "celular"}).json()
+    assert [p["tipo"] for p in r["passos"]] == ["painel", "tocar"] and r["passos"][1]["nome"] == "Bluetooth"
+    assert guia.interpretar_plano({"passos": [{"tipo": "tocar", "nome": "Pagar"}, {"tipo": "tocar", "nome": "Pesquisar"},
+                                              {"tipo": "voar"}]}) == [{"tipo": "tocar", "nome": "Pesquisar"}]

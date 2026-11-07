@@ -180,7 +180,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
     const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
-    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)));
+    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)), app);
     if (!LiaGuia.openApp(PACOTES[app] ?? app)) dizer('Não consegui abrir esse app. Ele está instalado?');
   };
 

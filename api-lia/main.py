@@ -157,6 +157,7 @@ class TelaGuia(BaseModel):
     escondidos: list[str] = Field(default=[], max_length=20)  # botões cortados: só aparecem rolando
     titulo: str = Field(default="", max_length=120)  # nome da tela atual
     caminho: list[str] = Field(default=[], max_length=12)  # telas por onde ela passou
+    plano: list[str] = Field(default=[], max_length=10)  # o resto do caminho provável (dica para a IA)
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -168,13 +169,31 @@ def _chave_guia(t: "TelaGuia", elementos: list[str]) -> tuple:
     return (t.objetivo, t.app, t.tela, tuple(elementos), tuple(t.feitos), t.motivo, t.seguiu)
 
 
+class PedidoPlano(BaseModel):
+    objetivo: str = Field(min_length=2, max_length=300)
+    app: str = Field(default="celular", max_length=40)
+
+
+@app.post("/guia/plano")
+async def guia_plano(pp: PedidoPlano):
+    """Caminho provável, pedido uma vez no começo do Guia (o celular segue sozinho enquanto bate com a tela)."""
+    if provedor() not in ("gemini", "claude"):
+        return {"passos": guia.plano_teste(pp.objetivo, pp.app), "provedor": provedor()}
+    try:
+        r = await gerar(guia.montar_plano(pp.objetivo, pp.app), [{"papel": "pessoa", "texto": "Qual é o caminho?"}],
+                        max_tokens=300, prazo=6)
+    except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+        return {"passos": guia.plano_teste(pp.objetivo, pp.app), "provedor": "regras (IA indisponível)"}
+    return {"passos": guia.interpretar_plano(r), "provedor": provedor()}
+
+
 @app.post("/guia/proximo")
 async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()], titulo=t.titulo,
-                 caminho=[c.strip()[:80] for c in t.caminho if c.strip()])
+                 caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()])
     if t.motivo != "errou":
         certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app)
         if certeira:

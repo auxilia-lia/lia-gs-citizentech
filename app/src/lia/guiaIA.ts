@@ -1,11 +1,15 @@
-import LiaGuia, { TelaEvent } from '../../modules/lia-guia';
-import { proximoPasso } from './api';
+import LiaGuia, { TelaEvent, TipoPasso } from '../../modules/lia-guia';
+import { planoGuia, proximoPasso } from './api';
+import { acharCaminho, fraseDoPasso, nomeCurto, PassoCaminho, salvarCaminho } from './caminhos';
 import { novoMapa, pseudonimizar, restaurar } from './pseudonimizar';
+import { normalizar } from './texto';
 
-// Guia com IA (#7): o serviço nativo manda o contexto da tela (evento onScreen),
-// a IA escolhe o próximo passo (tocar, deslizar do topo, rolar, voltar, ir ao início)
-// e o Guia mostra e fala. Funciona em qualquer app. Antes de sair do celular,
-// os textos da tela passam pela pseudonimização (#9).
+// Guia com IA (#7): o serviço nativo manda o contexto da tela (evento onScreen) e o próximo passo sai, nesta ordem:
+// 1. do CAMINHO APRENDIDO (a pessoa já fez isso antes com a Lia) ou do PLANO que a IA montou no começo,
+//    quando o próximo passo do caminho está na tela: resolve aqui mesmo, na hora, sem internet;
+// 2. senão, da IA (/guia/proximo), que vê a tela e decide.
+// Antes de sair do celular, os textos da tela passam pela pseudonimização (#9).
+// Ao concluir, o caminho feito fica guardado, e a Lia fala um resumo para a pessoa fixar.
 
 export const PACOTES: Record<string, string> = {
   whatsapp: 'com.whatsapp',
@@ -16,10 +20,29 @@ export const PACOTES: Record<string, string> = {
 
 const MAX_PASSOS = 15;
 
+const FALAS_GESTO: Partial<Record<TipoPasso, string>> = {
+  painel: 'Coloque o dedo no alto da tela, do lado direito, e deslize para baixo.',
+  rolar_baixo: 'Arraste o dedo de baixo para cima, devagar, para ver mais coisas.',
+  rolar_cima: 'Arraste o dedo de cima para baixo, devagar, para voltar ao começo.',
+  voltar: 'Vamos voltar uma tela. Deslize o dedo da beirada esquerda para o meio, ou toque na seta de voltar.',
+  inicio: 'Vamos para a tela inicial. Deslize o dedo de baixo, da beirada, para cima.',
+};
+
+// Botões que confirmam ou decidem algo: no plano da IA, só valem depois que o servidor confere a tela.
+const DECIDE = /^(instalar|atualizar|enviar|confirmar|assinar|aceitar|finalizar|concluir|pagar|transferir|pix|comprar|excluir|apagar)\b/;
+
 type Estado = {
   objetivo: string;
+  app: string;
+  nivel: number;
   feitos: string[];
   caminho: string[]; // telas por onde a pessoa passou (para a IA perceber quando entrou no lugar errado)
+  trilha: PassoCaminho[]; // passos cumpridos (vira o caminho aprendido)
+  instrucao: PassoCaminho | null; // o passo mostrado agora
+  plano: PassoCaminho[];
+  aprendido: boolean; // o plano é um caminho que a pessoa já fez (não da IA)
+  posPlano: number;
+  alertas: Set<string>;
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -36,11 +59,72 @@ export function pararGuiaIA(pararNativo = true) {
   if (pararNativo) LiaGuia.stop();
 }
 
-export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => void): boolean {
+// "Hoje você tocou em Play Store, Pesquisar e Instalar." (ajuda a lembrar da próxima vez)
+export function resumoDoCaminho(passos: PassoCaminho[]): string {
+  const frases = passos.slice(0, 6).map((p) => fraseDoPasso(p).replace(/^Toque em /, '').toLowerCase());
+  const toques = passos.filter((p) => p.tipo === 'tocar').map((p) => p.nome).slice(0, 5);
+  if (toques.length >= 2 && toques.length === passos.length) {
+    return `Para lembrar: você tocou em ${toques.slice(0, -1).join(', ')} e ${toques[toques.length - 1]}.`;
+  }
+  if (frases.length === 0) return '';
+  const lista = passos.slice(0, 6).map((p) => fraseDoPasso(p));
+  return `Para lembrar, o caminho foi: ${lista.join('; ')}.`;
+}
+
+// O próximo passo do plano está na tela? Devolve o número do botão (ou -1 para gesto) e qual passo do plano é.
+function passoDoPlano(e: Estado, tela: TelaEvent): { passo: PassoCaminho; indice: number; pos: number } | null {
+  if (tela.motivo !== 'mudou' || e.posPlano >= e.plano.length) return null;
+  // Olha o próximo e, se ela adiantou, os dois seguintes.
+  for (let pos = e.posPlano; pos < Math.min(e.plano.length, e.posPlano + 3); pos++) {
+    const passo = e.plano[pos];
+    if (passo.tipo === 'tocar') {
+      const alvo = normalizar(passo.nome);
+      if (!alvo) continue;
+      if (!e.aprendido && DECIDE.test(alvo)) return null; // o servidor confere antes de botões que decidem
+      const i = tela.elementos.findIndex((el) => !el.includes('[anúncio]') && normalizar(nomeCurto(el)) === alvo);
+      // Interruptor (Wi-Fi, Bluetooth…): o servidor confere se já está como ela quer, para não desligar sem querer.
+      if (i >= 0 && /\[(ligado|desligado)\]/.test(tela.elementos[i])) return null;
+      if (i >= 0) return { passo: { ...passo, nome: nomeCurto(tela.elementos[i]) }, indice: i, pos };
+    } else if (pos === e.posPlano && e.aprendido && passo.app === tela.app) {
+      // Gesto do caminho aprendido, no mesmo app de antes.
+      return { passo, indice: -1, pos };
+    }
+  }
+  return null;
+}
+
+export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => void, app = 'celular'): boolean {
   pararGuiaIA();
   const mapa = novoMapa();
-  const estado: Estado = { objetivo, feitos: [], caminho: [], ocupado: false, pendente: null, remover: () => {} };
+  const estado: Estado = {
+    objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
+    alertas: new Set(), ocupado: false, pendente: null, remover: () => {},
+  };
   const p = (t: string) => pseudonimizar(t, mapa);
+
+  // Caminho aprendido (instantâneo) ou plano da IA (pedido em paralelo, sem segurar o começo).
+  (async () => {
+    const aprendido = await acharCaminho(objetivo);
+    if (atual !== estado) return;
+    if (aprendido) {
+      estado.plano = aprendido.passos;
+      estado.aprendido = true;
+      return;
+    }
+    try {
+      const r = await planoGuia(p(objetivo), app);
+      if (atual === estado && !estado.aprendido) {
+        estado.plano = r.passos.map((x) => ({ tipo: x.tipo, nome: restaurar(x.nome, mapa), app: '' }));
+      }
+    } catch {
+      // sem plano: a IA decide tela a tela, como antes
+    }
+  })();
+
+  const instruir = (tela: TelaEvent, tipo: TipoPasso, alvo: string | null, fala: string, indice: number) => {
+    estado.instrucao = tipo === 'esperar' ? null : { tipo, nome: alvo ? nomeCurto(alvo) : '', app: tela.app };
+    LiaGuia.instruct(tipo, alvo, fala, indice, tela.id ?? -1);
+  };
 
   const decidir = async (tela: TelaEvent) => {
     if (atual !== estado) return;
@@ -56,6 +140,17 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
       }
       const nomeTela = tela.titulo ? `${tela.titulo} (${tela.app})` : tela.app;
       if (estado.caminho[estado.caminho.length - 1] !== nomeTela) estado.caminho = [...estado.caminho, nomeTela].slice(-8);
+
+      // 1. Caminho aprendido / plano: o próximo passo está na tela? Mostra na hora.
+      const local = passoDoPlano(estado, tela);
+      if (local) {
+        estado.posPlano = local.pos + 1;
+        const fala = local.indice >= 0 ? `Toque em ${local.passo.nome}.` : FALAS_GESTO[local.passo.tipo] ?? '';
+        instruir(tela, local.passo.tipo, local.indice >= 0 ? tela.elementos[local.indice] : null, fala, local.indice);
+        return;
+      }
+
+      // 2. A IA decide.
       const r = await proximoPasso({
         objetivo: p(objetivo),
         app: tela.app,
@@ -70,13 +165,24 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         escondidos: (tela.escondidos ?? []).map(p),
         titulo: tela.titulo ? p(tela.titulo) : '',
         caminho: estado.caminho.map(p),
+        plano: estado.plano.slice(estado.posPlano).map((x) => (x.tipo === 'tocar' ? p(x.nome) : x.tipo)),
+        imagem: tela.imagem ?? null,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.
       if (estado.pendente) return;
-      const fala = restaurar(r.fala, mapa);
-      if (r.concluido) LiaGuia.finishAI(fala);
-      else LiaGuia.instruct(r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1, tela.id ?? -1);
+      let fala = restaurar(r.fala, mapa);
+      // Antigolpe: o aviso vem uma vez só por guia (não repete a cada tela).
+      if (r.alerta && !estado.alertas.has(r.alerta)) {
+        estado.alertas.add(r.alerta);
+        fala = `${restaurar(r.alerta, mapa)} ${fala}`;
+      }
+      if (r.concluido) {
+        const resumo = resumoDoCaminho(estado.trilha);
+        LiaGuia.finishAI(resumo ? `${fala} ${resumo}` : fala);
+      } else {
+        instruir(tela, r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1);
+      }
     } catch {
       // Sem resposta: avisa e deixa o vigia do Guia olhar a tela de novo em seguida (ele não fica parado).
       if (atual === estado && !estado.pendente) LiaGuia.say('A internet está lenta. Já tento de novo.');
@@ -91,8 +197,14 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   const sTela = LiaGuia.addListener('onScreen', (e) => decidir(e));
   const sPasso = LiaGuia.addListener('onStep', (e) => {
     if (atual !== estado) return;
-    if (e.type === 'done_step' && e.step) estado.feitos.push(e.step);
+    if (e.type === 'done_step' && e.step) {
+      estado.feitos.push(e.step);
+      if (estado.instrucao) estado.trilha.push(estado.instrucao);
+      estado.instrucao = null;
+    }
     if (e.type === 'finished') {
+      // Deu certo: o caminho fica guardado para a próxima vez (e para "Meus caminhos").
+      salvarCaminho(objetivo, app, estado.trilha, nivel);
       pararGuiaIA(false);
       aoTerminar?.();
     }
@@ -103,4 +215,3 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   if (!ok) pararGuiaIA(false);
   return ok;
 }
-

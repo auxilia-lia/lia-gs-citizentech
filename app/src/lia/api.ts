@@ -107,6 +107,8 @@ export type PassoGuia = {
   alvo: string | null;
   /** Número do botão na lista "elementos" enviada (-1 quando não é tocar). */
   indice: number;
+  /** Aviso antigolpe sobre algo que apareceu na tela (falado uma vez). */
+  alerta?: string | null;
   fala: string;
   concluido: boolean;
 };
@@ -125,7 +127,14 @@ export type PedidoGuia = {
   escondidos?: string[];
   titulo?: string;
   caminho?: string[];
+  plano?: string[];
+  /** Imagem da tela (JPEG em base64, dados pessoais cobertos), só quando o Guia travou. */
+  imagem?: string | null;
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.
-export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, 12000);
+export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, pedido.imagem ? 20000 : 12000);
+
+// Caminho provável, pedido uma vez no começo do Guia.
+export const planoGuia = (objetivo: string, app: string) =>
+  post<{ passos: { tipo: PassoGuia['tipo']; nome: string }[] }>('/guia/plano', { objetivo, app }, 8000);

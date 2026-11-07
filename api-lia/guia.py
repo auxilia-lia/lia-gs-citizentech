@@ -63,6 +63,7 @@ explique com calma e peça para fechar e puxar de novo pelo lado direito.
 
 Agora ela está em: {onde} (app "{app}"), na tela "{titulo}".
 Telas por onde ela passou, em ordem: {caminho}.
+Caminho provável daqui para frente (pode estar errado; confira com a tela): {plano}.
 Se esta tela NÃO tem relação com o objetivo (entrou no lugar errado), mande "voltar" para a última tela certa do
 caminho, assumindo o erro com leveza. Não fique tentando botões ao acaso numa tela errada.
 Botões que dá para tocar (número: texto):
@@ -321,7 +322,7 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
                   seguiu: str | None = None, escondidos: list[str] | None = None, titulo: str = "",
-                  caminho: list[str] | None = None) -> str:
+                  caminho: list[str] | None = None, plano: list[str] | None = None) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
@@ -330,6 +331,7 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
         seguiu=f'. Ela fez exatamente o que você pediu: "{seguiu}".' if seguiu else "",
         escondidos=", ".join(escondidos or []) or "(nenhum)",
         titulo=titulo or "sem título", caminho=" > ".join(caminho or []) or "só esta",
+        plano=" > ".join(plano or []) or "não sei",
     )
 
 
@@ -421,3 +423,45 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
         if ent and j is not None and not ja_pesquisou and not (ent & visivel):
             return tocar(elementos, j, "Nas Configurações, o jeito mais fácil é pesquisar.")
     return None
+
+
+# ================= plano antes de começar =================
+# No início, a IA monta o caminho provável. O celular segue esse plano sozinho enquanto ele bate com a tela
+# e só chama a IA quando sai dele (bem menos espera). O plano nunca inclui pagar, Pix, comprar ou apagar.
+
+PROMPT_PLANO = """Você conhece bem celulares Android (principalmente Samsung) em português do Brasil.
+Uma pessoa quer: "{objetivo}". Ela começa em: {inicio}.
+Liste o caminho mais provável, passo a passo, com o NOME EXATO dos botões como aparecem na tela.
+Tipos: "tocar" (com "nome" do botão), "painel" (puxar do alto pelo lado direito), "rolar_baixo", "voltar", "inicio".
+Prefira a pesquisa/lupa quando o caminho por menus for incerto. Máximo 8 passos. Se não souber, devolva lista vazia.
+Responda SOMENTE com JSON: {{"passos": [{{"tipo": "tocar", "nome": "..."}}]}}"""
+
+INICIOS = {"whatsapp": "o WhatsApp aberto", "configuracoes": "as Configurações abertas", "playstore": "a Play Store aberta",
+           "celular": "a tela inicial do celular"}
+
+
+def montar_plano(objetivo: str, app: str) -> str:
+    return PROMPT_PLANO.format(objetivo=objetivo, inicio=INICIOS.get(app, "a tela inicial do celular"))
+
+
+def interpretar_plano(r: dict) -> list[dict]:
+    passos = []
+    for p in (r.get("passos") or [])[:8]:
+        if not isinstance(p, dict):
+            continue
+        tipo = str(p.get("tipo") or "").strip()
+        nome = str(p.get("nome") or "").strip()[:60]
+        if tipo == "tocar" and nome and not FINAIS.search(normalizar(nome)):
+            passos.append({"tipo": "tocar", "nome": nome})
+        elif tipo in GESTOS:
+            passos.append({"tipo": tipo, "nome": ""})
+    return passos
+
+
+def plano_teste(objetivo: str, app: str) -> list[dict]:
+    """Sem IA: só o óbvio (painel rápido)."""
+    item = item_do_painel(objetivo)
+    if item:
+        nome = {"wi fi": "Wi-Fi"}.get(item, item.capitalize())
+        return [{"tipo": "painel", "nome": ""}, {"tipo": "tocar", "nome": nome}]
+    return []
