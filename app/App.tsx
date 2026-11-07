@@ -72,7 +72,7 @@ export default function App() {
               <Conversa ativa={aba === 'conversa' && !demo} pedido={pedido} />
             </View>
             {aba === 'familia' && <Aparecer key='familia' distancia={10} estilo={{ flex: 1 }}><Familia /></Aparecer>}
-            {aba === 'voce' && <Aparecer key='voce' distancia={10} estilo={{ flex: 1 }}><Voce abrirDemo={setDemo} reverBoasVindas={() => setPrimeiraVez(true)} /></Aparecer>}
+            {aba === 'voce' && <Aparecer key='voce' distancia={10} estilo={{ flex: 1 }}><Voce abrirDemo={setDemo} reverBoasVindas={() => setPrimeiraVez(true)} praticar={(c) => pedir({ tipo: 'praticar', caminho: c })} /></Aparecer>}
             <BarraAbas aba={aba} mudar={setAba} />
           </View>
         )}

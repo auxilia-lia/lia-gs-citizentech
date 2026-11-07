@@ -39,6 +39,8 @@ export async function registrarConclusao(servico: string): Promise<number> {
 export async function zerarProgresso() {
   await gravar<Progresso>(CHAVE, {});
   await gravar<Conquista[]>(CHAVE_HIST, []);
+  await gravar('lia:caminhos', []);
+  await gravar('lia:palavras', []);
 }
 
 // Autonomia geral (0 a 1): média de quanto a pessoa já faz sozinha em cada coisa que já fez.

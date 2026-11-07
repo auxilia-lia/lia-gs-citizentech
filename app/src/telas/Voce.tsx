@@ -11,6 +11,12 @@ import { Aparecer, BarraAnimada, Flutuar } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 import type { Demo } from '../../App';
 import AppsProtegidos from './AppsProtegidos';
+import Certificado from './Certificado';
+import Jornada from './Jornada';
+import MeusCaminhos from './MeusCaminhos';
+import { Caminho, carregarCaminhos } from '../lia/caminhos';
+import { carregarPalavras, PALAVRAS } from '../lia/palavras';
+import { gravar, ler } from '../lia/armazenamento';
 
 // Nome e ícone de cada coisa que a pessoa pode aprender a fazer sozinha.
 const NOMES: Record<string, { nome: string; icone: NomeIcone }> = {
@@ -42,7 +48,13 @@ function quando(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
-export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: Demo) => void; reverBoasVindas: () => void }) {
+export default function Voce({ abrirDemo, reverBoasVindas, praticar }: {
+  abrirDemo: (d: Demo) => void; reverBoasVindas: () => void; praticar: (c: Caminho) => void;
+}) {
+  const [caminhos, setCaminhos] = useState<Caminho[]>([]);
+  const [palavras, setPalavras] = useState<string[]>([]);
+  const [certificado, setCertificado] = useState<string | null>(null);
+  const [comemorar, setComemorar] = useState(true);
   const [progresso, setProgresso] = useState<Progresso>({});
   const [historico, setHistorico] = useState<Conquista[]>([]);
   const [guia, setGuia] = useState(false);
@@ -55,6 +67,9 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
   const atualizar = useCallback(async () => {
     setProgresso(await carregarProgresso());
     setHistorico(await carregarHistorico());
+    setCaminhos(await carregarCaminhos());
+    setPalavras(await carregarPalavras());
+    setComemorar(await ler('lia:comemorar', true));
     setGuia(LiaGuia.isEnabled());
     setMicro((await ExpoSpeechRecognitionModule.getPermissionsAsync()).granted);
   }, []);
@@ -108,21 +123,9 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
         </View>
       </Aparecer>
 
-      {/* Conquistas */}
-      <Aparecer atraso={160}><Secao>Conquistas</Secao></Aparecer>
-      <View style={st.medalhas}>
-        {meds.map((m, i) => (
-          <Aparecer key={m.id} atraso={200 + i * 60} estilo={st.medalhaFora}>
-            <View style={[st.medalha, !m.ganhou && { opacity: 0.45 }]}>
-              <View style={[st.medalhaIcone, m.ganhou && { backgroundColor: cores.destaqueSuave, borderColor: cores.destaque }]}>
-                <Ionicons name={(m.ganhou ? m.icone : 'lock-closed') as NomeIcone} size={28} color={m.ganhou ? '#8A5A00' : cores.textoSuave} />
-              </View>
-              <Text style={st.medalhaNome} numberOfLines={2}>{m.nome}</Text>
-              <Text style={st.medalhaDesc} numberOfLines={3}>{m.descricao}</Text>
-            </View>
-          </Aparecer>
-        ))}
-      </View>
+      {/* Jornada: as conquistas como um caminho, com o próximo marco em destaque */}
+      <Aparecer atraso={160}><Secao>Sua jornada</Secao></Aparecer>
+      <Jornada marcos={meds} />
 
       {/* O que já faz sozinho */}
       <Aparecer atraso={240}><Secao>O que você já faz</Secao></Aparecer>
@@ -146,6 +149,11 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
                 </View>
                 {nivel === 2 && <Ionicons name="ribbon" size={28} color={cores.destaque} />}
               </View>
+              {nivel === 2 && (
+                <View style={{ marginTop: espaco.md }}>
+                  <Botao texto="Ver meu certificado" icone="ribbon" tipo="claro" onPress={() => setCertificado(n.nome)} />
+                </View>
+              )}
               <View style={st.degraus}>
                 {DEGRAUS.map((d, k) => (
                   <View key={d} style={{ flex: 1, gap: 4 }}>
@@ -180,6 +188,23 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
         </>
       )}
 
+      <Secao>Meus caminhos</Secao>
+      <MeusCaminhos caminhos={caminhos} praticar={praticar} />
+
+      {palavras.length > 0 && (
+        <>
+          <Secao>Palavras que você já sabe</Secao>
+          <Cartao estilo={{ gap: espaco.sm }}>
+            <View style={st.chips}>
+              {palavras.filter((p) => PALAVRAS[p]).map((p) => (
+                <View key={p} style={st.chip}><Ionicons name="checkmark-circle" size={18} color={cores.sucesso} /><Text style={st.chipTexto}>{PALAVRAS[p].nome}</Text></View>
+              ))}
+            </View>
+            <Text style={st.sub}>A Lia explica cada palavra na primeira vez que ela aparece no Guia.</Text>
+          </Cartao>
+        </>
+      )}
+
       <Secao>Permissões</Secao>
       <Cartao estilo={{ gap: espaco.md }}>
         <Permissao icone="hand-left" nome="Mostrar onde tocar" ok={guia} explica="Deixa a Lia ver a tela e apontar os botões nos outros apps."
@@ -203,6 +228,16 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
             <Text style={st.sub}>No Guia, depois de cada instrução, a Lia escuta alguns segundos. Dá para dizer "e agora?" sem tocar no microfone.</Text>
           </View>
           <Ionicons name={escuta ? 'toggle' : 'toggle-outline'} size={44} color={escuta ? cores.sucesso : cores.textoSuave} />
+        </Pressable>
+        <View style={[st.divisor, { marginVertical: espaco.md }]} />
+        <Pressable onPress={() => { const n = !comemorar; gravar('lia:comemorar', n); setComemorar(n); }} style={st.linha}
+          accessibilityRole="switch" accessibilityState={{ checked: comemorar }}>
+          <IconeCirculo nome="people" tam={48} cor={comemorar ? cores.sucesso : cores.textoSuave} fundo={comemorar ? cores.sucessoSuave : cores.fundo} />
+          <View style={{ flex: 1 }}>
+            <Text style={st.nome}>Comemorar com a família</Text>
+            <Text style={st.sub}>Quando você aprender algo novo, a Lia pergunta se pode contar para alguém da família pelo WhatsApp.</Text>
+          </View>
+          <Ionicons name={comemorar ? 'toggle' : 'toggle-outline'} size={44} color={comemorar ? cores.sucesso : cores.textoSuave} />
         </Pressable>
       </Cartao>
 
@@ -228,6 +263,7 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
           </Cartao>
         </Aparecer>
       )}
+      <Certificado tema={certificado} aberto={certificado !== null} fechar={() => setCertificado(null)} />
     </ScrollView>
   );
 }
@@ -289,4 +325,7 @@ const st = StyleSheet.create({
   divisor: { height: 1, backgroundColor: cores.borda },
   avancado: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: espaco.xl, minHeight: 48 },
   avancadoTexto: { fontSize: tamanho.mini, fontWeight: '700', color: cores.textoSuave },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.sm },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.lg, paddingHorizontal: espaco.sm, paddingVertical: 6 },
+  chipTexto: { fontSize: tamanho.mini, fontWeight: '700', color: cores.sucesso },
 });

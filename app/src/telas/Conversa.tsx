@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
 import { Acao, AnaliseGolpe, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
+import { ler } from '../lia/armazenamento';
 import { montarContexto } from '../lia/contexto';
 import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/familia';
 import { guiarComIA, objetivoAtual, PACOTES, pararGuiaIA } from '../lia/guiaIA';
@@ -19,6 +20,7 @@ import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
 export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir' | 'aula' | 'praticar'; texto?: string; aula?: Aula; caminho?: Caminho };
 
+const NOMES_SERVICO: Record<string, string> = { consulta: 'marcar uma consulta', beneficio: 'ver o INSS', multas: 'consultar multas' };
 const BOAS_VINDAS = 'Oi! Eu sou a Lia. Me fala o que você quer fazer, que eu te ajudo.';
 const SEM_SERVIDOR = 'Não consegui falar com a Lia agora. Confira se o celular está com internet e tente de novo.';
 
@@ -81,7 +83,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       if (e.type !== 'finished' || !guiaAtivo.current) return;
       const servico = guiaAtivo.current;
       guiaAtivo.current = null;
-      parabens(await registrarConclusao(servico));
+      parabens(await registrarConclusao(servico), NOMES_SERVICO[servico]);
     });
     return () => s.remove();
   }, []);
@@ -133,10 +135,37 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     LiaGuia.cancel('Tudo bem, parei. Quando quiser, a gente tenta de novo.');
   };
 
-  const parabens = (vezes: number) => {
+  const parabens = async (vezes: number, oque?: string) => {
     const nivel = NOMES_NIVEL[nivelDe(vezes)].toLowerCase();
     setMensagens((m) => [...m, { papel: 'lia', texto: `Parabéns! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}. Da próxima, eu ajudo assim: ${nivel}.` }]);
+    // Família comemorando: na 1ª vez (aprendeu) e na 3ª (fez sozinho), a Lia oferece contar para alguém da família.
+    // Nada é mandado sem a pessoa dizer sim; e dá para desligar em "Você".
+    if (!oque || !(vezes === 1 || vezes === 3) || !(await ler('lia:comemorar', true))) return;
+    const fam = (await carregarFamilia()).find((f) => f.telefone);
+    if (!fam) return;
+    const coisa = oque.replace(/[?!.]/g, '').trim().replace(/^(eu )?(quero|queria|preciso|como( eu)?|me ajuda a|aprender a) /i, '').toLowerCase();
+    const mensagem = vezes === 3
+      ? `Oi, ${fam.nome}! Hoje eu consegui ${coisa} sozinho no celular! 🎉`
+      : `Oi, ${fam.nome}! Hoje eu aprendi a ${coisa} no celular, com a ajuda da Lia! 🎉`;
+    const p = { familiar: fam, mensagem };
+    setPendente(p);
+    pendenteRef.current = p;
+    comemorarRef.current = fam.nome;
+    if (ativaRef.current) perguntarComemoracao();
   };
+
+  // A pergunta é falada quando a pessoa volta para a Lia (não no meio de outro app).
+  const comemorarRef = useRef<string | null>(null);
+  const perguntarComemoracao = () => {
+    const nome = comemorarRef.current;
+    if (!nome || !pendenteRef.current) return;
+    comemorarRef.current = null;
+    dizer(`Que tal contar para ${nome}? Posso mandar uma mensagem no WhatsApp?`, () => voz.ouvir());
+  };
+  useEffect(() => {
+    if (ativa) setTimeout(perguntarComemoracao, 1500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativa]);
 
   // ---------- conversa ----------
   const enviar = async (texto: string) => {
@@ -189,7 +218,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
     const nivel = nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
-    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)), app);
+    guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave), objetivo), app);
     const abriu = app === 'playstore' && atalhoApp
       ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)
       : LiaGuia.openApp(PACOTES[app] ?? app);
