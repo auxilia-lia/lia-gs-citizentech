@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { calar, falar } from '../lia/fala';
 import { useMargens } from '../ui/margens';
@@ -50,8 +51,6 @@ export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) 
 
   return (
     <View style={[st.tela, { paddingTop: ins.top + espaco.xl, paddingBottom: ins.bottom + espaco.lg }]}>
-      <View style={st.decor1} />
-      <View style={st.decor2} />
       {!ultimo && (
         <Pressable onPress={() => terminar()} style={st.pular} accessibilityRole="button">
           <Text style={st.pularTexto}>Pular</Text>
@@ -94,18 +93,18 @@ const st = StyleSheet.create({
   decor1: { position: 'absolute', width: 340, height: 340, borderRadius: 170, backgroundColor: '#2A4DB8', top: -140, right: -120 },
   decor2: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: cores.primariaEscura, bottom: 120, left: -150 },
   pular: { alignSelf: 'flex-end', minHeight: 48, justifyContent: 'center', paddingHorizontal: espaco.sm },
-  pularTexto: { color: cores.branco, fontSize: tamanho.pequeno, fontWeight: '800', textDecorationLine: 'underline' },
+  pularTexto: { color: cores.branco, fontSize: tamanho.pequeno, fontWeight: '600', textDecorationLine: 'underline' },
   centro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   icone: { width: 148, height: 148, borderRadius: 74, backgroundColor: cores.branco, alignItems: 'center', justifyContent: 'center', marginBottom: espaco.xl },
-  titulo: { fontSize: 34, fontWeight: '800', color: cores.branco, textAlign: 'center', letterSpacing: -0.5 },
+  titulo: { fontSize: 34, fontWeight: '600', color: cores.branco, textAlign: 'center', },
   texto: { fontSize: tamanho.corpo + 1, lineHeight: 31, color: '#E1E8FC', textAlign: 'center', marginTop: espaco.md },
   ok: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: espaco.lg, backgroundColor: cores.sucesso, borderRadius: raio.pilula, paddingHorizontal: 16, paddingVertical: 8 },
-  okTexto: { color: cores.branco, fontSize: tamanho.pequeno, fontWeight: '800' },
+  okTexto: { color: cores.branco, fontSize: tamanho.pequeno, fontWeight: '600' },
   pontos: { flexDirection: 'row', gap: 10, justifyContent: 'center', marginBottom: espaco.lg },
   ponto: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#5C78D0' },
   pontoAtivo: { backgroundColor: cores.branco, width: 32 },
   botao: { minHeight: TOQUE_MIN + 8, borderRadius: raio.pilula, alignItems: 'center', justifyContent: 'center', marginBottom: espaco.sm },
   botaoBranco: { backgroundColor: cores.branco },
   botaoContorno: { borderWidth: 2, borderColor: '#9FB2EA' },
-  botaoTexto: { fontSize: tamanho.corpo, fontWeight: '800' },
+  botaoTexto: { fontSize: tamanho.corpo, fontWeight: '600' },
 });

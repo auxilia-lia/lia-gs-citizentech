@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { cores, espaco, tamanho } from './tema';
 
@@ -18,6 +19,6 @@ export default function Cabecalho({ titulo, voltar }: { titulo: string; voltar: 
 const st = StyleSheet.create({
   cab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espaco.md, paddingVertical: espaco.sm, gap: espaco.sm, borderBottomWidth: 1, borderColor: cores.borda, backgroundColor: cores.superficie },
   voltar: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingRight: espaco.sm },
-  voltarTexto: { fontSize: tamanho.pequeno, fontWeight: '800', color: cores.primaria },
-  titulo: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta, flex: 1 },
+  voltarTexto: { fontSize: tamanho.pequeno, fontWeight: '600', color: cores.primaria },
+  titulo: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta, flex: 1 },
 });

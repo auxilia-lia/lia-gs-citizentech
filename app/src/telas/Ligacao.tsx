@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { conversar, Mensagem } from '../lia/api';
 import { montarContexto } from '../lia/contexto';
 import { novoMapa } from '../lia/pseudonimizar';
@@ -127,10 +128,10 @@ const styles = StyleSheet.create({
   centro: { alignItems: 'center', justifyContent: 'center' },
   escura: { backgroundColor: '#0B1533', alignItems: 'center', paddingTop: 48 },
   explica: { fontSize: 17, color: '#555', textAlign: 'center', marginBottom: 32 },
-  numero: { fontSize: 34, fontWeight: '800', letterSpacing: 1 },
+  numero: { fontSize: 34, fontWeight: '600', letterSpacing: 1 },
   sub: { fontSize: 16, color: '#666', marginTop: 8, marginBottom: 24 },
   subClaro: { fontSize: 16, color: '#ddd', marginTop: 8 },
-  nome: { fontSize: 40, fontWeight: '800', color: '#fff' },
+  nome: { fontSize: 40, fontWeight: '600', color: '#fff' },
   status: { fontSize: 20, color: '#bbb', marginTop: 6 },
   legenda: { fontSize: 22, color: '#fff', textAlign: 'center', marginTop: 40, minHeight: 160, lineHeight: 32 },
   estadoVoz: { fontSize: 18, color: '#F5B544', marginTop: 12, minHeight: 24 },

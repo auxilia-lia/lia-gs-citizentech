@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { Caminho, fraseDoPasso, PassoCaminho } from '../lia/caminhos';
 import { Botao, Cartao, NomeIcone } from '../ui/componentes';
@@ -76,11 +77,11 @@ export default function MeusCaminhos({ caminhos, praticar }: { caminhos: Caminho
 
 const st = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, minHeight: 48 },
-  nome: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
+  nome: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta },
   sub: { fontSize: tamanho.mini, color: cores.textoSuave, marginTop: 2 },
   passo: { flexDirection: 'row', alignItems: 'center', gap: espaco.sm, backgroundColor: cores.fundo, borderRadius: raio.md, padding: espaco.sm },
   numero: { width: 28, height: 28, borderRadius: 14, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
-  numeroTexto: { color: cores.branco, fontWeight: '800', fontSize: 14 },
+  numeroTexto: { color: cores.branco, fontWeight: '600', fontSize: 14 },
   frase: { flex: 1, fontSize: tamanho.pequeno, color: cores.texto, fontWeight: '600' },
   botoes: { flexDirection: 'row', gap: espaco.sm, marginTop: espaco.xs },
 });

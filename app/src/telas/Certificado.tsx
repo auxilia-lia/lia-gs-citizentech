@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { gravar, ler } from '../lia/armazenamento';
 import { Botao, Campo } from '../ui/componentes';
@@ -57,16 +58,16 @@ export default function Certificado({ tema, aberto, fechar }: { tema: string | n
 
 const st = StyleSheet.create({
   tela: { padding: espaco.lg, paddingTop: espaco.xl, gap: espaco.md, backgroundColor: cores.fundo, flexGrow: 1 },
-  pergunta: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.tinta },
+  pergunta: { fontSize: tamanho.subtitulo, fontWeight: '600', color: cores.tinta },
   papel: { backgroundColor: '#FFFDF6', borderRadius: raio.lg, borderWidth: 4, borderColor: cores.destaque, padding: espaco.lg, alignItems: 'center', gap: 6 },
   selo: { width: 96, height: 96, borderRadius: 48, backgroundColor: cores.destaqueSuave, alignItems: 'center', justifyContent: 'center', marginBottom: espaco.sm },
-  sobre: { fontSize: 14, fontWeight: '800', color: cores.primaria, letterSpacing: 1, textAlign: 'center' },
+  sobre: { fontSize: 14, fontWeight: '600', color: cores.primaria, letterSpacing: 1, textAlign: 'center' },
   concedido: { fontSize: tamanho.mini, color: cores.textoSuave, marginTop: espaco.md },
-  nome: { fontSize: 30, fontWeight: '800', color: cores.tinta, textAlign: 'center' },
+  nome: { fontSize: 30, fontWeight: '600', color: cores.tinta, textAlign: 'center' },
   motivo: { fontSize: tamanho.mini, color: cores.textoSuave },
-  tema: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.primaria, textAlign: 'center' },
+  tema: { fontSize: tamanho.subtitulo, fontWeight: '600', color: cores.primaria, textAlign: 'center' },
   linha: { height: 2, alignSelf: 'stretch', backgroundColor: cores.destaque, marginVertical: espaco.md },
-  data: { fontSize: tamanho.pequeno, fontWeight: '700', color: cores.texto },
+  data: { fontSize: tamanho.pequeno, fontWeight: '500', color: cores.texto },
   lia: { fontSize: 13, color: cores.textoSuave },
   dica: { fontSize: 13, color: cores.textoSuave, textAlign: 'center' },
 });

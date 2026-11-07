@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import type { Medalha } from '../lia/autonomia';
 import type { NomeIcone } from '../ui/componentes';
@@ -23,7 +24,7 @@ export default function Jornada({ marcos }: { marcos: Medalha[] }) {
               <View style={st.trilho}>
                 <View style={[st.marca, m.ganhou && st.marcaGanha, eProximo && st.marcaProxima]}>
                   <Ionicons name={(m.ganhou ? m.icone : eProximo ? 'flag' : 'lock-closed') as NomeIcone} size={24}
-                    color={m.ganhou ? '#8A5A00' : eProximo ? cores.primaria : cores.textoSuave} />
+                    color={m.ganhou ? cores.destaqueTexto : eProximo ? cores.primaria : cores.textoSuave} />
                 </View>
                 {!ultimo && <View style={[st.ligacao, m.ganhou && { backgroundColor: cores.destaque }]} />}
               </View>
@@ -50,7 +51,7 @@ const st = StyleSheet.create({
   ligacao: { flex: 1, width: 4, minHeight: 18, backgroundColor: cores.borda, borderRadius: 2, marginVertical: 2 },
   texto: { flex: 1, paddingBottom: espaco.md, paddingTop: 4 },
   textoProximo: { backgroundColor: cores.primariaSuave, borderRadius: raio.md, padding: espaco.sm, marginBottom: espaco.md },
-  etiqueta: { fontSize: 12, fontWeight: '800', color: cores.primaria, letterSpacing: 0.5 },
-  nome: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
+  etiqueta: { fontSize: 12, fontWeight: '600', color: cores.primaria, letterSpacing: 0.5 },
+  nome: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta },
   desc: { fontSize: tamanho.mini, color: cores.textoSuave, marginTop: 2 },
 });

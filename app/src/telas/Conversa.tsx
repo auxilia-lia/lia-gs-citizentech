@@ -1,5 +1,6 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
@@ -408,20 +409,20 @@ const st = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.fundo, paddingBottom: espaco.sm },
   cab: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, paddingHorizontal: espaco.lg, paddingVertical: espaco.md, backgroundColor: cores.superficie, borderBottomWidth: 1, borderColor: cores.borda },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
-  nome: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.tinta },
-  status: { fontSize: tamanho.mini, color: cores.textoSuave, fontWeight: '700' },
+  nome: { fontSize: tamanho.subtitulo, fontWeight: '600', color: cores.tinta },
+  status: { fontSize: tamanho.mini, color: cores.textoSuave, fontWeight: '500' },
   cadeado: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.pilula, paddingHorizontal: 10, paddingVertical: 6 },
-  cadeadoTexto: { color: cores.sucesso, fontSize: 13, fontWeight: '800' },
+  cadeadoTexto: { color: cores.sucesso, fontSize: 13, fontWeight: '600' },
   lista: { padding: espaco.md, gap: espaco.md },
   balao: { borderRadius: raio.md, padding: espaco.md },
-  balaoLia: { backgroundColor: cores.superficie, borderTopLeftRadius: 6, ...sombra, elevation: 2 },
+  balaoLia: { backgroundColor: cores.superficie, borderTopLeftRadius: 6 },
   balaoPessoa: { backgroundColor: cores.primaria, borderTopRightRadius: 6 },
   texto: { fontSize: tamanho.corpo, lineHeight: 29, color: cores.texto },
   ouvir: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: espaco.sm },
-  ouvirTexto: { color: cores.primaria, fontSize: tamanho.mini, fontWeight: '800' },
+  ouvirTexto: { color: cores.primaria, fontSize: tamanho.mini, fontWeight: '600' },
   extras: { paddingHorizontal: espaco.md, gap: espaco.sm },
   digitar: { flexDirection: 'row', gap: espaco.sm, paddingHorizontal: espaco.md, paddingTop: espaco.sm },
-  input: { flex: 1, minHeight: 56, borderWidth: 2, borderColor: cores.primariaBorda, borderRadius: raio.md, paddingHorizontal: espaco.md, fontSize: tamanho.corpo, backgroundColor: cores.superficie, color: cores.texto },
+  input: { flex: 1, minHeight: 56, borderWidth: 1, borderColor: cores.primariaBorda, fontFamily: 'Poppins-Regular', borderRadius: raio.md, paddingHorizontal: espaco.md, fontSize: tamanho.corpo, backgroundColor: cores.superficie, color: cores.texto },
   enviar: { width: 56, height: 56, borderRadius: 28, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
   doca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', paddingTop: espaco.md },
   microArea: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
@@ -429,6 +430,6 @@ const st = StyleSheet.create({
   microAtivo: { backgroundColor: cores.perigo, borderColor: cores.perigoSuave },
   lado: { alignItems: 'center', width: 90 },
   ladoCirculo: { width: 60, height: 60, borderRadius: 30, backgroundColor: cores.superficie, borderWidth: 2, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
-  ladoTexto: { fontSize: tamanho.mini, fontWeight: '800', color: cores.primaria, marginTop: 4 },
-  dica: { textAlign: 'center', color: cores.textoSuave, fontSize: tamanho.mini, fontWeight: '700', marginTop: espaco.sm },
+  ladoTexto: { fontSize: tamanho.mini, fontWeight: '600', color: cores.primaria, marginTop: 4 },
+  dica: { textAlign: 'center', color: cores.textoSuave, fontSize: tamanho.mini, fontWeight: '500', marginTop: espaco.sm },
 });

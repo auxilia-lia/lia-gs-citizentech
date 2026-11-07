@@ -8,7 +8,9 @@ import { ligarModoRobo } from './src/lia/robo';
 import { enderecoTemporario, voltarEndereco } from './src/lia/api';
 import Conversa, { Pedido } from './src/telas/Conversa';
 import Familia from './src/telas/Familia';
-import Voce from './src/telas/Voce';
+import Eu from './src/telas/Eu';
+import Ajustes from './src/telas/Ajustes';
+import { useFonts } from 'expo-font';
 import Ligacao from './src/telas/Ligacao';
 import TesteGuia from './src/telas/TesteGuia';
 import BoasVindas from './src/telas/BoasVindas';
@@ -28,6 +30,12 @@ export default function App() {
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [pronto, setPronto] = useState(false);
   const [primeiraVez, setPrimeiraVez] = useState(false);
+  const [ajustes, setAjustes] = useState(false);
+  const [fontes] = useFonts({
+    'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('./assets/fonts/Poppins-SemiBold.ttf'),
+  });
   const margens = useMargens();
 
   useEffect(() => {
@@ -58,7 +66,7 @@ export default function App() {
     return () => s.remove();
   }, []);
 
-  if (!pronto) return <View style={{ flex: 1, backgroundColor: cores.primaria }} />;
+  if (!pronto || !fontes) return <View style={{ flex: 1, backgroundColor: cores.primaria }} />;
 
   if (primeiraVez) {
     return (
@@ -77,20 +85,23 @@ export default function App() {
     <>
       <StatusBar style="dark" />
       <View style={[st.app, { paddingTop: margens.top }]}>
-        {demo ? (
+        {ajustes && !demo ? (
+          <Ajustes voltar={() => setAjustes(false)} abrirDemo={setDemo} reverBoasVindas={() => { setAjustes(false); setPrimeiraVez(true); }}
+            praticar={(c) => { setAjustes(false); pedir({ tipo: 'praticar', caminho: c }); }} />
+        ) : demo ? (
           <View style={{ flex: 1 }}>
             <Cabecalho titulo={demo === 'ligacao' ? 'Lia por ligação' : 'Teste do Guia'} voltar={() => setDemo(null)} />
             {demo === 'ligacao' ? <Ligacao /> : <TesteGuia />}
           </View>
         ) : (
           <View style={{ flex: 1 }}>
-            {aba === 'inicio' && <Aparecer key='inicio' distancia={10} estilo={{ flex: 1 }}><Inicio pedir={pedir} irPara={setAba} /></Aparecer>}
+            {aba === 'inicio' && <Aparecer key='inicio' distancia={10} estilo={{ flex: 1 }}><Inicio pedir={pedir} /></Aparecer>}
             {/* A conversa fica sempre montada para não perder o histórico ao trocar de aba. */}
             <View style={{ flex: 1, display: aba === 'conversa' ? 'flex' : 'none' }}>
               <Conversa ativa={aba === 'conversa' && !demo} pedido={pedido} />
             </View>
             {aba === 'familia' && <Aparecer key='familia' distancia={10} estilo={{ flex: 1 }}><Familia /></Aparecer>}
-            {aba === 'voce' && <Aparecer key='voce' distancia={10} estilo={{ flex: 1 }}><Voce abrirDemo={setDemo} reverBoasVindas={() => setPrimeiraVez(true)} praticar={(c) => pedir({ tipo: 'praticar', caminho: c })} /></Aparecer>}
+            {aba === 'eu' && <Aparecer key='eu' distancia={10} estilo={{ flex: 1 }}><Eu abrirAjustes={() => setAjustes(true)} /></Aparecer>}
             <BarraAbas aba={aba} mudar={setAba} />
           </View>
         )}

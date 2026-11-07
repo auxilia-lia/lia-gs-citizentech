@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { Text } from './fonte';
 import { Ionicons } from '@expo/vector-icons';
-import { cores, espaco, raio, sombra, tamanho, TOQUE_MIN } from './tema';
+import { cores, espaco, raio, tamanho, TOQUE_MIN } from './tema';
 import { Toque } from './anim';
 
 export type NomeIcone = keyof typeof Ionicons.glyphMap;
@@ -23,10 +24,10 @@ export function Botao({
       accessibilityLabel={texto}
       estilo={[
         s.botao, { backgroundColor: fundo, opacity: disabled ? 0.45 : 1 },
-        tipo === 'claro' && { borderWidth: 2, borderColor: cores.primariaBorda }, estilo,
+        tipo === 'claro' && { borderWidth: 1, borderColor: cores.primariaBorda }, estilo,
       ]}
     >
-      {icone && <Ionicons name={icone} size={26} color={cor} />}
+      {icone && <Ionicons name={icone} size={24} color={cor} />}
       <Text style={[s.botaoTexto, { color: cor }]}>{texto}</Text>
     </Toque>
   );
@@ -45,7 +46,7 @@ export function IconeCirculo({ nome, cor = cores.primaria, fundo = cores.primari
   nome: NomeIcone; cor?: string; fundo?: string; tam?: number;
 }) {
   return (
-    <View style={{ width: tam, height: tam, borderRadius: tam / 2, backgroundColor: fundo, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: tam, height: tam, borderRadius: raio.sm + 2, backgroundColor: fundo, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={nome} size={tam * 0.5} color={cor} />
     </View>
   );
@@ -84,15 +85,15 @@ export function Aviso({ tipo, titulo, texto, children }: {
   tipo: 'sucesso' | 'atencao' | 'perigo' | 'info'; titulo: string; texto?: string; children?: ReactNode;
 }) {
   const c = {
-    sucesso: [cores.sucessoSuave, cores.sucesso, 'checkmark-circle'],
-    atencao: [cores.destaqueSuave, '#8A5A00', 'hand-left'],
-    perigo: [cores.perigoSuave, cores.perigo, 'warning'],
-    info: [cores.primariaSuave, cores.primaria, 'information-circle'],
+    sucesso: [cores.sucessoSuave, cores.sucesso, 'checkmark-circle-outline'],
+    atencao: [cores.destaqueSuave, cores.destaqueTexto, 'hand-left-outline'],
+    perigo: [cores.perigoSuave, cores.perigo, 'warning-outline'],
+    info: [cores.primariaSuave, cores.primaria, 'information-circle-outline'],
   }[tipo] as [string, string, NomeIcone];
   return (
     <View style={[s.aviso, { backgroundColor: c[0], borderColor: c[1] }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaco.sm }}>
-        <Ionicons name={c[2]} size={28} color={c[1]} />
+        <Ionicons name={c[2]} size={24} color={c[1]} />
         <Text style={[s.avisoTitulo, { color: c[1] }]}>{titulo}</Text>
       </View>
       {texto ? <Text style={s.avisoTexto}>{texto}</Text> : null}
@@ -106,19 +107,19 @@ export const s = StyleSheet.create({
     minHeight: TOQUE_MIN + 8, borderRadius: raio.pilula, paddingHorizontal: espaco.lg,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: espaco.sm,
   },
-  botaoTexto: { fontSize: tamanho.corpo, fontWeight: '800' },
-  cartao: { backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.md + 2, ...sombra },
-  titulo: { fontSize: tamanho.titulo, fontWeight: '800', color: cores.tinta, letterSpacing: -0.5 },
-  secao: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.tinta, marginTop: espaco.lg, marginBottom: espaco.md },
-  texto: { fontSize: tamanho.corpo, color: cores.texto, lineHeight: 28 },
-  rotulo: { fontSize: tamanho.pequeno, fontWeight: '700', color: cores.tinta, marginBottom: 6 },
+  botaoTexto: { fontSize: tamanho.pequeno + 1, fontWeight: '600' },
+  cartao: { backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.md + 2 },
+  titulo: { fontSize: tamanho.titulo, fontWeight: '600', color: cores.tinta, textAlign: 'center' },
+  secao: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta, marginTop: espaco.lg, marginBottom: espaco.sm },
+  texto: { fontSize: tamanho.pequeno, color: cores.texto, lineHeight: 26 },
+  rotulo: { fontSize: tamanho.pequeno, fontWeight: '500', color: cores.tinta, marginBottom: 6 },
   campo: {
-    minHeight: TOQUE_MIN, borderWidth: 2, borderColor: cores.borda, borderRadius: raio.sm,
+    minHeight: TOQUE_MIN, borderWidth: 1, borderColor: cores.borda, borderRadius: raio.sm, fontFamily: 'Poppins-Regular',
     paddingHorizontal: espaco.md, fontSize: tamanho.corpo, color: cores.texto, backgroundColor: cores.superficie,
   },
-  erro: { color: cores.perigo, fontSize: tamanho.mini, fontWeight: '700', marginTop: 4 },
+  erro: { color: cores.perigo, fontSize: tamanho.mini, fontWeight: '500', marginTop: 4 },
   ajuda: { color: cores.textoSuave, fontSize: tamanho.mini, marginTop: 4 },
-  aviso: { borderRadius: raio.md, borderWidth: 2, padding: espaco.md, gap: espaco.sm },
-  avisoTitulo: { fontSize: tamanho.corpo, fontWeight: '800', flex: 1 },
+  aviso: { borderRadius: raio.md, padding: espaco.md, gap: espaco.sm },
+  avisoTitulo: { fontSize: tamanho.pequeno + 1, fontWeight: '600', flex: 1 },
   avisoTexto: { fontSize: tamanho.pequeno, color: cores.texto, lineHeight: 24 },
 });

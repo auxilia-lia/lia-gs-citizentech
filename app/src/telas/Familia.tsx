@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { abrirWhatsApp, carregarFamilia, Familiar, salvarFamilia } from '../lia/familia';
 import { Aviso, Botao, Campo, Cartao, Texto, Titulo } from '../ui/componentes';
@@ -32,7 +33,8 @@ export function validar(nome: string, parentesco: string, telefone: string): Err
   return e;
 }
 
-export default function Familia() {
+// Cadastro dos contatos: fica nos Ajustes, feito por quem ajuda a configurar a Lia.
+export function FamiliaEditar() {
   const [familia, setFamilia] = useState<Familiar[]>([]);
   const [adicionando, setAdicionando] = useState(false);
   const [nome, setNome] = useState('');
@@ -68,17 +70,16 @@ export default function Familia() {
   };
 
   return (
-    <ScrollView contentContainerStyle={st.tela} keyboardShouldPersistTaps="handled">
-      <Titulo>Sua família</Titulo>
-      <Texto suave estilo={{ marginTop: espaco.sm, marginBottom: espaco.lg }}>
-        Quando você pedir, eu aviso essas pessoas pelo WhatsApp. O número fica só no seu celular.
+    <View>
+      <Texto suave estilo={{ marginBottom: espaco.md }}>
+        A Lia avisa essas pessoas pelo WhatsApp quando pedirem. O número fica só neste celular.
       </Texto>
 
       {salvo ? <View style={{ marginBottom: espaco.md }}><Aviso tipo="sucesso" titulo="Pronto!" texto={salvo} /></View> : null}
 
       {familia.length === 0 && !adicionando && (
         <Cartao estilo={st.vazio}>
-          <Ionicons name="people" size={56} color={cores.primariaBorda} />
+          <Ionicons name="people-outline" size={48} color={cores.primariaBorda} />
           <Text style={st.vazioTexto}>Ninguém por aqui ainda.</Text>
           <Texto suave estilo={{ textAlign: 'center' }}>Adicione quem costuma te ajudar: um filho, uma neta, um vizinho.</Texto>
         </Cartao>
@@ -98,7 +99,7 @@ export default function Familia() {
             </Pressable>
           </View>
           {f.telefone ? (
-            <Botao texto="Mandar mensagem" icone="logo-whatsapp" tipo="secundario" onPress={() => abrirWhatsApp(f.telefone, '')} estilo={{ marginTop: espaco.md }} />
+            <Botao texto="Mandar mensagem" icone="chatbox-outline" tipo="secundario" onPress={() => abrirWhatsApp(f.telefone, '')} estilo={{ marginTop: espaco.md }} />
           ) : null}
         </Cartao>
         </Aparecer>
@@ -125,27 +126,61 @@ export default function Familia() {
           <Botao texto="Cancelar" tipo="claro" onPress={() => { setAdicionando(false); setErros({}); }} estilo={{ marginTop: espaco.sm }} />
         </Cartao></Aparecer>
       ) : (
-        <Botao texto="Adicionar alguém" icone="person-add" onPress={() => { setSalvo(''); setAdicionando(true); }} estilo={{ marginTop: espaco.md }} />
+        <Botao texto="Adicionar alguém" icone="person-add-outline" onPress={() => { setSalvo(''); setAdicionando(true); }} estilo={{ marginTop: espaco.sm }} />
       )}
+    </View>
+  );
+}
+
+// O que quem usa a Lia vê: só as pessoas e um botão verde para mandar mensagem.
+export default function Familia() {
+  const [familia, setFamilia] = useState<Familiar[]>([]);
+  useEffect(() => { carregarFamilia().then(setFamilia); }, []);
+  return (
+    <ScrollView contentContainerStyle={st.telaSimples} showsVerticalScrollIndicator={false}>
+      <Titulo>Sua família</Titulo>
+      <Text style={st.guia}>{familia.length ? 'Toque no verde para mandar mensagem' : 'Ainda não tem ninguém aqui'}</Text>
+      {familia.length === 0 && (
+        <Text style={st.vazioSimples}>Peça para alguém da família abrir os Ajustes, na aba Eu, e colocar os contatos.</Text>
+      )}
+      {familia.map((f, i) => (
+        <Aparecer key={f.id} atraso={i * 60}>
+          <View style={st.linhaSimples}>
+            <View style={st.inicial}><Text style={st.inicialTexto}>{f.nome[0]?.toUpperCase()}</Text></View>
+            <Text style={st.nomeSimples} numberOfLines={2}>{f.nome}, {f.parentesco}</Text>
+            {f.telefone ? (
+              <Pressable onPress={() => abrirWhatsApp(f.telefone, '')} style={({ pressed }) => [st.msg, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button" accessibilityLabel={`Mandar mensagem para ${f.nome}`}>
+                <Ionicons name="chatbox-outline" size={26} color={cores.branco} />
+              </Pressable>
+            ) : null}
+          </View>
+        </Aparecer>
+      ))}
     </ScrollView>
   );
 }
 
 const st = StyleSheet.create({
-  tela: { padding: espaco.lg, paddingBottom: espaco.xl },
+  telaSimples: { paddingHorizontal: espaco.lg, paddingTop: espaco.xl, paddingBottom: espaco.xl },
+  guia: { fontSize: tamanho.pequeno, color: cores.textoSuave, textAlign: 'center', marginTop: espaco.xs, marginBottom: espaco.lg },
+  vazioSimples: { fontSize: tamanho.pequeno, color: cores.texto, textAlign: 'center', lineHeight: 26, backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.lg },
+  linhaSimples: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, backgroundColor: cores.superficie, borderRadius: raio.md, padding: espaco.md, marginBottom: espaco.sm + 2 },
+  nomeSimples: { flex: 1, fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta },
+  msg: { width: 58, height: 54, borderRadius: raio.sm, backgroundColor: cores.sucesso, alignItems: 'center', justifyContent: 'center' },
   vazio: { alignItems: 'center', gap: espaco.sm, paddingVertical: espaco.xl },
-  vazioTexto: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
+  vazioTexto: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta },
   pessoa: { marginBottom: espaco.md },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
-  inicial: { width: 56, height: 56, borderRadius: 28, backgroundColor: cores.primariaSuave, alignItems: 'center', justifyContent: 'center' },
-  inicialTexto: { fontSize: 24, fontWeight: '800', color: cores.primaria },
-  nome: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
+  inicial: { width: 54, height: 54, borderRadius: raio.md, backgroundColor: cores.primariaSuave, alignItems: 'center', justifyContent: 'center' },
+  inicialTexto: { fontSize: 22, fontWeight: '600', color: cores.primaria },
+  nome: { fontSize: tamanho.corpo, fontWeight: '600', color: cores.tinta },
   sub: { fontSize: tamanho.mini, color: cores.textoSuave, marginTop: 2 },
   lixo: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
-  formTitulo: { fontSize: tamanho.subtitulo, fontWeight: '800', color: cores.tinta, marginBottom: espaco.md },
-  rotulo: { fontSize: tamanho.pequeno, fontWeight: '700', color: cores.tinta, marginBottom: 8 },
+  formTitulo: { fontSize: tamanho.subtitulo, fontWeight: '600', color: cores.tinta, marginBottom: espaco.md },
+  rotulo: { fontSize: tamanho.pequeno, fontWeight: '500', color: cores.tinta, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: espaco.md },
-  chip: { borderRadius: raio.pilula, borderWidth: 2, borderColor: cores.primariaBorda, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
+  chip: { borderRadius: raio.sm, borderWidth: 1, borderColor: cores.primariaBorda, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
   chipAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
-  chipTexto: { fontSize: tamanho.pequeno, fontWeight: '700', color: cores.primaria },
+  chipTexto: { fontSize: tamanho.pequeno, fontWeight: '500', color: cores.primaria },
 });

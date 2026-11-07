@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  AppState, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
-} from 'react-native';
+import { AppState, Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { buscarFluxos, urlGov } from '../lia/api';
 import { guiarComIA, pararGuiaIA, PACOTES } from '../lia/guiaIA';
 import LiaGuia, { StepEvent } from '../../modules/lia-guia';
@@ -179,12 +178,12 @@ function Chip({ texto, onPress, ativo }: { texto: string; onPress: () => void; a
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 16, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 16 },
+  title: { fontSize: 28, fontWeight: '500', marginBottom: 16 },
   status: { borderRadius: 16, padding: 16, marginBottom: 8 },
   statusText: { fontSize: 18, fontWeight: '600' },
-  section: { fontSize: 20, fontWeight: '700', marginTop: 24, marginBottom: 8 },
+  section: { fontSize: 20, fontWeight: '500', marginTop: 24, marginBottom: 8 },
   botao: { backgroundColor: '#1B3A9E', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 16, marginTop: 10 },
-  botaoTexto: { color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  botaoTexto: { color: '#fff', fontSize: 20, fontWeight: '500', textAlign: 'center' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 12, padding: 14, fontSize: 18 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: { borderWidth: 1, borderColor: '#1B3A9E', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14 },

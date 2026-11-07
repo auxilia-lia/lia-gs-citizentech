@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import LiaGuia, { AppDoCelular } from '../../modules/lia-guia';
 import { Botao, Campo, Cartao, IconeCirculo } from '../ui/componentes';
@@ -81,9 +82,9 @@ export default function AppsProtegidos() {
 const st = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
   item: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, minHeight: 56, borderTopWidth: 1, borderTopColor: cores.borda, paddingTop: espaco.sm },
-  nome: { fontSize: tamanho.pequeno, fontWeight: '800', color: cores.tinta },
+  nome: { fontSize: tamanho.pequeno, fontWeight: '600', color: cores.tinta },
   sub: { fontSize: tamanho.mini, color: cores.textoSuave, lineHeight: 21 },
   mini: { fontSize: 13, color: cores.textoSuave },
   acao: { paddingHorizontal: espaco.md, minHeight: 44, justifyContent: 'center', borderRadius: raio.md, backgroundColor: cores.primariaSuave },
-  acaoTexto: { fontSize: tamanho.mini, fontWeight: '800', color: cores.primaria },
+  acaoTexto: { fontSize: tamanho.mini, fontWeight: '600', color: cores.primaria },
 });
