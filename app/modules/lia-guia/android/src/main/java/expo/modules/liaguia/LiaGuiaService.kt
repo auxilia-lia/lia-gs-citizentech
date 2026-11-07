@@ -41,6 +41,8 @@ class LiaGuiaService : AccessibilityService() {
     private const val ESPERA_CARREGAR_MS = 2500L
     private const val MAX_LEMBRETES = 2
     private const val DIGITANDO_MS = 2500L
+    private const val ASSENTAR_MS = 600L // a tela precisa ficar parada esse tempo antes de ir para a IA
+    private const val ROLANDO_MS = 5000L
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
 
     // "deixa pra lá", "para", "não quero mais"… (já sem acento)
@@ -50,6 +52,8 @@ class LiaGuiaService : AccessibilityService() {
     private val PROTEGER = Regex("\\b(nao (entra|entre|olha|olhe|leia|le)|bloqueia|bloquear|bloqueie|protege|proteger|proteja)\\b.*\\b(nesse|neste|esse|este|aqui|app|aplicativo)\\b")
     // "e agora?", "qual o próximo passo?", "não tô vendo nada"… (frases curtas): o Guia resolve sem ir para a conversa.
     private val AJUDA = Regex("\\b(proximo passo|e agora|o que (eu )?(faco|fasso|toco|aperto)|nao (sei|to vendo|estou vendo|vejo|achei|acho|apareceu|aparece|mostrou|mostra|falou)|cade|onde (eu )?(toco|clico|aperto|esta)|travou|nada na tela|mostra de novo|repete|repetir|fala de novo|nao entendi)\\b")
+    private val PAUSAR = Regex("^(espera|espere|pera|peraí|perai|pausa|pausar|pausa ai|um minuto|um momento|calma ai)\\b")
+    private val CONTINUAR = Regex("\\b(continua|continuar|continue|pode continuar|pode seguir|voltei|vamos continuar|vamos la)\\b")
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
@@ -99,15 +103,29 @@ class LiaGuiaService : AccessibilityService() {
   private var indiceIA = -1 // número do botão escolhido na última tela enviada
   private var telaEnviada = 0 // conta as telas enviadas para a IA (resposta de tela antiga é descartada)
   private var rotulosEnviados: List<String> = emptyList()
+  private var assinaturaEmitida = "" // a última tela mandada para a IA
+
+  // O que a pessoa está fazendo (para a Lia não se confundir quando ela mexe no celular)
+  private var candidata = ""
+  private var candidataDesde = 0L
+  private var ultimaRolagem = 0L
+  private var ultimoDeltaY = 0
+  private var ultimoAlvoRect: Rect? = null // onde o botão estava quando a Lia apontou
+  private var appAtual = ""
+  private var appDaInstrucao = ""
+  private var trocaEsperada = false
+  private var avisouErro = false
+  private var pausado = false
+  private var appPausado = ""
 
   private val avaliar = Runnable { agendadoPara = 0L; avaliarTela() }
 
   // Vigia: depois de mandar a tela para a IA, a Lia nunca fica muda nem parada esperando para sempre.
   private val aguardando = Runnable {
-    if (ativo && modoIA && tipoIA == null && emProtegido == null) falar("Só um momento, estou olhando a tela.")
+    if (ativo && modoIA && tipoIA == null && emProtegido == null && !pausado) falar("Só um momento, estou olhando a tela.")
   }
   private val reenviar = Runnable {
-    if (!ativo || !modoIA || tipoIA != null || emProtegido != null) return@Runnable
+    if (!ativo || !modoIA || tipoIA != null || emProtegido != null || pausado) return@Runnable
     val root = raizAtual()
     if (root == null) { reagendarVigia(3000); return@Runnable }
     emitirTela(lerContexto(root), "parado")
@@ -178,6 +196,9 @@ class LiaGuiaService : AccessibilityService() {
     indiceIA = indice
     faltas = 0
     pararVigia()
+    appDaInstrucao = appAtual
+    trocaEsperada = false
+    ultimoAlvoRect = null
     tipoIA = tipo
     alvoIA = alvo?.takeIf { it.isNotBlank() }
     falaIA = fala
@@ -210,6 +231,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun mostrarDeNovo() {
     if (!ativo) return
     emProtegido?.let { falar("Este app é protegido, então eu não olho esta tela. Saia dele para eu voltar a ajudar."); return }
+    if (pausado) { falar("Estou pausada. Para continuar, diga continuar."); return }
     val tipo = tipoIA
     if (!modoIA) {
       falado = false; revelado = true; avaliarTela(); return
@@ -232,6 +254,7 @@ class LiaGuiaService : AccessibilityService() {
   fun estado(): String = when {
     !ativo -> "o Guia está desligado"
     emProtegido != null -> "um app protegido está aberto; o Guia não olha esta tela"
+    pausado -> "pausado: o Guia está esperando a pessoa voltar ao app ou dizer continuar"
     !modoIA -> if (alvoAtual != null) "mostrando: Toque em $nomeAlvo" else "procurando \"$nomeAlvo\" na tela"
     tipoIA == null -> "nada ainda: o Guia está olhando a tela para decidir o próximo passo"
     tipoIA == "tocar" && alvoAtual == null -> "nada ainda: procurando o botão na tela"
@@ -283,6 +306,22 @@ class LiaGuiaService : AccessibilityService() {
         voltarParaLia()
         return
       }
+      PAUSAR.containsMatchIn(Matcher.normalize(texto)) -> {
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        if (!pausado) {
+          pausado = true; appPausado = "\u0000" // pausa pela voz: só volta com "continuar"
+          alvoAtual = null; pararVigia(); handler.removeCallbacks(lembrar)
+          overlay?.mostrarMensagem("Pausado. Quando quiser, toque no microfone e diga \"continuar\".")
+          falar("Tudo bem, eu espero. Quando quiser, diga continuar.")
+        }
+        return
+      }
+      CONTINUAR.containsMatchIn(Matcher.normalize(texto)) && pausado -> {
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        falar("Vamos lá.")
+        continuar()
+        return
+      }
       AJUDA.containsMatchIn(Matcher.normalize(texto)) && texto.trim().split(Regex("\\s+")).size <= 8 -> {
         LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
         mostrarDeNovo()
@@ -330,6 +369,7 @@ class LiaGuiaService : AccessibilityService() {
     passos = emptyList(); indice = 0
     tipoIA = null; alvoIA = null; falaIA = ""; passosIA = 0
     alvoAtual = null; nomeAlvo = ""; ultimaAssinatura = ""; ultimoErro = null
+    assinaturaEmitida = ""; candidata = ""; pausado = false; appPausado = ""; appDaInstrucao = ""; trocaEsperada = false
     novaInstrucao()
     mostrarOverlay()
   }
@@ -342,6 +382,7 @@ class LiaGuiaService : AccessibilityService() {
     handler.removeCallbacks(revelar)
     revelarAgendado = false
     dicaRolar = false
+    avisouErro = false
     revelado = nivel == 0
     handler.removeCallbacks(lembrar)
     handler.postDelayed(lembrar, LEMBRETE_MS)
@@ -369,7 +410,7 @@ class LiaGuiaService : AccessibilityService() {
 
   // A pessoa travou: repete com calma e mostra o anel. Na 2ª vez, no modo IA, pede outra ideia à IA.
   private fun lembrete() {
-    if (!ativo || emProtegido != null) return
+    if (!ativo || emProtegido != null || pausado) return
     lembretes++
     revelado = true
     val instrucao = when {
@@ -393,6 +434,10 @@ class LiaGuiaService : AccessibilityService() {
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
     if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
+    if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+      ultimaRolagem = SystemClock.uptimeMillis()
+      if (Build.VERSION.SDK_INT >= 28 && event.scrollDeltaY != 0) ultimoDeltaY = event.scrollDeltaY
+    }
     if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
       ultimaDigitacao = SystemClock.uptimeMillis()
       return agendar(DIGITANDO_MS + 100) // reavalia só quando ela parar de digitar
@@ -430,16 +475,20 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to alvoIA))
     passosIA++
     limparInstrucaoIA()
+    trocaEsperada = true
     if (nivel >= 1) falar("Isso!")
     overlay?.mostrarMensagem("Boa! Deixa eu ver…")
     ultimaAssinatura = "" // força mandar a próxima tela para a IA
+    assinaturaEmitida = ""
     agendar(500)
   }
 
   // Tocou em outro lugar: avisa na hora. Se a tela mudou, a IA recebe o erro e diz como voltar.
   private fun errou(tocado: String) {
     ultimoErro = tocado
-    falar("Esse não é o lugar. Procure $nomeAlvo.")
+    // Avisa uma vez por passo; tocar de novo em outro lugar não vira bronca repetida.
+    if (!avisouErro) falar("Esse não é o lugar. O certo é ${curto(nomeAlvo)}, onde está o círculo.")
+    avisouErro = true
     LiaGuiaBridge.emit("onStep", mapOf("type" to "wrong", "step" to nomeAlvo, "tocado" to tocado))
   }
 
@@ -476,6 +525,10 @@ class LiaGuiaService : AccessibilityService() {
     if (Protecao.bloqueado(this, pkg)) return protegido(pkg)
     if (emProtegido != null) { emProtegido = null; ultimaAssinatura = "" }
     atualizarTeclado()
+    if (pausado) {
+      // Pausado porque ela saiu do app: quando voltar para ele, continua sozinho.
+      if (pkg == appPausado) continuar() else return
+    }
     if (digitando()) return esperarDigitar()
     if (modoIA) avaliarTelaIA(root) else avaliarPassos(root)
   }
@@ -533,22 +586,38 @@ class LiaGuiaService : AccessibilityService() {
     }
   }
 
+  // A tela parou de mudar? (carregando, animando ou a pessoa ainda mexendo: espera antes de mandar para a IA)
+  private fun assentou(assinatura: String): Boolean {
+    val agora = SystemClock.uptimeMillis()
+    if (assinatura != candidata) { candidata = assinatura; candidataDesde = agora; agendar(ASSENTAR_MS + 50); return false }
+    val falta = ASSENTAR_MS - (agora - candidataDesde)
+    if (falta > 0) { agendar(falta + 50); return false }
+    return true
+  }
+
   private fun avaliarTelaIA(root: AccessibilityNodeInfo) {
     val ctx = lerContexto(root)
     val assinatura = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
-    val mudou = assinatura != ultimaAssinatura
     ultimaAssinatura = assinatura
+    appAtual = ctx.app
     val mudouDesdeInstrucao = assinatura != assinaturaDaInstrucao
     val tipo = tipoIA
+    val motivo = if (ultimoErro != null) "errou" else "mudou"
+
+    // Saiu do app por conta própria no meio de um passo: pausa em vez de correr atrás dela.
+    if (tipo != null && tipo !in GESTOS && saiuPorContaPropria(ctx)) return pausar()
 
     when {
-      tipo == null -> if (mudou) emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
+      tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) emitirTela(ctx, motivo)
       tipo == "tocar" -> {
         val achado = localizar(root, ctx)
+        val rolandoAgora = SystemClock.uptimeMillis() - ultimaRolagem < ROLANDO_MS
         when {
           achado != null && !bemVisivel(achado.bounds) -> { faltas = 0; pedirRolagem(achado) }
           achado != null -> { faltas = 0; desenharAlvo(achado, falaIA.ifBlank { "Toque em ${achado.label}" }) }
-          mudou && mudouDesdeInstrucao -> emitirTela(ctx, if (ultimoErro != null) "errou" else "mudou")
+          // Ela rolou e o botão (que já estava na tela) saiu de vista: a instrução continua a mesma, só volta a rolagem.
+          rolandoAgora && ultimoAlvoRect != null && ctx.app == appDaInstrucao -> voltarRolagem()
+          mudouDesdeInstrucao -> if (assentou(assinatura)) emitirTela(ctx, motivo)
           else -> {
             // O botão escolhido não está na tela: a Lia não mostra nem fala a instrução, e pede outra ideia logo.
             alvoAtual = null
@@ -558,16 +627,69 @@ class LiaGuiaService : AccessibilityService() {
           }
         }
       }
-      tipo in GESTOS -> if (mudou && mudouDesdeInstrucao) {
+      tipo in GESTOS -> if (mudouDesdeInstrucao && assentou(assinatura)) {
         // A tela mudou: o gesto foi feito.
         seguiu = tipo
+        trocaEsperada = true
         LiaGuiaBridge.emit("onStep", mapOf("type" to "done_step", "index" to passosIA, "step" to tipo))
         passosIA++
         if (nivel >= 1) falar("Isso!")
         emitirTela(ctx, "mudou")
       }
-      else -> if (mudou && mudouDesdeInstrucao) emitirTela(ctx, "mudou")
+      else -> if (mudouDesdeInstrucao && assentou(assinatura)) emitirTela(ctx, "mudou")
     }
+  }
+
+  // Ela trocou de app sem ser pelo passo pedido (ex.: abriu outro app, apertou o início).
+  // Da tela inicial para um app não conta (é o caminho normal), nem o painel rápido.
+  private fun saiuPorContaPropria(ctx: Contexto): Boolean {
+    if (trocaEsperada || appDaInstrucao.isEmpty() || ctx.app == appDaInstrucao) return false
+    if (ctx.tela == "painel" || appDaInstrucao.contains("launcher") || appDaInstrucao == "com.android.systemui") return false
+    // O app novo tem o nome do botão pedido (tocou nele e o toque não foi avisado): é o caminho certo.
+    val nomeApp = Matcher.normalize(Protecao.nome(this, ctx.app))
+    val alvo = Matcher.normalize(curto(alvoIA ?: nomeAlvo))
+    if (alvo.isNotEmpty() && (nomeApp.contains(alvo) || alvo.contains(nomeApp))) return false
+    return true
+  }
+
+  private fun pausar() {
+    if (pausado) return
+    pausado = true
+    appPausado = appDaInstrucao
+    alvoAtual = null
+    pararVigia()
+    handler.removeCallbacks(lembrar)
+    handler.removeCallbacks(revelar)
+    val nome = Protecao.nome(this, appPausado)
+    val msg = "Pausei. Quando você voltar para o $nome, eu continuo. Ou toque no microfone e diga \"continuar\"."
+    overlay?.mostrarMensagem(msg)
+    falar(msg)
+    LiaGuiaBridge.emit("onStep", mapOf("type" to "paused", "app" to appPausado))
+  }
+
+  private fun continuar() {
+    pausado = false
+    appPausado = ""
+    falado = false
+    candidata = ""
+    if (!modoIA) { avaliarTela(); return }
+    if (tipoIA != null && appAtual == appDaInstrucao) { novaInstrucao(); agendar(200); return } // mesma tela: repete o passo
+    // Em outro lugar: olha a tela de novo e decide a partir dela.
+    limparInstrucaoIA()
+    assinaturaEmitida = ""
+    trocaEsperada = true
+    agendar(200)
+  }
+
+  // A pessoa rolou e o botão saiu da tela: mostra para que lado voltar.
+  private fun voltarRolagem() {
+    alvoAtual = null
+    val paraCima = ultimoDeltaY > 0 // o conteúdo desceu: o botão ficou mais acima
+    val msg = "O \"$nomeAlvo\" ficou para trás. Arraste devagar para ${if (paraCima) "baixo" else "cima"} para ele voltar."
+    overlay?.mostrarGesto(if (paraCima) "rolar_cima" else "rolar_baixo", msg)
+    if (!dicaRolar) { falado = false; dicaRolar = true }
+    falarUmaVez(msg)
+    agendar(800)
   }
 
   private val DIGITOS = Regex("\\d+")
@@ -597,6 +719,8 @@ class LiaGuiaService : AccessibilityService() {
     limparInstrucaoIA()
     telaEnviada++
     rotulosEnviados = ctx.elementos
+    assinaturaEmitida = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
+    candidata = ""
     val erro = ultimoErro?.let { Protecao.limpar(it) }
     ultimoErro = null
     val cumpriu = seguiu
@@ -638,6 +762,7 @@ class LiaGuiaService : AccessibilityService() {
   private fun desenharAlvo(achado: Alvo, fala: String) {
     if (dicaRolar) { dicaRolar = false; falado = false } // agora sim fala "Toque em…"
     alvoAtual = achado.bounds
+    ultimoAlvoRect = Rect(achado.bounds)
     nomeAlvo = achado.label
     if (revelado) {
       overlay?.mostrarAlvo(achado.bounds, fala)
