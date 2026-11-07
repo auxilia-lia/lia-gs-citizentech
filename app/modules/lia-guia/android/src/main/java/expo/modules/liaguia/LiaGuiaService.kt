@@ -56,7 +56,6 @@ class LiaGuiaService : AccessibilityService() {
     private const val MAX_LEMBRETES = 2
     private const val DIGITANDO_MS = 2500L
     private const val ID_INSTRUCAO = "lia-instrucao"
-    private const val ESCUTA_MS = 6000L
     private const val ASSENTAR_MS = 600L // a tela precisa ficar parada esse tempo antes de ir para a IA
     private const val ROLANDO_MS = 5000L
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
@@ -70,6 +69,8 @@ class LiaGuiaService : AccessibilityService() {
     private val AJUDA = Regex("\\b(proximo passo|e agora|o que (eu )?(faco|fasso|toco|aperto)|nao (sei|to vendo|estou vendo|vejo|achei|acho|apareceu|aparece|mostrou|mostra|falou)|cade|onde (eu )?(toco|clico|aperto|esta)|travou|nada na tela|mostra de novo|repete|repetir|fala de novo|nao entendi)\\b")
     // "o que é isso?", "o que tem nessa tela?", "pra que serve esse botão?"
     private val EXPLICAR = Regex("\\b(o que (e|eh) (isso|isto|essa tela|esta tela|esse botao|isso aqui|aqui)|o que tem (nessa|nesta|na) tela|(pra|para) que serve|explica (essa|esta|a) tela|que tela e essa|onde eu estou)\\b")
+    // Perguntas sobre a tela ("já baixou?", "terminou?"): vão para a conversa, que agora sabe o que está na tela.
+    private val PERGUNTA = Regex("\\b(ja (baixou|instalou|terminou|ligou|desligou|abriu|mandou|enviou)|terminou|acabou|esta (baixando|ligado|desligado))\\b")
     private val PAUSAR = Regex("^(espera|espere|pera|peraí|perai|pausa|pausar|pausa ai|um minuto|um momento|calma ai)\\b")
     private val CONTINUAR = Regex("\\b(continua|continuar|continue|pode continuar|pode seguir|voltei|vamos continuar|vamos la)\\b")
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
@@ -150,7 +151,23 @@ class LiaGuiaService : AccessibilityService() {
   private var pausado = false
   private var appPausado = ""
 
-  private val avaliar = Runnable { agendadoPara = 0L; avaliarTela() }
+  private val avaliar = Runnable { agendadoPara = 0L; seguro("avaliar") { avaliarTela() } }
+
+  // Uma falha num app estranho não pode derrubar o Guia (o Android desliga o serviço se ele quebrar):
+  // registra, tenta de novo daqui a pouco e segue.
+  private fun seguro(onde: String, bloco: () -> Unit) {
+    try { bloco() } catch (e: Throwable) { log(onde, e); if (ativo) handler.postDelayed({ agendar(0) }, 1500) }
+  }
+  private fun log(onde: String, e: Throwable) = android.util.Log.e("LiaGuia", "falha em $onde", e)
+
+  // Registro para o robô de testes (adb logcat -s LIA_ROBO): o que o Guia está mostrando, em JSON.
+  private fun robo(evento: String, vararg dados: Pair<String, Any?>) {
+    try {
+      val j = org.json.JSONObject().put("evento", evento).put("t", System.currentTimeMillis())
+      dados.forEach { (k, v) -> j.put(k, v ?: org.json.JSONObject.NULL) }
+      android.util.Log.i("LIA_ROBO", j.toString())
+    } catch (_: Exception) {}
+  }
 
   // Vigia: depois de mandar a tela para a IA, a Lia nunca fica muda nem parada esperando para sempre.
   private val aguardando = Runnable {
@@ -181,11 +198,9 @@ class LiaGuiaService : AccessibilityService() {
         escolherVoz()
         tts?.setSpeechRate(1.08f)
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-          override fun onStart(id: String?) {}
-          override fun onError(id: String?) {}
-          // Terminou de falar uma instrução: abre o microfone uns segundos ("não achei", "e agora?"),
-          // sem a pessoa precisar caçar o botão.
-          override fun onDone(id: String?) { if (id == ID_INSTRUCAO) handler.post { ouvirDepoisDeFalar() } }
+          override fun onStart(id: String?) { handler.post { pausarEscutaParaFalar() } }
+          override fun onError(id: String?) { handler.post { agendarEscuta(400) } }
+          override fun onDone(id: String?) { handler.post { agendarEscuta(350) } } // terminou de falar: volta a escutar
         })
       }
     }
@@ -249,6 +264,7 @@ class LiaGuiaService : AccessibilityService() {
     alvoAtual = null
     assinaturaDaInstrucao = ultimaAssinatura
     novaInstrucao()
+    robo("instrucao", "tipo" to tipo, "alvo" to alvoIA, "fala" to fala)
     when {
       tipo in GESTOS -> { overlay?.mostrarGesto(tipo, fala); falarUmaVez(fala) }
       (tipo == "tocar" && (alvoIA != null || indice >= 0)) || (tipo == "tocar_ponto" && pontoIA != null) -> { overlay?.mostrarMensagem("…"); agendar(50) }
@@ -317,7 +333,8 @@ class LiaGuiaService : AccessibilityService() {
     tipoIA == null -> "nada ainda: o Guia está olhando a tela para decidir o próximo passo"
     tipoIA == "tocar" && alvoAtual == null -> "nada ainda: procurando o botão na tela"
     else -> "mostrando: $falaIA"
-  }
+  } + if (resumoTela.isNotEmpty() && ativo) " | agora na $resumoTela" else ""
+  private var resumoTela = ""
 
   // Nome da voz escolhida (o app usa a mesma, para a Lia soar igual em todo lugar).
   fun nomeVoz(): String? = if (ttsPronto) tts?.voice?.name else null
@@ -326,9 +343,10 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun ouvir() {
     if (!SpeechRecognizer.isRecognitionAvailable(this)) return falar("Não consigo ouvir neste celular.")
-    handler.removeCallbacks(encerrarEscuta)
+    handler.removeCallbacks(escutar)
     if (escutaAutomatica) reconhecedor?.cancel()
     escutaAutomatica = false
+    botao?.atento = false
     tts?.stop()
     handler.removeCallbacks(lembrar)
     iniciarEscuta()
@@ -344,14 +362,14 @@ class LiaGuiaService : AccessibilityService() {
       .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
       .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
       .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
-    botao?.ouvindo = true
+    if (escutaAutomatica) botao?.atento = true else botao?.ouvindo = true
     r.startListening(intent)
   }
 
   private fun comandoDoGuia(texto: String): Boolean {
     val t = Matcher.normalize(texto)
     if (t.isBlank()) return false
-    return listOf(PARAR, PAUSAR, CONTINUAR, AJUDA, CONSEGUI, PROTEGER, EXPLICAR).any { it.containsMatchIn(t) }
+    return listOf(PARAR, PAUSAR, CONTINUAR, AJUDA, CONSEGUI, PROTEGER, EXPLICAR, PERGUNTA).any { it.containsMatchIn(t) }
   }
 
   private fun aoOuvir(texto: String) {
@@ -415,23 +433,34 @@ class LiaGuiaService : AccessibilityService() {
       }
     }
     if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS)
+    agendarEscuta(600)
   }
 
   private val ouvinte = object : RecognitionListener {
     override fun onResults(results: Bundle?) {
       val texto = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
       if (escutaAutomatica) {
-        handler.removeCallbacks(encerrarEscuta)
         escutaAutomatica = false
-        botao?.ouvindo = false
-        if (comandoDoGuia(texto)) aoOuvir(texto) // o resto (conversa da sala, TV) é ignorado em silêncio
+        botao?.atento = false
+        val chamou = Regex("^(oi |ola |ei )?lia\\b[ ,]*").find(Matcher.normalize(texto))
+        when {
+          chamou != null -> aoOuvir(Matcher.normalize(texto).removeRange(chamou.range).ifBlank { "e agora" })
+          comandoDoGuia(texto) -> aoOuvir(texto)
+          else -> agendarEscuta(300) // conversa da sala, TV: ignora em silêncio e continua escutando
+        }
         return
       }
       aoOuvir(texto)
     }
     override fun onError(error: Int) {
       botao?.ouvindo = false
-      if (escutaAutomatica) { escutaAutomatica = false; handler.removeCallbacks(encerrarEscuta); return } // silêncio: tudo bem
+      if (escutaAutomatica) { // silêncio ou barulho: tudo bem, recomeça
+        escutaAutomatica = false
+        botao?.atento = false
+        agendarEscuta(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 1200 else 300)
+        return
+      }
+      agendarEscuta(1500)
       falar("Não ouvi direito. Toque no microfone e fale de novo.")
       if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS)
     }
@@ -458,6 +487,7 @@ class LiaGuiaService : AccessibilityService() {
     assinaturaEmitida = ""; candidata = ""; pausado = false; appPausado = ""; appDaInstrucao = ""; trocaEsperada = false
     novaInstrucao()
     mostrarOverlay()
+    ligarEscuta()
   }
 
   private fun novaInstrucao() {
@@ -469,26 +499,26 @@ class LiaGuiaService : AccessibilityService() {
     revelarAgendado = false
     dicaRolar = false
     avisouErro = false
-    ouviuNestaInstrucao = false
     revelado = nivel == 0
     handler.removeCallbacks(lembrar)
     handler.postDelayed(lembrar, LEMBRETE_MS)
   }
 
   private fun pararAgora() {
+    if (ativo) robo("parou")
     ativo = false
     modoIA = false
     handler.removeCallbacks(avaliar)
     handler.removeCallbacks(revelar)
     handler.removeCallbacks(lembrar)
     pararVigia()
-    handler.removeCallbacks(encerrarEscuta)
-    escutaAutomatica = false
+    desligarEscuta()
     esconderOverlay()
   }
 
   private fun concluir(fala: String) {
     if (!ativo) return
+    robo("fim", "fala" to fala)
     handler.removeCallbacks(lembrar)
     if (fala.isNotBlank()) falar(fala)
     overlay?.mostrarMensagem(fala)
@@ -518,12 +548,13 @@ class LiaGuiaService : AccessibilityService() {
 
   // ================= eventos do Android =================
 
-  override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+  override fun onAccessibilityEvent(event: AccessibilityEvent?) = seguro("evento") { aoEvento(event) }
+
+  private fun aoEvento(event: AccessibilityEvent?) {
     if (event == null || !ativo) return
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
     if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
-    if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED || event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) cancelarEscutaAutomatica()
     if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
       ultimaRolagem = SystemClock.uptimeMillis()
       if (Build.VERSION.SDK_INT >= 28 && event.scrollDeltaY != 0) ultimoDeltaY = event.scrollDeltaY
@@ -644,6 +675,7 @@ class LiaGuiaService : AccessibilityService() {
     overlay?.mostrarMensagem(msg)
     falar(msg)
     LiaGuiaBridge.emit("onStep", mapOf("type" to "protected", "app" to pkg))
+    robo("protegido", "app" to pkg)
   }
 
   private fun avaliarPassos(root: AccessibilityNodeInfo) {
@@ -762,6 +794,7 @@ class LiaGuiaService : AccessibilityService() {
     overlay?.mostrarMensagem(msg)
     falar(msg)
     LiaGuiaBridge.emit("onStep", mapOf("type" to "paused", "app" to appPausado))
+    robo("pausado", "app" to appPausado)
   }
 
   private fun continuar() {
@@ -785,7 +818,7 @@ class LiaGuiaService : AccessibilityService() {
     val paraCima = ultimoDeltaY > 0 // o conteúdo desceu: o botão ficou mais acima
     val msg = "O \"$nomeAlvo\" ficou para trás. Arraste devagar para ${if (paraCima) "baixo" else "cima"} para ele voltar."
     overlay?.mostrarGesto(if (paraCima) "rolar_cima" else "rolar_baixo", msg)
-    if (!dicaRolar) { falado = false; dicaRolar = true }
+    if (!dicaRolar) { falado = false; dicaRolar = true; robo("instrucao", "tipo" to (if (paraCima) "rolar_cima" else "rolar_baixo"), "fala" to msg) }
     falarUmaVez(msg)
     agendar(800)
   }
@@ -875,6 +908,8 @@ class LiaGuiaService : AccessibilityService() {
     rotulosEnviados = ctx.elementos
     assinaturaEmitida = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
     candidata = ""
+    resumoTela = "tela \"${ctx.titulo}\" do app ${Protecao.nome(this, ctx.app)}; botões: " + ctx.elementos.take(12).joinToString(", ") { curto(it) + (Regex("\\[(ligado|desligado)\\]").find(it)?.value?.let { e -> " $e" } ?: "") }
+    robo("tela", "id" to telaEnviada + 0, "motivo" to motivo, "app" to ctx.app, "titulo" to ctx.titulo, "botoes" to ctx.elementos.size, "imagem" to (imagem != null))
     val erro = ultimoErro?.let { Protecao.limpar(it) }
     ultimoErro = null
     val cumpriu = seguiu
@@ -910,11 +945,13 @@ class LiaGuiaService : AccessibilityService() {
     if (!dicaRolar) falado = false
     dicaRolar = true
     overlay?.mostrarGesto(if (abaixo) "rolar_baixo" else "rolar_cima", msg)
+    if (!falado) robo("instrucao", "tipo" to (if (abaixo) "rolar_baixo" else "rolar_cima"), "fala" to msg)
     falarUmaVez(msg)
   }
 
   private fun desenharAlvo(achado: Alvo, fala: String) {
     if (dicaRolar) { dicaRolar = false; falado = false } // agora sim fala "Toque em…"
+    if (alvoAtual != achado.bounds) robo("tocar", "x" to achado.bounds.centerX(), "y" to achado.bounds.centerY(), "nome" to achado.label, "fala" to fala)
     alvoAtual = achado.bounds
     ultimoAlvoRect = Rect(achado.bounds)
     nomeAlvo = achado.label
@@ -1224,6 +1261,7 @@ class LiaGuiaService : AccessibilityService() {
   }
 
   private fun falar(texto: String) {
+    if (texto.isNotBlank()) robo("fala", "texto" to texto, "tts" to ttsPronto)
     if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "lia-guia")
   }
 
@@ -1233,27 +1271,51 @@ class LiaGuiaService : AccessibilityService() {
     if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, ID_INSTRUCAO)
   }
 
-  // ================= ouvir logo depois de falar =================
-  // Uma vez por instrução, por alguns segundos. Nessa escuta automática a Lia só reage a pedidos do Guia
-  // ("e agora?", "não achei", "espera", "para", "o que é isso?"): conversa da sala ou TV não vira mensagem.
+  // ================= microfone aberto durante o Guia =================
+  // Enquanto o Guia está na tela, a Lia escuta o tempo todo (para enquanto ela mesma fala, para não ouvir a si própria).
+  // Pedidos do Guia valem direto ("e agora?", "espera", "para", "já baixou?", "o que é isso?"); qualquer outra coisa
+  // precisa começar com "Lia" ("Lia, quero outra coisa"), para conversa da sala ou TV não virar mensagem.
   private var escutaAutomatica = false
-  private var ouviuNestaInstrucao = false
-  private val encerrarEscuta = Runnable { if (escutaAutomatica) { reconhecedor?.cancel(); escutaAutomatica = false; botao?.ouvindo = false } }
+  private var escutaContinua = false
+  private val escutar = Runnable {
+    if (!escutaContinua || !ativo || botao?.ouvindo == true || tts?.isSpeaking == true) return@Runnable
+    escutaAutomatica = true
+    try { iniciarEscuta() } catch (e: Exception) { log("escuta", e); agendarEscuta(2000) }
+  }
+  private fun agendarEscuta(ms: Long) { handler.removeCallbacks(escutar); if (escutaContinua) handler.postDelayed(escutar, ms) }
 
-  private fun ouvirDepoisDeFalar() {
-    if (!ativo || pausado || emProtegido != null || ouviuNestaInstrucao || botao?.ouvindo == true) return
+  private fun ligarEscuta() {
     if (!Protecao.escutaAuto(this) || !SpeechRecognizer.isRecognitionAvailable(this)) return
     if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
-    ouviuNestaInstrucao = true
-    escutaAutomatica = true
-    iniciarEscuta()
-    handler.postDelayed(encerrarEscuta, ESCUTA_MS)
+    escutaContinua = true
+    silenciarBipes(true)
+    agendarEscuta(1500)
   }
 
-  private fun cancelarEscutaAutomatica() {
-    if (!escutaAutomatica) return
-    handler.removeCallbacks(encerrarEscuta)
-    encerrarEscuta.run()
+  private fun desligarEscuta() {
+    escutaContinua = false
+    handler.removeCallbacks(escutar)
+    if (escutaAutomatica) try { reconhecedor?.cancel() } catch (_: Exception) {}
+    escutaAutomatica = false
+    botao?.atento = false
+    silenciarBipes(false)
+  }
+
+  // O reconhecimento de voz faz um "bip" cada vez que recomeça: silencia os sons do sistema só durante o Guia.
+  private var bipesMudos = false
+  private fun silenciarBipes(mudo: Boolean) {
+    if (mudo == bipesMudos) return
+    val am = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+    val acao = if (mudo) android.media.AudioManager.ADJUST_MUTE else android.media.AudioManager.ADJUST_UNMUTE
+    for (st in intArrayOf(android.media.AudioManager.STREAM_SYSTEM, android.media.AudioManager.STREAM_NOTIFICATION)) {
+      try { am.adjustStreamVolume(st, acao, 0) } catch (_: Exception) {}
+    }
+    bipesMudos = mudo
+  }
+
+  // Uma fala da Lia começou: para de escutar (senão ela se ouve) e volta quando terminar.
+  private fun pausarEscutaParaFalar() {
+    if (escutaAutomatica) { try { reconhecedor?.cancel() } catch (_: Exception) {}; escutaAutomatica = false; botao?.atento = false }
   }
 
   // ================= vibrar no acerto =================

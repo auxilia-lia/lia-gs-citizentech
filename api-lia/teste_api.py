@@ -393,3 +393,12 @@ def test_abre_o_app_certo_e_nao_anda_em_circulos():
     assert r["tipo"] == "esperar"
     assert "andando em círculos" in guia.montar_prompt("x", "app", [], [], repetindo=True)
     assert "Maps aberto" in guia.montar_plano("rota", "abrir:Maps")
+
+
+def test_loja_sabe_quando_terminou_sem_titulo():
+    import guia
+    obj = "instalar o spotify"
+    r = guia.roteiro_loja(obj, ["Cancelar", "Abrir"], [], ["Instalar"], titulo="")
+    assert r["tipo"] == "esperar" and not r["concluido"]
+    r = guia.roteiro_loja(obj, ["Desinstalar", "Abrir"], [], ["Instalar"], titulo="")
+    assert r["concluido"] and "foi instalado" in r["fala"]

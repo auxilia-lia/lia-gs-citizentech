@@ -17,7 +17,11 @@ import kotlin.math.abs
 class BotaoFalar(context: Context) : View(context) {
   private val d = resources.displayMetrics.density
   var ouvindo = false
-    set(v) { field = v; if (v) pulso.start() else { pulso.cancel(); fase = 0f }; invalidate() }
+    set(v) { field = v; animarSePreciso() }
+  // Escutando em segundo plano (microfone aberto durante o Guia): ponto verde que respira, discreto.
+  var atento = false
+    set(v) { field = v; animarSePreciso() }
+  private fun animarSePreciso() { if (ouvindo || atento) { if (!pulso.isStarted) pulso.start() } else { pulso.cancel(); fase = 0f }; invalidate() }
 
   private var fase = 0f
   private val fundo = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -108,5 +112,13 @@ class BotaoFalar(context: Context) : View(context) {
     canvas.drawRoundRect(RectF(cx - w, cy - h - 3 * d, cx + w, cy + 3 * d), w, w, branco)
     canvas.drawArc(RectF(cx - 13 * d, cy - 10 * d, cx + 13 * d, cy + 10 * d), 20f, 140f, false, traco)
     canvas.drawLine(cx, cy + 10 * d, cx, cy + 16 * d, traco)
+    if (atento && !ouvindo) {
+      // ponto verde no canto: "estou ouvindo, pode falar"
+      val px = cx + r * 0.72f; val py = cy - r * 0.72f
+      halo.color = Color.argb((120 * (1 - fase)).toInt(), 22, 160, 106)
+      canvas.drawCircle(px, py, 7 * d + 6 * d * fase, halo)
+      branco.color = Color.WHITE; canvas.drawCircle(px, py, 8 * d, branco)
+      halo.color = Color.rgb(22, 160, 106); canvas.drawCircle(px, py, 6 * d, halo)
+    }
   }
 }

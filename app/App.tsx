@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useMargens } from './src/ui/margens';
 import Inicio from './src/telas/Inicio';
@@ -39,6 +39,17 @@ export default function App() {
     setPedido({ ...p, id: Date.now() });
     setAba('conversa');
   };
+
+  // lia://pedir?texto=... manda um pedido para a conversa (usado pelo robô de testes, ferramentas/robo-lia).
+  useEffect(() => {
+    const abrir = (url?: string | null) => {
+      const m = url?.match(/^lia:\/\/pedir\?texto=(.+)$/);
+      if (m) pedir({ tipo: 'texto', texto: decodeURIComponent(m[1].replace(/\+/g, ' ')) });
+    };
+    Linking.getInitialURL().then(abrir).catch(() => {});
+    const s = Linking.addEventListener('url', (e) => abrir(e.url));
+    return () => s.remove();
+  }, []);
 
   if (!pronto) return <View style={{ flex: 1, backgroundColor: cores.primaria }} />;
 

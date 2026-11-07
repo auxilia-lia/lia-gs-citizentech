@@ -461,6 +461,12 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
     feitos_n = {normalizar(curto(f)) for f in feitos}
     reabriu = sum(1 for f in feitos if f == "abrir_busca")
 
+    # Depois de tocar em Instalar: "Cancelar" = ainda baixando; "Abrir" = terminou (vale mesmo sem achar o título).
+    if "instalar" in feitos_n and "instalar" not in acoes:
+        if "cancelar" in acoes:  # durante o download o "Abrir" aparece apagado ao lado do "Cancelar"
+            return resposta("esperar", "Está baixando. Espere terminar, que eu te aviso.")
+        if "abrir" in acoes or "jogar" in acoes:
+            return resposta("esperar", f"Pronto! O {bonito} foi instalado. Para usar, é só tocar em Abrir.", concluido=True)
     # Baixando: barra de progresso / "Cancelar". Só espera.
     juntos = " ".join(normalizar(t) for t in textos)
     if "cancelar" in acoes and ("%" in " ".join(textos) or re.search(r"(baixando|instalando|pendente|verificando)", juntos)):
