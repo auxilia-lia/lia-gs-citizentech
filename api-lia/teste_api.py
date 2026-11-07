@@ -325,3 +325,12 @@ def test_atalho_play_store_so_com_nome():
     assert a["atalho"] is True and a["nome_app"] == "Facebook"
     b = validar_acao({"tipo": "guiar_app", "app": "whatsapp", "objetivo": "mandar foto", "atalho": True, "nome_app": "x"}, "app")
     assert "atalho" not in b
+
+
+def test_guia9_antigolpe_na_tela():
+    tela = {"objetivo": "ver mensagem", "app": "com.whatsapp", "elementos": ["Responder"],
+            "textos": ["URGENTE: sua conta será bloqueada hoje", "Pague a taxa no Pix e envie o código: bit.ly/caixa-premio"]}
+    r = c.post("/guia/proximo", json=tela).json()
+    assert r["alerta"] and "golpe" in r["alerta"]
+    r = c.post("/guia/proximo", json={"objetivo": "ligar o wifi", "tela": "painel", "elementos": ["Wi-Fi [desligado]"]}).json()
+    assert r["alerta"] is None

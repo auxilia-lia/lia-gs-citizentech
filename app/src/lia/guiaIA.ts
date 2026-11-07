@@ -43,6 +43,7 @@ type Estado = {
   aprendido: boolean; // o plano é um caminho que a pessoa já fez (não da IA)
   posPlano: number;
   alertas: Set<string>;
+  resumoDito: boolean;
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -98,7 +99,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), ocupado: false, pendente: null, remover: () => {},
+    alertas: new Set(), resumoDito: false, ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
 
@@ -180,6 +181,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
       }
       if (r.concluido) {
         const resumo = resumoDoCaminho(estado.trilha);
+        estado.resumoDito = true;
         LiaGuia.finishAI(resumo ? `${fala} ${resumo}` : fala);
       } else {
         instruir(tela, r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1);
@@ -206,6 +208,9 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
     if (e.type === 'finished') {
       // Deu certo: o caminho fica guardado para a próxima vez (e para "Meus caminhos").
       salvarCaminho(objetivo, app, estado.trilha, nivel);
+      // Terminou pelo "já consegui": o resumo vem logo depois do "Que bom!".
+      const resumo = estado.resumoDito ? '' : resumoDoCaminho(estado.trilha);
+      if (resumo) setTimeout(() => LiaGuia.say(resumo), 2500);
       pararGuiaIA(false);
       aoTerminar?.();
     }

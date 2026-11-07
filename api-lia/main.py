@@ -193,6 +193,22 @@ async def guia_plano(pp: PedidoPlano):
 
 @app.post("/guia/proximo")
 async def guia_proximo(t: TelaGuia):
+    passo = await _guia_proximo(t)
+    return {**passo, "alerta": alerta_da_tela(t)}
+
+
+def alerta_da_tela(t: TelaGuia) -> str | None:
+    """Antigolpe dentro do Guia: lê os textos da tela (mensagem, site, SMS) e avisa se tiver cara de golpe.
+    Só o nível alto, para não assustar à toa em telas comuns (ex.: "Senha e segurança")."""
+    texto = "\n".join(t.textos + [guia.curto(e) for e in t.elementos])
+    a = antigolpe.analisar(texto)
+    if a["nivel"] != "alto":
+        return None
+    return ("Cuidado: esta tela tem sinais de golpe (" + "; ".join(a["motivos"][:2]) +
+            "). Não clique em links, não pague e não passe nenhum código.")
+
+
+async def _guia_proximo(t: TelaGuia) -> dict:
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
