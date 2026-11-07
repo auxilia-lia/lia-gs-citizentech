@@ -40,6 +40,7 @@ class LiaGuiaService : AccessibilityService() {
     private const val LEMBRETE_MS = 15000L
     private const val ESPERA_CARREGAR_MS = 2500L
     private const val MAX_LEMBRETES = 2
+    private const val DIGITANDO_MS = 2500L
     val GESTOS = setOf("painel", "rolar_baixo", "rolar_cima", "voltar", "inicio")
 
     // "deixa pra lá", "para", "não quero mais"… (já sem acento)
@@ -392,6 +393,10 @@ class LiaGuiaService : AccessibilityService() {
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
     if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) adiarLembrete()
+    if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+      ultimaDigitacao = SystemClock.uptimeMillis()
+      return agendar(DIGITANDO_MS + 100) // reavalia só quando ela parar de digitar
+    }
     when (event.eventType) {
       AccessibilityEvent.TYPE_VIEW_CLICKED -> aoClicar(event)
       AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_WINDOWS_CHANGED -> agendar(450)
@@ -470,7 +475,15 @@ class LiaGuiaService : AccessibilityService() {
     val pkg = root.packageName?.toString() ?: ""
     if (Protecao.bloqueado(this, pkg)) return protegido(pkg)
     if (emProtegido != null) { emProtegido = null; ultimaAssinatura = "" }
+    atualizarTeclado()
+    if (digitando()) return esperarDigitar()
     if (modoIA) avaliarTelaIA(root) else avaliarPassos(root)
+  }
+
+  // Enquanto ela escreve: não manda a tela para a IA a cada letra; só tranquiliza e espera.
+  private fun esperarDigitar() {
+    if (alvoAtual == null) overlay?.mostrarMensagem("Escreva com calma. Quando terminar, eu continuo.")
+    agendar(DIGITANDO_MS + 100)
   }
 
   // App protegido aberto: a Lia não lê nada desta tela (nada sai do celular) e volta a ajudar quando a pessoa sair dele.
@@ -684,8 +697,54 @@ class LiaGuiaService : AccessibilityService() {
   }
   private fun areaUtil(): Rect {
     val dm = resources.displayMetrics
-    return Rect(0, dimen("status_bar_height"), dm.widthPixels, dm.heightPixels - dimen("navigation_bar_height"))
+    val baixo = dm.heightPixels - dimen("navigation_bar_height")
+    return Rect(0, dimen("status_bar_height"), dm.widthPixels, tecladoTopo?.coerceAtMost(baixo) ?: baixo)
   }
+
+  // ================= teclado e digitação =================
+  // Com o teclado aberto, o balão vai para o alto (não cobre o teclado nem o campo), o botão de falar sai de cima
+  // do teclado, e enquanto a pessoa digita a Lia não reavalia a tela: espera ela terminar.
+  private var tecladoTopo: Int? = null
+  private var ultimaDigitacao = 0L
+  private var botaoYAntes: Int? = null
+
+  private fun lerTeclado(): Int? {
+    val janelas = try { windows } catch (_: Exception) { emptyList<AccessibilityWindowInfo>() }
+    val dm = resources.displayMetrics
+    for (w in janelas) {
+      if (w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD) continue
+      val b = Rect().also { w.getBoundsInScreen(it) }
+      if (b.height() > dm.heightPixels * 0.12) return b.top
+    }
+    return null
+  }
+
+  private fun atualizarTeclado() {
+    val novo = lerTeclado()
+    if (novo == tecladoTopo) return
+    tecladoTopo = novo
+    overlay?.definirTeclado(novo, dimen("status_bar_height"))
+    moverBotao(novo)
+  }
+
+  private fun moverBotao(teclado: Int?) {
+    val b = botao ?: return
+    val lp = b.layoutParams as? WindowManager.LayoutParams ?: return
+    val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    val d = resources.displayMetrics.density
+    if (teclado != null) {
+      if (lp.y + lp.height <= teclado) return // já está fora do teclado
+      botaoYAntes = lp.y
+      lp.y = dimen("status_bar_height") + (90 * d).toInt()
+    } else {
+      lp.y = botaoYAntes ?: return
+      botaoYAntes = null
+    }
+    try { wm.updateViewLayout(b, lp) } catch (_: Exception) {}
+  }
+
+  // A pessoa está digitando agora (teclado aberto e escreveu algo há pouco).
+  private fun digitando() = tecladoTopo != null && SystemClock.uptimeMillis() - ultimaDigitacao < DIGITANDO_MS
 
   // O botão está bem visível? (quase todo dentro da área útil; um pedacinho atrás da barra não conta)
   private fun bemVisivel(b: Rect, util: Rect = areaUtil()): Boolean {
@@ -920,6 +979,7 @@ class LiaGuiaService : AccessibilityService() {
     lp.y = (resources.displayMetrics.heightPixels * 0.55).toInt()
     wm.addView(b, lp)
     botao = b
+    botaoYAntes = null
   }
 
 
@@ -929,6 +989,7 @@ class LiaGuiaService : AccessibilityService() {
     reconhecedor = null
     botao?.let { wm.removeView(it) }
     botao = null
+    tecladoTopo = null
     val v = overlay ?: return
     wm.removeView(v)
     overlay = null

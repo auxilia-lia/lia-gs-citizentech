@@ -44,7 +44,9 @@ class GuiaOverlayView(context: Context) : View(context) {
   private val dedo = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Color.WHITE }
   private val dedoBorda = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 5 * d; color = ambar }
   private val balao = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F00B1B4D") }
-  private val texto = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 22 * d; isFakeBoldText = true }
+  // Segue o tamanho de letra do celular: quem usa letra grande vê o balão grande.
+  private val escalaFonte = resources.configuration.fontScale.coerceIn(1f, 1.5f)
+  private val texto = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 22 * d * escalaFonte; isFakeBoldText = true }
 
   private val animador = ValueAnimator.ofFloat(0f, 1f).apply {
     duration = 1400
@@ -57,6 +59,11 @@ class GuiaOverlayView(context: Context) : View(context) {
   fun mostrarGesto(tipo: String, msg: String) { modo = Modo.GESTO; gesto = tipo; mensagem = msg; animar() }
   fun mostrarMensagem(msg: String) { modo = if (msg.isBlank()) Modo.NADA else Modo.MENSAGEM; mensagem = msg; animar() }
   fun limpar() { modo = Modo.NADA; mensagem = ""; invalidate() }
+
+  // Teclado aberto: o balão vai para o alto da tela, menor, e nunca fica por cima do teclado.
+  private var tecladoTopo: Int? = null
+  private var barraTopo = 0
+  fun definirTeclado(topo: Int?, barra: Int) { tecladoTopo = topo; barraTopo = barra; invalidate() }
 
   private fun animar() {
     if (!animador.isStarted) animador.start()
@@ -82,8 +89,9 @@ class GuiaOverlayView(context: Context) : View(context) {
         val raio = 18 * d
         canvas.drawRoundRect(r, raio, raio, halo)
         canvas.drawRoundRect(r, raio, raio, anel)
+        val limite = (tecladoTopo?.let { it - loc[1].toFloat() } ?: h) * 0.78f
         var topo = r.bottom + 16 * d
-        if (topo > h * 0.78f) topo = r.top - 16 * d - 120 * d
+        if (topo > limite) topo = r.top - 16 * d - 120 * d
         desenharBalao(canvas, topo)
       }
       Modo.GESTO -> {
@@ -106,7 +114,7 @@ class GuiaOverlayView(context: Context) : View(context) {
         canvas.drawCircle(x, y, 20 * d, dedoBorda)
         desenharBalao(canvas, topoBalao * h)
       }
-      Modo.MENSAGEM -> desenharBalao(canvas, h * 0.7f)
+      Modo.MENSAGEM -> desenharBalao(canvas, if (tecladoTopo != null) 0f else h * 0.7f)
     }
   }
 
@@ -125,13 +133,18 @@ class GuiaOverlayView(context: Context) : View(context) {
   private fun desenharBalao(canvas: Canvas, topoPedido: Float) {
     if (mensagem.isBlank()) return
     val margem = 20 * d
-    val dentro = 18 * d
+    val teclado = tecladoTopo?.let { it - loc[1].toFloat() }
+    val dentro = (if (teclado != null) 12 else 18) * d
+    texto.textSize = (if (teclado != null) 18 else 22) * d * escalaFonte
     val largura = (width - 2 * margem - 2 * dentro).toInt().coerceAtLeast(100)
     val layout = StaticLayout.Builder.obtain(mensagem, 0, mensagem.length, texto, largura)
       .setAlignment(Layout.Alignment.ALIGN_CENTER)
       .build()
     val alt = layout.height + 2 * dentro
-    val topo = topoPedido.coerceIn(margem, height - alt - margem)
+    // Com teclado: no alto (logo abaixo da barra de status), a não ser que o pedido já esteja acima do teclado.
+    val minimo = if (teclado != null) barraTopo - loc[1] + 8 * d else margem
+    val maximo = (teclado ?: height.toFloat()) - alt - margem
+    val topo = if (teclado != null && topoPedido + alt > teclado) minimo else topoPedido.coerceIn(minimo, maximo.coerceAtLeast(minimo))
     canvas.drawRoundRect(RectF(margem, topo, width - margem, topo + alt), 24 * d, 24 * d, balao)
     canvas.save()
     canvas.translate(margem + dentro, topo + dentro)
