@@ -5,6 +5,7 @@ import { useMargens } from './src/ui/margens';
 import Inicio from './src/telas/Inicio';
 import { pararGuiaIA } from './src/lia/guiaIA';
 import { ligarModoRobo } from './src/lia/robo';
+import { enderecoTemporario, voltarEndereco } from './src/lia/api';
 import Conversa, { Pedido } from './src/telas/Conversa';
 import Familia from './src/telas/Familia';
 import Voce from './src/telas/Voce';
@@ -46,6 +47,8 @@ export default function App() {
   useEffect(() => {
     const abrir = (url?: string | null) => {
       if (url === 'lia://parar') { pararGuiaIA(); return; } // robô: encerra o Guia entre um teste e outro
+      if (url === 'lia://servidor/cabo') { enderecoTemporario('http://localhost:8000'); return; } // robô: API pelo cabo
+      if (url === 'lia://servidor/voltar') { voltarEndereco(); return; }
       const m = url?.match(/^lia:\/\/pedir\?texto=([^&]+)(&robo=1)?$/);
       if (m?.[2]) ligarModoRobo();
       if (m) pedir({ tipo: 'texto', texto: decodeURIComponent(m[1].replace(/\+/g, ' ')) });

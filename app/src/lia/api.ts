@@ -38,6 +38,21 @@ export async function carregarEnderecoSalvo(): Promise<string> {
   return base;
 }
 
+// Robô de testes: usa a API pelo cabo USB (adb reverse → localhost), sem depender do Wi-Fi,
+// e depois devolve o endereço que estava antes.
+export async function enderecoTemporario(url: string) {
+  const antes = await ler<string>(CHAVE_ENDERECO, '');
+  if (!(await ler<string>('lia:servidor-antes', ''))) await gravar('lia:servidor-antes', antes || '-');
+  await definirEndereco(url); // guardado: vale mesmo se o app recarregar no meio do teste
+}
+
+export async function voltarEndereco() {
+  const antes = await ler<string>('lia:servidor-antes', '');
+  if (!antes) return;
+  await gravar('lia:servidor-antes', '');
+  await definirEndereco(antes === '-' ? '' : antes);
+}
+
 export async function definirEndereco(url: string): Promise<string> {
   let u = url.trim().replace(/\/$/, '');
   if (!u) {

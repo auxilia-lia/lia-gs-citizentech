@@ -255,12 +255,19 @@ def main():
     except Exception:
         print("Aviso: a API não respondeu em localhost:8000. Ela está ligada?")
     cenarios = [{"nome": "pedido", "texto": a.texto, "escrever": a.escrever}] if a.texto else CENARIOS
+    # A Lia fala com a API e o Metro pelo próprio cabo (não depende do Wi-Fi nem do firewall do Windows).
+    adb("reverse", "tcp:8000", "tcp:8000")
+    adb("reverse", "tcp:8081", "tcp:8081")
+    adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "lia://servidor/cabo", PACOTE)
+    time.sleep(2)
     pasta = RAIZ / "testes-robo" / dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
     resumos = []
     for c in cenarios:
         resumos.append(rodar(c, pasta))
         if resumos[-1]["resultado"].startswith("INTERROMPIDO"):
             break  # Ctrl+C: salvou este cenário e para tudo
+    # Devolve o endereço da API que estava configurado antes do teste.
+    adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "lia://servidor/voltar", PACOTE)
     print("\nResumo:")
     for r in resumos:
         print(f"  {r['cenario']['nome']}: {r['resultado']} ({r['passos']} passos, {r['segundos']} s)")
