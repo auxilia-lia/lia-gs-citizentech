@@ -6,7 +6,7 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; nome_app?: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; nome_app?: string; abrir?: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'parar_guia'; conseguiu?: boolean }
@@ -135,6 +135,8 @@ export type PedidoGuia = {
   imagem?: string | null;
   /** Palavras do celular que ela já aprendeu (a Lia não explica de novo). */
   palavras?: string[];
+  /** Ela já passou por esta tela várias vezes (andando em círculos): a IA precisa mudar de caminho. */
+  repetindo?: boolean;
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.

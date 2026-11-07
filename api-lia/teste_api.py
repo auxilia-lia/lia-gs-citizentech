@@ -375,3 +375,21 @@ def test_roteiro_loja_confere_o_app():
     assert r["concluido"] and "foi instalado" in r["fala"]
     r = guia.roteiro_loja(obj, ["Banco do Brasil SA", "Desinstalar", "Abrir"], [], [], titulo="BB: Banco, Conta, Pix, Cartão")
     assert r["concluido"] and "já está instalado" in r["fala"]
+
+
+def test_abre_o_app_certo_e_nao_anda_em_circulos():
+    import guia
+    from main import validar_acao
+    a = validar_acao({"tipo": "guiar_app", "app": "maps", "objetivo": "colocar o endereço no GPS"}, "app")
+    assert a["app"] == "celular" and a["abrir"] == "maps"
+    a = validar_acao({"tipo": "guiar_app", "app": "celular", "abrir": "Maps", "objetivo": "rota para a casa do filho"}, "app")
+    assert a["abrir"] == "Maps"
+    assert falar("quero colocar o endereço da casa do meu filho no gps")["acao"]["abrir"] == "Maps"
+    # "voltar" na tela inicial abria as notícias do Google (ciclo): vira uma pergunta
+    r = guia.interpretar({"tipo": "voltar", "fala": "Me enganei."}, ["Google", "Maps"], "gps", tela="inicio")
+    assert r["tipo"] == "esperar"
+    # andando em círculos: não repete o mesmo gesto
+    r = guia.interpretar({"tipo": "rolar_baixo"}, [], "x", repetindo=True, feitos=["rolar_baixo"])
+    assert r["tipo"] == "esperar"
+    assert "andando em círculos" in guia.montar_prompt("x", "app", [], [], repetindo=True)
+    assert "Maps aberto" in guia.montar_plano("rota", "abrir:Maps")

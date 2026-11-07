@@ -47,6 +47,9 @@ type Estado = {
   alertas: Set<string>;
   resumoDito: boolean;
   palavras: string[];
+  appAlvo: { nome: string; pkg: string } | null; // o app que a conversa já sabe que é o certo (ex.: Maps para GPS)
+  reaberturas: number;
+  visitas: Record<string, number>; // quantas vezes passou por cada tela (para perceber quando anda em círculos)
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -100,12 +103,16 @@ function passoDoPlano(e: Estado, tela: TelaEvent): { passo: PassoCaminho; indice
   return null;
 }
 
-export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => void, app = 'celular'): boolean {
+export function guiarComIA(
+  objetivo: string, nivel: number, aoTerminar?: () => void, app = 'celular',
+  opcoes: { appAlvo?: { nome: string; pkg: string } } = {},
+): boolean {
   pararGuiaIA();
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, palavras: [], ocupado: false, pendente: null, remover: () => {},
+    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {},
+    ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
 
@@ -149,7 +156,24 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         return;
       }
       const nomeTela = tela.titulo ? `${tela.titulo} (${tela.app})` : tela.app;
-      if (estado.caminho[estado.caminho.length - 1] !== nomeTela) estado.caminho = [...estado.caminho, nomeTela].slice(-8);
+      if (estado.caminho[estado.caminho.length - 1] !== nomeTela) {
+        estado.caminho = [...estado.caminho, nomeTela].slice(-8);
+        estado.visitas[nomeTela] = (estado.visitas[nomeTela] ?? 0) + 1;
+      }
+      const voltas = estado.visitas[nomeTela] ?? 0;
+      // Andando em círculos de verdade: para, sem contar como conquista, e volta para a conversa.
+      if (voltas >= 5) {
+        LiaGuia.cancel('Estamos andando em círculos. Vou voltar para a Lia, e você me explica de novo o que quer.');
+        pararGuiaIA(false);
+        return;
+      }
+      // Caiu na tela inicial e a conversa já sabe o app certo: abre ele direto (nada de procurar ícone ou "voltar").
+      if (tela.tela === 'inicio' && estado.appAlvo && estado.reaberturas < 2) {
+        estado.reaberturas++;
+        LiaGuia.say(`Vou abrir o ${estado.appAlvo.nome} para você.`);
+        LiaGuia.openApp(estado.appAlvo.pkg);
+        return;
+      }
 
       // 1. Caminho aprendido / plano: o próximo passo está na tela? Mostra na hora.
       const local = passoDoPlano(estado, tela);
@@ -178,6 +202,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         plano: estado.plano.slice(estado.posPlano).map((x) => (x.tipo === 'tocar' ? p(x.nome) : x.tipo)),
         imagem: tela.imagem ?? null,
         palavras: estado.palavras,
+        repetindo: voltas >= 3,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.

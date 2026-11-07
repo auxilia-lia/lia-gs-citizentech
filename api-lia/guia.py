@@ -76,12 +76,12 @@ O que aconteceu: {motivo}{seguiu}
 Passos que ela já fez, em ordem: {feitos}.
 
 Antes de tudo, veja se o objetivo JÁ foi cumprido nesta tela; se foi, concluido=true.
-Escolha UM próximo passo:
+{repetindo}Escolha UM próximo passo:
 - "tocar": tocar num dos botões da lista (diga o número em "indice").
 - "painel": deslizar do alto da tela para baixo (abre o painel rápido com Wi-Fi, Bluetooth, lanterna, modo avião).
   Se o painel já está aberto e o que ela precisa não aparece, mande "painel" de novo para abrir ele inteiro.
 - "rolar_baixo" ou "rolar_cima": quando o caminho certo provavelmente está fora da parte visível.
-- "voltar": quando ela entrou no lugar errado.
+- "voltar": quando ela entrou no lugar errado DENTRO de um app (nunca na tela inicial).
 - "inicio": quando precisa sair do app e ir para a tela inicial.
 - "esperar": quando ela precisa fazer algo que não é toque nem gesto (ex.: digitar); explique na fala.
 Se o objetivo já foi alcançado (ex.: o Wi-Fi aparece desligado e ela queria desligar), responda concluido=true.
@@ -97,6 +97,11 @@ Quem errou: se ela FEZ o que você pediu e a tela não é a esperada, o erro foi
 ("Me enganei, esse não era o caminho. Vamos voltar.") e NUNCA diga que ela tocou errado.
 Só diga que ela tocou em outro lugar quando "O que aconteceu" disser isso, e mesmo assim sem culpa ("sem problema").
 Responda SOMENTE com JSON: {{"tipo": "...", "indice": número ou null, "fala": "...", "concluido": true ou false}}"""
+
+REPETINDO = """ATENÇÃO: ela está andando em círculos (passou por esta tela várias vezes). Os últimos passos NÃO funcionaram.
+Escolha um caminho DIFERENTE (outro botão, a pesquisa/lupa, ou abrir o app pela tela inicial). Nunca repita o
+último gesto. Na tela inicial, NUNCA mande "voltar".
+"""
 
 IMAGEM = """
 Você também recebeu a IMAGEM da tela (dados pessoais cobertos com tarja preta), porque o Guia travou.
@@ -280,7 +285,7 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
     """Modo regras (sem IA): fluxos do gov.br, itens do painel rápido e sobreposição de palavras."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(curto(f)) for f in feitos}
-    if motivo == "errou" and not seguiu:
+    if motivo == "errou" and not seguiu and tela != "inicio":
         return resposta("voltar", f"Você entrou em outro lugar, sem problema. {FALAS_GESTO['voltar']}")
 
     chaves = {"consulta": ("consulta", "medico", "posto"), "beneficio": ("inss", "beneficio", "aposentadoria"), "multas": ("multa",)}
@@ -330,7 +335,8 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
                   seguiu: str | None = None, escondidos: list[str] | None = None, titulo: str = "",
-                  caminho: list[str] | None = None, plano: list[str] | None = None, com_imagem: bool = False) -> str:
+                  caminho: list[str] | None = None, plano: list[str] | None = None, com_imagem: bool = False,
+                  repetindo: bool = False) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
@@ -340,11 +346,26 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
         escondidos=", ".join(escondidos or []) or "(nenhum)",
         titulo=titulo or "sem título", caminho=" > ".join(caminho or []) or "só esta",
         plano=" > ".join(plano or []) or "não sei",
+        repetindo=REPETINDO if repetindo else "",
     ) + (IMAGEM if com_imagem else "")
 
 
 def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[str] | None = None,
-                rolavel: bool = False, com_imagem: bool = False) -> dict:
+                rolavel: bool = False, com_imagem: bool = False, tela: str = "app", repetindo: bool = False,
+                feitos: list[str] | None = None) -> dict:
+    p = _interpretar(r, elementos, objetivo, textos, rolavel, com_imagem)
+    # Na tela inicial não há para onde voltar (no Samsung, deslizar da beirada abre as notícias do Google
+    # e a pessoa entrava num ciclo "voltar → notícias → voltar").
+    if p["tipo"] == "voltar" and tela == "inicio":
+        return resposta("esperar", "Estamos na tela inicial. Me fala o nome do app que você quer usar, que eu abro para você.")
+    # Andando em círculos: não repete o mesmo gesto.
+    if repetindo and p["tipo"] in GESTOS and (feitos or [])[-1:] == [p["tipo"]]:
+        return resposta("esperar", "Estamos andando em círculos. Me fala de novo, com outras palavras, o que você quer.")
+    return p
+
+
+def _interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[str] | None = None,
+                 rolavel: bool = False, com_imagem: bool = False) -> dict:
     """Valida a resposta da IA: tipo conhecido, botão existente na lista, nada de anúncio, nunca uma ação final,
     e a fala de "tocar"/gestos montada aqui (a IA só explica o porquê)."""
     fala = str(r.get("fala") or "").strip()
@@ -532,7 +553,8 @@ INICIOS = {"whatsapp": "o WhatsApp aberto", "configuracoes": "as Configurações
 
 
 def montar_plano(objetivo: str, app: str) -> str:
-    return PROMPT_PLANO.format(objetivo=objetivo, inicio=INICIOS.get(app, "a tela inicial do celular"))
+    inicio = f"o app {app[6:]} aberto" if app.startswith("abrir:") else INICIOS.get(app, "a tela inicial do celular")
+    return PROMPT_PLANO.format(objetivo=objetivo, inicio=inicio)
 
 
 def interpretar_plano(r: dict) -> list[dict]:

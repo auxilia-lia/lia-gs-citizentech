@@ -70,9 +70,14 @@ def validar_acao(acao, canal: str) -> dict | None:
     if acao["tipo"] == "guiar_app":
         if not acao.get("objetivo"):
             return None
-        # Qualquer outro app (Facebook, Instagram, banco...): o Guia começa da tela inicial e acha o ícone.
+        # Qualquer outro app (Maps, Facebook, YouTube...): o app procura esse app instalado e abre direto nele.
+        # Antes o Guia começava na tela inicial e a IA adivinhava o app (ex.: tocava no Google em vez do Maps).
         if acao.get("app") not in APPS:
-            acao = {**acao, "app": "celular"}
+            acao = {**acao, "abrir": str(acao.get("abrir") or acao.get("app") or "").strip()[:40], "app": "celular"}
+        if acao.get("abrir"):
+            acao["abrir"] = str(acao["abrir"]).strip()[:40]
+        else:
+            acao.pop("abrir", None)
         # Play Store para instalar um app com nome: a loja já abre na busca dele (longe dos anúncios da página inicial).
         acao = {k: v for k, v in acao.items() if k not in ("atalho", "nome_app")}
         if acao.get("app") == "playstore":
@@ -166,6 +171,7 @@ class TelaGuia(BaseModel):
     plano: list[str] = Field(default=[], max_length=10)  # o resto do caminho provável (dica para a IA)
     imagem: str | None = Field(default=None, max_length=3_000_000)  # JPEG base64 com tarjas, só quando travou
     palavras: list[str] = Field(default=[], max_length=40)  # palavras do celular que ela já aprendeu
+    repetindo: bool = False  # ela já passou por esta tela várias vezes (andando em círculos)
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -244,7 +250,8 @@ async def _guia_proximo(t: TelaGuia) -> dict:
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()], titulo=t.titulo,
-                 caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()])
+                 caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()],
+                 repetindo=t.repetindo)
     if t.motivo != "errou" or t.app == guia.LOJA:  # na loja o roteiro vale sempre (ele confere o app)
         certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app, titulo=t.titulo)
         if certeira:
@@ -252,7 +259,7 @@ async def _guia_proximo(t: TelaGuia) -> dict:
     if provedor() not in ("gemini", "claude"):
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
     # "parado" e "errou" pedem um caminho novo: não usam a resposta guardada.
-    chave = _chave_guia(t, elementos) if t.motivo in ("mudou", "inicio") and not t.imagem else None
+    chave = _chave_guia(t, elementos) if t.motivo in ("mudou", "inicio") and not t.imagem and not t.repetindo else None
     agora = time.monotonic()
     if chave and chave in _CACHE_GUIA and agora - _CACHE_GUIA[chave][0] < CACHE_GUIA_S:
         return {**_CACHE_GUIA[chave][1], "provedor": f"{provedor()} (guardado)"}
@@ -266,7 +273,8 @@ async def _guia_proximo(t: TelaGuia) -> dict:
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
-    passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel, com_imagem=bool(t.imagem))
+    passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel, com_imagem=bool(t.imagem), tela=t.tela,
+                             repetindo=t.repetindo, feitos=t.feitos)
     if chave:
         if len(_CACHE_GUIA) > 300:
             _CACHE_GUIA.clear()

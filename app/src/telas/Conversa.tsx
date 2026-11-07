@@ -11,6 +11,7 @@ import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/
 import { guiarComIA, objetivoAtual, PACOTES, pararGuiaIA } from '../lia/guiaIA';
 import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
+import { distanciaRelativa, normalizar } from '../lia/texto';
 import { useVoz } from '../lia/useVoz';
 import type { Aula } from '../lia/aulas';
 import type { Caminho } from '../lia/caminhos';
@@ -19,6 +20,19 @@ import { Aparecer, Ondas, Toque } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
 export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir' | 'aula' | 'praticar'; texto?: string; aula?: Aula; caminho?: Caminho };
+
+// "Maps" -> o app instalado com esse nome (Google Maps no Samsung aparece como "Maps").
+function acharApp(nome: string): { nome: string; pkg: string } | null {
+  let apps: { pkg: string; nome: string }[] = [];
+  try { apps = LiaGuia.apps(); } catch { return null; }
+  const alvo = normalizar(nome);
+  if (!alvo) return null;
+  const exato = apps.find((a) => normalizar(a.nome) === alvo);
+  const contem = apps.find((a) => normalizar(a.nome).split(' ').includes(alvo) || normalizar(a.nome).startsWith(alvo));
+  const parecido = apps.find((a) => distanciaRelativa(a.nome, nome) <= 0.25);
+  const achado = exato ?? contem ?? parecido;
+  return achado ? { nome: achado.nome, pkg: achado.pkg } : null;
+}
 
 const NOMES_SERVICO: Record<string, string> = { consulta: 'marcar uma consulta', beneficio: 'ver o INSS', multas: 'consultar multas' };
 const BOAS_VINDAS = 'Oi! Eu sou a Lia. Me fala o que você quer fazer, que eu te ajudo.';
@@ -72,7 +86,9 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       const cm = pedido.caminho;
       setMensagens((m) => [...m, { papel: 'pessoa', texto: `Quero praticar: ${cm.objetivo}` }]);
       dizer('Vamos praticar. Desta vez você faz sozinho, e eu só fico olhando. Se travar, eu mostro.',
-        () => guiarApp(cm.app, cm.objetivo, undefined, undefined, 2));
+        () => (cm.app.startsWith('abrir:')
+          ? guiarApp('celular', cm.objetivo, undefined, undefined, 2, cm.app.slice(6))
+          : guiarApp(cm.app, cm.objetivo, undefined, undefined, 2)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido?.id]);
@@ -190,7 +206,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   // ---------- ações ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
-    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.nome_app);
+    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.nome_app, undefined, acao.abrir);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
     if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
@@ -214,10 +230,19 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
 
   // atalhoApp: para instalar um app com nome, a Play Store já abre na busca dele, longe dos anúncios
   // da página inicial (onde a pessoa se perdia com os "Instalar" de outros apps).
-  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number) => {
+  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number, abrir?: string) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
     const nivel = nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
+    // Um app específico (Maps, YouTube, Facebook…): procura entre os apps do celular e abre direto nele.
+    const alvo = abrir ? acharApp(abrir) : null;
+    if (abrir && !alvo) dizer(`Não achei o ${abrir} no seu celular. Vou para a tela inicial, e a gente procura junto.`);
+    if (alvo) {
+      // O caminho guardado lembra o app ("abrir:Maps"), para praticar depois abrindo direto nele.
+      guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave), objetivo), `abrir:${alvo.nome}`, { appAlvo: alvo });
+      if (!LiaGuia.openApp(alvo.pkg)) dizer(`Não consegui abrir o ${alvo.nome}.`);
+      return;
+    }
     guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave), objetivo), app);
     const abriu = app === 'playstore' && atalhoApp
       ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)
