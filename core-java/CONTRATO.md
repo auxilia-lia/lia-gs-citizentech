@@ -20,10 +20,12 @@ App ──> API Python ──> IA
 
 O app não muda: continua chamando só a API Python. Quem chama o Java é a API Python.
 
-Há duas formas de entregar, e a 1 é obrigatória:
+A entrega tem duas partes, e **as duas devem ser feitas**:
 
-1. **Main sozinho (obrigatório pela matéria):** o `Main` roda os 4 casos sem servidor nenhum (seção 5).
-2. **Integrado (ir além):** o mesmo domínio exposto por REST com Spring Boot (seção 4). Conta direto em "funcionamento e integração" (3 dos 10 pontos).
+1. **Main sozinho (exigido pela matéria):** o `Main` roda os 4 casos sem servidor nenhum (seção 5).
+2. **Integrado à Lia (decisão da equipe):** o mesmo domínio exposto por REST com Spring Boot (seção 4) e chamado pela API Python. Conta direto em "funcionamento e integração" (3 dos 10 pontos).
+
+**O que o Java faz na Lia:** quando a IA devolve uma ação, ele classifica o risco (consulta, comum ou dinheiro), diz que confirmação ela exige, informa o nível de autonomia da pessoa naquele serviço e tira CPF e telefone de textos. Ele **não** muda o app, a voz nem o Guia, e se estiver fora do ar a Lia segue funcionando como antes.
 
 ## 2. O domínio (classes)
 
@@ -63,7 +65,7 @@ Observações:
 - `pagar_boleto` ainda não existe no app. Ele entra no Java para demonstrar o caso "dinheiro". Mesmo integrado, a Lia **nunca paga sozinha**: a resposta é sempre orientar a pessoa e pedir confirmação dupla.
 - Apps de banco, Pix e carteiras são **protegidos** no app: o Guia não lê a tela deles.
 
-## 4. Contrato REST (versão integrada)
+## 4. Contrato REST (integração — obrigatório)
 
 ### `POST /nucleo/decidir`
 
@@ -142,4 +144,5 @@ Teste rápido: abrir `http://localhost:8000/docs` e chamar `/conversa` com `{"me
 - [ ] Javadoc em todas as classes públicas
 - [ ] Documento com desafio, objetivos e ODS (10, 4, 3 e 11), citando abstração, encapsulamento, herança e polimorfismo
 - [ ] Tudo num ZIP
-- [ ] (Ir além) Spring Boot com `/nucleo/decidir`, `/nucleo/pseudonimizar` e `/nucleo/saude`
+- [ ] Spring Boot com `/nucleo/decidir`, `/nucleo/pseudonimizar` e `/nucleo/saude`, rodando na porta 8080
+- [ ] Testado junto com a API Python (`/conversa` devolvendo `risco` e `confirmacao`)
