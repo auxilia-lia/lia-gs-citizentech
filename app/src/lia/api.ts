@@ -6,7 +6,7 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; atalho?: boolean; nome_app?: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; nome_app?: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'parar_guia'; conseguiu?: boolean }
@@ -103,7 +103,8 @@ export async function buscarFluxos(): Promise<Record<string, Fluxo>> {
 export const urlGov = (caminho: string) => `${base}${caminho}`;
 
 export type PassoGuia = {
-  tipo: 'tocar' | 'tocar_ponto' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
+  /** abrir_busca: na Play Store, reabrir a busca do app pedido (alvo = nome do app); resolvido no app, não no Guia. */
+  tipo: 'tocar' | 'tocar_ponto' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar' | 'abrir_busca';
   alvo: string | null;
   /** Número do botão na lista "elementos" enviada (-1 quando não é tocar). */
   indice: number;
@@ -145,4 +146,4 @@ export const explicarTela = (pedido: { pergunta: string; app: string; titulo: st
 
 // Caminho provável, pedido uma vez no começo do Guia.
 export const planoGuia = (objetivo: string, app: string) =>
-  post<{ passos: { tipo: PassoGuia['tipo']; nome: string }[] }>('/guia/plano', { objetivo, app }, 8000);
+  post<{ passos: { tipo: Exclude<PassoGuia['tipo'], 'abrir_busca'>; nome: string }[] }>('/guia/plano', { objetivo, app }, 8000);

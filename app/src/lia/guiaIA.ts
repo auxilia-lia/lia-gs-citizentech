@@ -20,6 +20,7 @@ export const PACOTES: Record<string, string> = {
 };
 
 const MAX_PASSOS = 15;
+const LOJA = 'com.android.vending';
 
 const FALAS_GESTO: Partial<Record<TipoPasso, string>> = {
   painel: 'Coloque o dedo no alto da tela, do lado direito, e deslize para baixo.',
@@ -77,13 +78,16 @@ export function resumoDoCaminho(passos: PassoCaminho[]): string {
 // O próximo passo do plano está na tela? Devolve o número do botão (ou -1 para gesto) e qual passo do plano é.
 function passoDoPlano(e: Estado, tela: TelaEvent): { passo: PassoCaminho; indice: number; pos: number } | null {
   if (tela.motivo !== 'mudou' || e.posPlano >= e.plano.length) return null;
+  // Na Play Store quem decide é o roteiro do servidor, que confere de qual app é cada botão
+  // (o plano só olhava o nome: "Instalar" de outro app, "Banco do Brasil SA" do desenvolvedor…).
+  if (tela.app === LOJA) return null;
   // Olha o próximo e, se ela adiantou, os dois seguintes.
   for (let pos = e.posPlano; pos < Math.min(e.plano.length, e.posPlano + 3); pos++) {
     const passo = e.plano[pos];
     if (passo.tipo === 'tocar') {
       const alvo = normalizar(passo.nome);
       if (!alvo) continue;
-      if (!e.aprendido && DECIDE.test(alvo)) return null; // o servidor confere antes de botões que decidem
+      if (DECIDE.test(alvo)) return null; // botões que decidem: o servidor sempre confere antes (mesmo no caminho aprendido)
       const i = tela.elementos.findIndex((el) => !el.includes('[anúncio]') && normalizar(nomeCurto(el)) === alvo);
       // Interruptor (Wi-Fi, Bluetooth…): o servidor confere se já está como ela quer, para não desligar sem querer.
       if (i >= 0 && /\[(ligado|desligado)\]/.test(tela.elementos[i])) return null;
@@ -187,6 +191,13 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
       if (r.alerta && !estado.alertas.has(r.alerta)) {
         estado.alertas.add(r.alerta);
         fala = `${restaurar(r.alerta, mapa)} ${fala}`;
+      }
+      if (r.tipo === 'abrir_busca') {
+        // Play Store fora do caminho (tela inicial, página de outro app): reabre a busca do app pedido.
+        estado.feitos.push('abrir_busca');
+        LiaGuia.say(fala);
+        if (r.alvo) LiaGuia.openUrl(`market://search?q=${encodeURIComponent(restaurar(r.alvo, mapa))}&c=apps`);
+        return;
       }
       if (r.concluido) {
         const resumo = resumoDoCaminho(estado.trilha);

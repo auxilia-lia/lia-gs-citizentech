@@ -190,7 +190,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   // ---------- ações ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
-    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.atalho ? acao.nome_app : undefined);
+    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.nome_app);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
     if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
@@ -212,8 +212,8 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     }
   };
 
-  // atalhoApp: a pessoa só quer resolver ("instala pra mim"): a Play Store já abre na busca do app pedido,
-  // longe dos anúncios da página inicial. Sem atalho, ela faz o caminho todo (e aprende).
+  // atalhoApp: para instalar um app com nome, a Play Store já abre na busca dele, longe dos anúncios
+  // da página inicial (onde a pessoa se perdia com os "Instalar" de outros apps).
   const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;

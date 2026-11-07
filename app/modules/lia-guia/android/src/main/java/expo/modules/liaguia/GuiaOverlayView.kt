@@ -85,7 +85,7 @@ class GuiaOverlayView(context: Context) : View(context) {
 
   // Teclado aberto: o balão vai para o alto da tela, menor, e nunca fica por cima do teclado.
   private var tecladoTopo: Int? = null
-  private var barraTopo = 0
+  private var barraTopo = resources.getIdentifier("status_bar_height", "dimen", "android").let { if (it > 0) resources.getDimensionPixelSize(it) else (24 * d).toInt() }
   fun definirTeclado(topo: Int?, barra: Int) { tecladoTopo = topo; barraTopo = barra; invalidate() }
 
   // ================= API usada pelo serviço =================
@@ -374,12 +374,12 @@ class GuiaOverlayView(context: Context) : View(context) {
 
   // ---------- balão da Lia ----------
 
+  // O balão fica LONGE do botão, na metade oposta da tela: colado nele, cobria o que vinha logo abaixo
+  // (na Play Store, tampava o próprio "Instalar"). A ponta do balão continua indicando para onde olhar.
   private fun posicaoBalaoAlvo(anelTela: RectF, h: Float): Float {
     val r = RectF(anelTela).apply { offset(-loc[0].toFloat(), -loc[1].toFloat()) }
-    val limite = (tecladoTopo?.let { it - loc[1].toFloat() } ?: h) * 0.80f
-    var topo = r.bottom + 30 * d
-    if (topo > limite) topo = r.top - 30 * d - 150 * d // sem espaço embaixo: vai para cima do botão
-    return topo
+    val fundo = tecladoTopo?.let { it - loc[1].toFloat() } ?: h
+    return if (r.centerY() > fundo * 0.5f) barraTopo - loc[1] + 24 * d else fundo - 230 * d
   }
 
   private fun desenharBalao(canvas: Canvas, topoPedido: Float, agora: Long, pontaX: Float?, alvoY: Float?) {

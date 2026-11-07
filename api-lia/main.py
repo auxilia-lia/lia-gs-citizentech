@@ -73,9 +73,12 @@ def validar_acao(acao, canal: str) -> dict | None:
         # Qualquer outro app (Facebook, Instagram, banco...): o Guia começa da tela inicial e acha o ícone.
         if acao.get("app") not in APPS:
             acao = {**acao, "app": "celular"}
-        # Atalho só vale na Play Store, com o nome do app.
-        if not (acao.get("atalho") is True and acao.get("app") == "playstore" and str(acao.get("nome_app") or "").strip()):
-            acao = {k: v for k, v in acao.items() if k not in ("atalho", "nome_app")}
+        # Play Store para instalar um app com nome: a loja já abre na busca dele (longe dos anúncios da página inicial).
+        acao = {k: v for k, v in acao.items() if k not in ("atalho", "nome_app")}
+        if acao.get("app") == "playstore":
+            nome = guia.nome_do_app(acao["objetivo"]) if any(p in guia.normalizar(acao["objetivo"]) for p in guia.PEDE_INSTALAR) else None
+            if nome:
+                acao["nome_app"] = nome
     if acao["tipo"] == "avisar_familiar" and not (acao.get("contato") and acao.get("mensagem")):
         return None
     return acao
@@ -242,8 +245,8 @@ async def _guia_proximo(t: TelaGuia) -> dict:
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()], titulo=t.titulo,
                  caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()])
-    if t.motivo != "errou":
-        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app)
+    if t.motivo != "errou" or t.app == guia.LOJA:  # na loja o roteiro vale sempre (ele confere o app)
+        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app, titulo=t.titulo)
         if certeira:
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):

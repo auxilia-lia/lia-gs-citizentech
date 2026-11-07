@@ -401,8 +401,86 @@ def pagina_do_app(nome: str, elementos: list[str], textos: list[str]) -> bool:
     return cita and botoes <= 1
 
 
+# ================= roteiro da Play Store =================
+# Na loja, a IA e o plano erravam porque viam vários "Instalar" iguais (anúncios, outros apps) e confundiam
+# o nome do app com o do desenvolvedor. Aqui é um roteiro fixo, sem IA, que CONFERE O APP em cada tela:
+#   página do app pedido → Instalar (ou "já está instalado") · baixando → espera · terminou → pronto
+#   resultados da busca → o Instalar/resultado DO APP PEDIDO · qualquer outra tela → reabre a busca dele.
+LOJA = "com.android.vending"
+ACOES_LOJA = {"instalar", "abrir", "atualizar", "desinstalar", "cancelar", "jogar"}
+NAO_NOME = {"do", "da", "de", "o", "a", "e", "app", "apps", "aplicativo"}
+
+
+def fichas(t: str) -> set[str]:
+    """Palavras de um nome, incluindo siglas curtas ("BB", "C6")."""
+    return {p for p in re.findall(r"[a-z0-9]+", normalizar(t)) if len(p) >= 2 and p not in NAO_NOME}
+
+
+def cobre(nome: set[str], texto: set[str]) -> bool:
+    """Todas as palavras do nome pedido aparecem (aceita começo de palavra: "whats" ~ "whatsapp")."""
+    return bool(nome) and all(any(x == y or (len(x) >= 4 and y.startswith(x)) for y in texto) for x in nome)
+
+
+def acao_loja(e: str) -> str | None:
+    n = normalizar(curto(e))
+    return n if n in ACOES_LOJA else None
+
+
+def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos: list[str], titulo: str = "") -> dict | None:
+    obj = normalizar(objetivo)
+    if not any(p in obj for p in PEDE_INSTALAR):
+        return None
+    pedido = nome_do_app(objetivo)
+    nome = fichas(pedido or "")
+    if not nome:
+        return None  # "instalar um app" sem dizer qual: a IA conversa
+    bonito = " ".join(w.capitalize() if len(w) > 2 else w.upper() for w in (pedido or "").split())
+    validos = [(i, e) for i, e in enumerate(elementos) if not anuncio(e)]
+    acoes = {acao_loja(e): i for i, e in reversed(validos) if acao_loja(e)}
+    feitos_n = {normalizar(curto(f)) for f in feitos}
+    reabriu = sum(1 for f in feitos if f == "abrir_busca")
+
+    # Baixando: barra de progresso / "Cancelar". Só espera.
+    juntos = " ".join(normalizar(t) for t in textos)
+    if "cancelar" in acoes and ("%" in " ".join(textos) or re.search(r"(baixando|instalando|pendente|verificando)", juntos)):
+        return resposta("esperar", "Está baixando. Espere terminar, que eu te aviso.")
+
+    # Página de UM app: no alto ficam o título e o desenvolvedor; só um botão principal.
+    cabeca = fichas(titulo)
+    for t in textos[:8]:
+        cabeca |= fichas(t)
+    for i, e in validos[:15]:
+        if not acao_loja(e):
+            cabeca |= fichas(curto(e))
+    principais = sum(1 for _, e in validos if acao_loja(e) in ("instalar", "abrir", "atualizar", "jogar"))
+    if principais and sum(1 for _, e in validos if acao_loja(e) == "instalar") <= 1 and titulo:
+        if cobre(nome, fichas(titulo) | cabeca) and principais <= 2:
+            if "abrir" in acoes or "jogar" in acoes:
+                if "instalar" in feitos_n:
+                    return resposta("esperar", f"Pronto! O {bonito} foi instalado. Para usar, é só tocar em Abrir.", concluido=True)
+                if "instalar" not in acoes:
+                    return resposta("esperar", f"O {bonito} já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
+            if "instalar" in acoes:
+                return tocar(elementos, acoes["instalar"], f"Essa é a página do {bonito}.")
+            if "atualizar" in acoes:
+                return tocar(elementos, acoes["atualizar"], f"O {bonito} já está instalado, mas precisa de atualização.")
+
+    # Resultados da busca: o Instalar (ou o resultado) DO APP PEDIDO, conferindo o que está ao redor.
+    for i, e in validos:
+        if acao_loja(e) == "instalar" and cobre(nome, fichas(e)):
+            return tocar(elementos, i, f"Esse é o {bonito}.")
+    for i, e in validos:
+        if not acao_loja(e) and not BUSCA.search(normalizar(curto(e))) and cobre(nome, fichas(e)) and len(curto(e)) > 2:
+            return tocar(elementos, i, f"Esse é o {bonito}. Vamos abrir a página dele.")
+
+    # Página de outro app, tela inicial da loja ou qualquer outra: reabre a busca do app pedido (no máximo 2 vezes).
+    if reabriu < 2:
+        return resposta("abrir_busca", f"Vou abrir a busca do {bonito} para você.", pedido)
+    return None
+
+
 def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str,
-                   textos: list[str] | None = None, app: str = "") -> dict | None:
+                   textos: list[str] | None = None, app: str = "", titulo: str = "") -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(curto(f)) for f in feitos}
@@ -410,13 +488,11 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     for i, e in enumerate(elementos):
         if not anuncio(e):
             nomes.setdefault(normalizar(curto(e)), i)
-    # Play Store: só decide sozinho na página DO APP PEDIDO (antes apontava o "Instalar" do primeiro app da lista)
-    pedido = nome_do_app(objetivo) if any(p in obj for p in PEDE_INSTALAR) else None
-    if pedido and pagina_do_app(pedido, elementos, textos or []):
-        if all(any(n == i or n.startswith(i + " ") for n in nomes) for i in INSTALADO):
-            return resposta("esperar", "Esse app já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
-        if "instalar" in nomes and "instalar" not in feitos_n:
-            return tocar(elementos, nomes["instalar"], "Esse é o app certo.")
+    # Play Store: roteiro fixo que confere o app em cada tela (sem IA).
+    if (app or "") == LOJA:
+        r = roteiro_loja(objetivo, elementos, textos or [], feitos, titulo)
+        if r:
+            return r
     # Painel rápido: o item já está na tela
     item = item_do_painel(objetivo)
     if item:

@@ -195,12 +195,14 @@ def test_guia3_lado_direito_e_sem_culpa():
 
 def test_guia4_atalhos_sem_ia_e_play_store():
     import guia
-    r = guia.regra_certeira("instalar o facebook", ["Abrir", "Desinstalar"], [], "app", ["Facebook", "Meta Platforms"])
+    loja = "com.android.vending"
+    r = guia.regra_certeira("instalar o facebook", ["Abrir", "Desinstalar"], [], "app", ["Meta Platforms"], app=loja, titulo="Facebook")
     assert r["concluido"] and "já está instalado" in r["fala"]
-    r = guia.regra_certeira("baixar o facebook", ["Instalar"], [], "app", ["Facebook"])
+    r = guia.regra_certeira("baixar o facebook", ["Instalar"], [], "app", ["Meta Platforms"], app=loja, titulo="Facebook")
     assert r["tipo"] == "tocar" and r["alvo"] == "Instalar"
-    # Tela inicial da loja com "Instalar" de OUTRO app (anúncio): não aponta
-    assert guia.regra_certeira("quero instalar o facebook", ["Instalar", "Pesquisa"], [], "app", ["Pier: Seguro Auto e Cel"]) is None
+    # Tela inicial da loja com "Instalar" de OUTRO app (anúncio): não aponta; reabre a busca do Facebook
+    r = guia.regra_certeira("quero instalar o facebook", ["Instalar", "Pesquisa"], [], "app", ["Pier: Seguro Auto e Cel"], app=loja, titulo="Pier")
+    assert r["tipo"] == "abrir_busca"
     assert guia.nome_do_app("me ajuda a instalar o Facebook") == "facebook"
     assert guia.regra_certeira("ligar o bluetooth", ["Wi-Fi", "Bluetooth"], [], "painel")["alvo"] == "Bluetooth"
     assert guia.regra_certeira("mandar foto no whatsapp", ["Conversas"], [], "app") is None
@@ -319,12 +321,12 @@ def test_guia8_tocar_ponto_so_com_imagem():
     assert "IMAGEM" in guia.montar_prompt("x", "app", [], [], com_imagem=True)
 
 
-def test_atalho_play_store_so_com_nome():
+def test_play_store_abre_na_busca_do_app():
     from main import validar_acao
-    a = validar_acao({"tipo": "guiar_app", "app": "playstore", "objetivo": "instalar o Facebook", "atalho": True, "nome_app": "Facebook"}, "app")
-    assert a["atalho"] is True and a["nome_app"] == "Facebook"
+    a = validar_acao({"tipo": "guiar_app", "app": "playstore", "objetivo": "quero instalar o app do Banco do Brasil"}, "app")
+    assert a["nome_app"] == "banco brasil"
     b = validar_acao({"tipo": "guiar_app", "app": "whatsapp", "objetivo": "mandar foto", "atalho": True, "nome_app": "x"}, "app")
-    assert "atalho" not in b
+    assert "atalho" not in b and "nome_app" not in b
 
 
 def test_guia9_antigolpe_na_tela():
@@ -346,3 +348,30 @@ def test_ensino_explicar_e_palavras():
     assert p == "pesquisa"
     r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Wi-Fi [ligado]"], "palavras": []}).json()
     assert r["palavra"] == "tocar"
+
+
+def test_roteiro_loja_confere_o_app():
+    import guia
+    obj = "quero instalar o app do Banco do Brasil"
+    # página do BB (título não tem "Banco do Brasil", o desenvolvedor tem): aponta o Instalar, nunca o nome do desenvolvedor
+    pagina = ["Voltar", "Banco do Brasil SA", "Instalar", "Compartilhar"]
+    r = guia.roteiro_loja(obj, pagina, ["4,7", "Classificação Livre"], [], titulo="BB: Banco, Conta, Pix, Cartão")
+    assert r["tipo"] == "tocar" and r["indice"] == 2
+    # tela inicial da loja com Instalar de outros apps: não aponta nenhum, reabre a busca
+    home = ["Pesquisar apps e jogos", "Instalar — Kwai", "Instalar — Shopee [anúncio]", "Instalar — Temu"]
+    r = guia.roteiro_loja(obj, home, [], [], titulo="Para você")
+    assert r["tipo"] == "abrir_busca" and r["alvo"] == "banco brasil"
+    assert guia.roteiro_loja(obj, home, [], ["abrir_busca", "abrir_busca"], titulo="Para você") is None
+    # resultados: o Instalar do app certo (pelo que está ao redor)
+    res = ["Instalar — Inter&Co [anúncio]", "BB: Banco, Conta, Pix, Cartão Banco do Brasil SA", "Instalar — BB: Banco, Conta, Pix, Cartão, Banco do Brasil SA"]
+    r = guia.roteiro_loja(obj, res, [], [], titulo="")
+    assert r["tipo"] == "tocar" and r["indice"] == 2
+    # página de outro app: reabre a busca
+    r = guia.roteiro_loja(obj, ["Nubank", "Instalar"], [], [], titulo="Nubank: conta e cartão")
+    assert r["tipo"] == "abrir_busca"
+    # baixando e depois instalado
+    assert guia.roteiro_loja(obj, ["Cancelar", "Abrir"], ["45% de 80 MB"], ["Instalar"], titulo="BB: Banco, Conta, Pix, Cartão")["tipo"] == "esperar"
+    r = guia.roteiro_loja(obj, ["Banco do Brasil SA", "Desinstalar", "Abrir"], [], ["Instalar"], titulo="BB: Banco, Conta, Pix, Cartão")
+    assert r["concluido"] and "foi instalado" in r["fala"]
+    r = guia.roteiro_loja(obj, ["Banco do Brasil SA", "Desinstalar", "Abrir"], [], [], titulo="BB: Banco, Conta, Pix, Cartão")
+    assert r["concluido"] and "já está instalado" in r["fala"]
