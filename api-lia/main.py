@@ -2,6 +2,7 @@
 A chave da IA fica aqui no servidor, nunca dentro do app (RNF05).
 Rodar: uvicorn main:app --host 0.0.0.0 --port 8000
 """
+import os
 import logging
 import time
 
@@ -21,6 +22,19 @@ from prompt_lia import PROMPT_ENTENDE, montar_sistema  # noqa: E402
 
 log = logging.getLogger("lia")
 app = FastAPI(title="API da Lia")
+
+# Na nuvem, a API fica aberta na internet: com LIA_TOKEN definido, só o app da Lia (que manda o mesmo token)
+# consegue usar a IA. As páginas do gov.br simulado (GET) continuam abertas. No notebook, sem LIA_TOKEN, nada muda.
+TOKEN = os.getenv("LIA_TOKEN", "")
+
+
+@app.middleware("http")
+async def exigir_token(request, call_next):
+    if TOKEN and request.method == "POST" and request.headers.get("x-lia-token") != TOKEN:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"erro": "nao autorizado"}, status_code=401)
+    return await call_next(request)
+
 app.include_router(gov_simulado.router)
 
 ACOES_POR_CANAL = {

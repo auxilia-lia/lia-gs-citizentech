@@ -1,0 +1,20 @@
+# API da Lia na nuvem (Render, plano grátis). No Render: New > Blueprint > escolha este repositório.
+# Depois preencha GEMINI_API_KEY e LIA_TOKEN no painel (nunca aqui).
+services:
+  - type: web
+    name: lia-api
+    runtime: python
+    plan: free
+    rootDir: api-lia
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /saude
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: LIA_PROVEDOR
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LIA_TOKEN
+        sync: false

@@ -34,7 +34,9 @@ export const api = () => base;
 
 export async function carregarEnderecoSalvo(): Promise<string> {
   const salvo = await ler<string>(CHAVE_ENDERECO, '');
-  if (salvo) base = salvo;
+  // No APK da nuvem, um endereço local salvo antes (localhost do cabo ou IP do notebook) não vale mais.
+  const local = /localhost|127\.0\.0\.1|192\.168\.|10\.0\./.test(salvo);
+  if (salvo && !(!__DEV__ && process.env.EXPO_PUBLIC_LIA_API && local)) base = salvo;
   return base;
 }
 
@@ -75,7 +77,7 @@ async function post<T>(caminho: string, corpo: unknown, tempoMs = 40000): Promis
   try {
     const r = await fetch(`${base}${caminho}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Lia-Token': process.env.EXPO_PUBLIC_LIA_TOKEN ?? '' },
       body: JSON.stringify(corpo),
       signal: controle.signal,
     });
