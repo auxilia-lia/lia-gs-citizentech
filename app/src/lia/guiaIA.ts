@@ -265,7 +265,10 @@ export function guiarComIA(
     if (atual !== estado) return;
     if (e.type === 'done_step' && e.step) {
       estado.feitos.push(e.step);
-      if (estado.instrucao) estado.trilha.push(estado.instrucao);
+      // O caminho guardado (e o resumo do fim) só tem os passos que levaram adiante:
+      // "voltar" desfaz o passo anterior, que era o lugar errado.
+      if (estado.instrucao?.tipo === 'voltar') estado.trilha.pop();
+      else if (estado.instrucao) estado.trilha.push(estado.instrucao);
       estado.instrucao = null;
     }
     if (e.type === 'finished') {

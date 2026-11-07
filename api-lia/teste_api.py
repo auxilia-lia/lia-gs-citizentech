@@ -407,7 +407,7 @@ def test_loja_sabe_quando_terminou_sem_titulo():
 def test_interruptor_generico_no_detalhe():
     import guia
     els = ["Ativado [ligado] — Bluetooth, Ative o Bluetooth para consultar uma lista"]
-    r = guia.interpretar({"tipo": "tocar", "indice": 0}, els, "quero ligar o bluetooth")
+    r = guia.regra_certeira("quero ligar o bluetooth", els, [], "painel")
     assert r["concluido"] and "Bluetooth já está ligado" in r["fala"]
     r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Desativado [desligado] — Bluetooth, Ative"], "quero ligar o bluetooth")
     assert r["tipo"] == "tocar"
@@ -452,3 +452,14 @@ def test_robo_rodada2():
     r = guia.interpretar({"tipo": "voltar", "fala": "Me enganei."}, ["Recentes"], "trocar o papel de parede", seguiu="Galeria",
                          titulo="Nenhum item foi selecionado")
     assert r["tipo"] == "esperar" and "escolha a foto" in r["fala"]
+
+
+def test_bluetooth_desligado_com_outro_interruptor_ativado():
+    # Detalhe do Bluetooth no Samsung: o botão do Bluetooth está desligado e uma OPÇÃO está "Ativado".
+    els = ["Bluetooth [desligado]", "Ativado [ligado] — Bluetooth, Mostrar dispositivos sem nome"]
+    r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "app": "com.android.systemui", "elementos": els}).json()
+    assert not r["concluido"] and r["tipo"] == "tocar" and r["indice"] == 0
+    # dois interruptores no detalhe: não dá para saber qual é o Bluetooth → não conclui por conta própria
+    els = ["Desativado [desligado] — Bluetooth, Ative o Bluetooth", "Ativado [ligado] — Bluetooth, Mostrar dispositivos"]
+    r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "app": "com.android.systemui", "elementos": els}).json()
+    assert not r["concluido"]

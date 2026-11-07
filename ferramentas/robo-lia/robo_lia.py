@@ -25,8 +25,10 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 
 # Cenários que não mexem em nada importante do celular (o robô toca de verdade onde a Lia mandar).
 CENARIOS = [
-    {"nome": "bluetooth", "texto": "quero ligar o bluetooth"},
-    {"nome": "bluetooth-ja-ligado", "texto": "quero ligar o bluetooth"},  # roda logo depois: tem que dizer que já está
+    # "conferir": o robô confere no celular se a Lia falou a verdade ao concluir.
+    {"nome": "bluetooth", "texto": "quero ligar o bluetooth", "conferir": ("bluetooth_on", "1")},
+    {"nome": "bluetooth-ja-ligado", "texto": "quero ligar o bluetooth", "conferir": ("bluetooth_on", "1")},
+    {"nome": "bluetooth-desligar", "texto": "quero desligar o bluetooth", "conferir": ("bluetooth_on", "0")},
     {"nome": "lanterna", "texto": "como eu acendo a lanterna"},
     # Apaga a lanterna pela própria Lia (também testa o "desligar").
     {"nome": "lanterna-apagar", "texto": "quero apagar a lanterna"},
@@ -136,6 +138,7 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
 
 def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
     passos = 0
+    telas: dict = {}
     ultima_novidade = time.time()
     escreveu = False
     resultado = "limite de tempo"
@@ -151,6 +154,10 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
                 print(f"  Lia: {ev.get('texto')}" + ("" if ev.get("tts") else "   [SEM VOZ: o TTS não estava pronto]"))
             elif tipo == "tela":
                 print(f"  tela {ev.get('id')}: {ev.get('titulo') or ev.get('app')} ({ev.get('motivo')}, {ev.get('botoes')} botões{', com imagem' if ev.get('imagem') else ''})")
+                chave_tela = f"{ev.get('app')}|{ev.get('titulo')}"
+                telas[chave_tela] = telas.get(chave_tela, 0) + 1
+                if telas[chave_tela] >= 4:
+                    return f"LOOP: passou 4 vezes pela mesma tela ({ev.get('titulo') or ev.get('app')})"
         acao = None
         for ev in reversed(novos):
             if ev.get("evento") in ("tocar", "instrucao", "fim", "parou", "protegido", "pausado"):
@@ -165,6 +172,12 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
         ev = acao["evento"]
         if ev in ("fim", "parou", "protegido", "pausado"):
             resultado = {"fim": "concluiu", "parou": "parou", "protegido": "app protegido", "pausado": "pausou"}[ev]
+            if ev == "fim" and cenario.get("conferir"):
+                time.sleep(2)
+                chave, esperado = cenario["conferir"]
+                real = adb("shell", "settings", "get", "global", chave).strip()
+                if real != esperado:
+                    resultado = f"ERRO: a Lia disse que concluiu, mas {chave} = {real} (esperado {esperado})"
             print_tela(pasta, passos + 1, ev)
             break
         passos += 1

@@ -154,7 +154,7 @@ def quer_estado(objetivo: str) -> str | None:
     return None
 
 
-def ja_esta(objetivo: str, elemento: str) -> dict | None:
+def ja_esta(objetivo: str, elemento: str, por_contexto: bool = False) -> dict | None:
     """Ela quer ligar/desligar este botão e ele já está assim: objetivo cumprido."""
     q, e = quer_estado(objetivo), estado(elemento)
     nome = curto(elemento)
@@ -166,7 +166,7 @@ def ja_esta(objetivo: str, elemento: str) -> dict | None:
     # Interruptor com nome genérico ("Ativado", "Desativado") no detalhe de um item: o item vem no contexto
     # ("Ativado [ligado] — Bluetooth, ..."). Vale se o primeiro nome do contexto é o que ela quer.
     ctx = contexto(elemento).split(",")[0].strip()
-    if ctx and len(junto(ctx)) > 1 and (palavras(ctx) & palavras(objetivo) or junto(ctx) in junto(objetivo)):
+    if por_contexto and ctx and len(junto(ctx)) > 1 and (palavras(ctx) & palavras(objetivo) or junto(ctx) in junto(objetivo)):
         return resposta("esperar", f"O {ctx} já está {q}. Não precisa fazer nada!", concluido=True)
     return None
 
@@ -575,10 +575,17 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     # Painel rápido: o item já está na tela
     item = item_do_painel(objetivo)
     if item:
-        for e in elementos:  # inclusive o interruptor do detalhe ("Ativado [ligado] — Bluetooth")
-            pronto = ja_esta(objetivo, e)
-            if pronto:
-                return pronto
+        # Primeiro o botão do PRÓPRIO item ("Bluetooth [desligado]"): ele manda. Só sem ele vale o interruptor do
+        # detalhe ("Ativado [ligado] — Bluetooth"); no detalhe do Samsung há outros interruptores com "Ativado"
+        # (opções do Bluetooth) e a Lia achava que o Bluetooth estava ligado.
+        proprio = achar_i(elementos, item)
+        if proprio is None:
+            candidatos = [e for e in elementos if estado(e) in ("ligado", "desligado") and
+                          normalizar(contexto(e).split(",")[0].strip()).replace("-", " ") in PAINEL.get(item, (item,)) + (item,)]
+            if len(candidatos) == 1:  # um só interruptor do item: dá para confiar
+                pronto = ja_esta(objetivo, candidatos[0], por_contexto=True)
+                if pronto:
+                    return pronto
         i = achar_i(elementos, item)
         if i is not None and ja_esta(objetivo, elementos[i]):
             return ja_esta(objetivo, elementos[i])
