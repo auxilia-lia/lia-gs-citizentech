@@ -245,6 +245,7 @@ def main():
     ap = argparse.ArgumentParser(description="Robô de testes da Lia")
     ap.add_argument("texto", nargs="?", help="o pedido para a Lia (sem isso, roda os cenários padrão)")
     ap.add_argument("--escrever", help="o que o robô escreve quando a Lia pedir para escrever")
+    ap.add_argument("--apenas", help="nomes de cenários separados por vírgula (ex.: gps,galeria)")
     a = ap.parse_args()
     if "device" not in adb("devices").split("List of devices attached")[-1]:
         sys.exit("Nenhum celular conectado. Rode 'adb devices' e confira o cabo.")
@@ -256,6 +257,8 @@ def main():
     except Exception:
         print("Aviso: a API não respondeu em localhost:8000. Ela está ligada?")
     cenarios = [{"nome": "pedido", "texto": a.texto, "escrever": a.escrever}] if a.texto else CENARIOS
+    if a.apenas:
+        cenarios = [c for c in cenarios if c["nome"] in a.apenas.split(",")]
     # A Lia fala com a API e o Metro pelo próprio cabo (não depende do Wi-Fi nem do firewall do Windows).
     adb("reverse", "tcp:8000", "tcp:8000")
     adb("reverse", "tcp:8081", "tcp:8081")

@@ -47,7 +47,9 @@ timeout /t 45 /nobreak >nul
 echo app ok >> %STATUS%
 
 echo [5/5] Rodando o robo...
-py -X utf8 -u ferramentas\robo-lia\robo_lia.py > testes-robo\rodada.log 2>&1
+set APENAS=
+if exist testes-robo\apenas.txt set /p APENAS=<testes-robo\apenas.txt
+if defined APENAS (py -X utf8 -u ferramentas\robo-lia\robo_lia.py --apenas %APENAS% > testes-robo\rodada.log 2>&1) else (py -X utf8 -u ferramentas\robo-lia\robo_lia.py > testes-robo\rodada.log 2>&1)
 type testes-robo\rodada.log
 
 :fim
