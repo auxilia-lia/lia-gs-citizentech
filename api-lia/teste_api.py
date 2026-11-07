@@ -317,3 +317,11 @@ def test_guia8_tocar_ponto_so_com_imagem():
     assert guia.interpretar(r, ["Voltar"], "editar", com_imagem=False)["tipo"] == "esperar"
     assert guia.interpretar({**r, "ponto": [2000, 1]}, [], "x", com_imagem=True)["tipo"] == "esperar"
     assert "IMAGEM" in guia.montar_prompt("x", "app", [], [], com_imagem=True)
+
+
+def test_atalho_play_store_so_com_nome():
+    from main import validar_acao
+    a = validar_acao({"tipo": "guiar_app", "app": "playstore", "objetivo": "instalar o Facebook", "atalho": True, "nome_app": "Facebook"}, "app")
+    assert a["atalho"] is True and a["nome_app"] == "Facebook"
+    b = validar_acao({"tipo": "guiar_app", "app": "whatsapp", "objetivo": "mandar foto", "atalho": True, "nome_app": "x"}, "app")
+    assert "atalho" not in b

@@ -50,6 +50,17 @@ class LiaGuiaModule : Module() {
       Protecao.definir(context, pkg, proteger)
     }
 
+    Function("autoListen") { Protecao.escutaAuto(context) }
+    Function("setAutoListen") { ligado: Boolean -> Protecao.definirEscutaAuto(context, ligado) }
+
+    // Abre um link (ex.: a busca da Play Store direto no app pedido, no "faz por mim").
+    Function("openUrl") { url: String ->
+      try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+      } catch (_: Exception) { false }
+    }
+
     Function("state") {
       LiaGuiaService.instance?.estado() ?: "o Guia está desligado"
     }

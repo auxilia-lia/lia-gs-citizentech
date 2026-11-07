@@ -6,7 +6,7 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; atalho?: boolean; nome_app?: string }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'parar_guia'; conseguiu?: boolean }

@@ -58,6 +58,11 @@ type LiaGuiaEvents = {
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   isEnabled(): boolean;
+  /** Ouvir alguns segundos depois de cada instrução do Guia (ligado por padrão). */
+  autoListen(): boolean;
+  setAutoListen(ligado: boolean): void;
+  /** Abre um link (ex.: market://search?q=...). */
+  openUrl(url: string): boolean;
   /** O que o Guia está mostrando agora, em português (para a conversa saber se há algo na tela). */
   state(): string;
   /** Apps do celular e se cada um é protegido (neles a Lia não olha a tela). */

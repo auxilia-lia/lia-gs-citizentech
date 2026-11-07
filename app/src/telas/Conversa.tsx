@@ -154,7 +154,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   // ---------- ações ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
-    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo);
+    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.atalho ? acao.nome_app : undefined);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
     if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
@@ -176,12 +176,17 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     }
   };
 
-  const guiarApp = async (app: string, objetivo: string, chaveAula?: string) => {
+  // atalhoApp: a pessoa só quer resolver ("instala pra mim"): a Play Store já abre na busca do app pedido,
+  // longe dos anúncios da página inicial. Sem atalho, ela faz o caminho todo (e aprende).
+  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
     const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
     guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)), app);
-    if (!LiaGuia.openApp(PACOTES[app] ?? app)) dizer('Não consegui abrir esse app. Ele está instalado?');
+    const abriu = app === 'playstore' && atalhoApp
+      ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)
+      : LiaGuia.openApp(PACOTES[app] ?? app);
+    if (!abriu) dizer('Não consegui abrir esse app. Ele está instalado?');
   };
 
   const prepararAviso = async (contato: string, mensagem: string) => {

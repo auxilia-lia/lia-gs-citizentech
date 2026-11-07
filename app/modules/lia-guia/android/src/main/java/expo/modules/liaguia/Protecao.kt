@@ -24,6 +24,10 @@ object Protecao {
 
   fun automatico(pkg: String) = SENSIVEL.containsMatchIn(pkg)
 
+  // Ajuste: ouvir alguns segundos depois de cada instrução (ligado por padrão).
+  fun escutaAuto(c: Context) = prefs(c).getBoolean("escuta_auto", true)
+  fun definirEscutaAuto(c: Context, ligado: Boolean) = prefs(c).edit().putBoolean("escuta_auto", ligado).apply()
+
   fun bloqueado(c: Context, pkg: String): Boolean {
     if (pkg.isEmpty() || pkg == c.packageName) return false
     return pkg in conjunto(c, BLOQUEADOS) || (automatico(pkg) && pkg !in conjunto(c, LIBERADOS))

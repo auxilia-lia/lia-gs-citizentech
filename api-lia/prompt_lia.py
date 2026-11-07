@@ -54,6 +54,8 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   celular que ficam no painel rápido (Wi-Fi, Bluetooth, lanterna, modo avião) ou quando não souber o app: a Lia começa
   da tela inicial. Use "configuracoes" para letra maior, brilho, toque, tela. Use "whatsapp" para mandar foto, áudio, vídeo.
   Use "playstore" para instalar, baixar ou atualizar um app (ponha o nome do app no objetivo).
+  Se a pessoa disser que só quer que resolva rápido ("instala pra mim", "não quero aprender agora"), mande também
+  "atalho": true e "nome_app": "nome do app" (a loja já abre na busca dele). Sem isso, ela aprende o caminho todo.
   Para usar QUALQUER outro app (Facebook, Instagram, banco, e-mail...), use "celular" e ponha o nome do app no objetivo
   (ex.: "entrar no Facebook"). Sempre que disser que vai mostrar na tela, mande guiar_app.
   Apps de banco, Pix, carteira digital e senhas são PROTEGIDOS: o Guia não olha a tela deles. Se ela pedir ajuda dentro

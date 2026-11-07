@@ -50,6 +50,7 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
   const [avancado, setAvancado] = useState(false);
   const [endereco, setEndereco] = useState(api());
   const [servidor, setServidor] = useState('');
+  const [escuta, setEscuta] = useState(() => { try { return LiaGuia.autoListen(); } catch { return true; } });
 
   const atualizar = useCallback(async () => {
     setProgresso(await carregarProgresso());
@@ -191,6 +192,19 @@ export default function Voce({ abrirDemo, reverBoasVindas }: { abrirDemo: (d: De
 
       <Secao>Apps protegidos</Secao>
       <AppsProtegidos />
+
+      <Secao>Jeito da Lia</Secao>
+      <Cartao>
+        <Pressable onPress={() => { const n = !escuta; LiaGuia.setAutoListen(n); setEscuta(n); }} style={st.linha}
+          accessibilityRole="switch" accessibilityState={{ checked: escuta }}>
+          <IconeCirculo nome="ear" tam={48} cor={escuta ? cores.sucesso : cores.textoSuave} fundo={escuta ? cores.sucessoSuave : cores.fundo} />
+          <View style={{ flex: 1 }}>
+            <Text style={st.nome}>Ouvir depois de falar</Text>
+            <Text style={st.sub}>No Guia, depois de cada instrução, a Lia escuta alguns segundos. Dá para dizer "e agora?" sem tocar no microfone.</Text>
+          </View>
+          <Ionicons name={escuta ? 'toggle' : 'toggle-outline'} size={44} color={escuta ? cores.sucesso : cores.textoSuave} />
+        </Pressable>
+      </Cartao>
 
       <Secao>Ajuda</Secao>
       <Botao texto="Ver a apresentação de novo" icone="play-circle" tipo="claro" onPress={reverBoasVindas} />

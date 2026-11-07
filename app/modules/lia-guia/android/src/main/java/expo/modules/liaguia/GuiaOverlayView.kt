@@ -44,6 +44,8 @@ class GuiaOverlayView(context: Context) : View(context) {
   private val dedo = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Color.WHITE }
   private val dedoBorda = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 5 * d; color = ambar }
   private val balao = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F00B1B4D") }
+  // Holofote: o resto da tela escurece e só o botão certo fica claro (quase não há como errar onde tocar).
+  private val sombra = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Color.parseColor("#80000000") }
   // Segue o tamanho de letra do celular: quem usa letra grande vê o balão grande.
   private val escalaFonte = resources.configuration.fontScale.coerceIn(1f, 1.5f)
   private val texto = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 22 * d * escalaFonte; isFakeBoldText = true }
@@ -87,6 +89,12 @@ class GuiaOverlayView(context: Context) : View(context) {
         val pulso = if (fase < 0.5f) fase * 2 else (1 - fase) * 2
         val r = RectF(t).apply { offset(-loc[0].toFloat(), -loc[1].toFloat()); inset(-(10 + 6 * pulso) * d, -(10 + 6 * pulso) * d) }
         val raio = 18 * d
+        val buraco = Path().apply {
+          fillType = Path.FillType.EVEN_ODD
+          addRect(0f, 0f, w, h, Path.Direction.CW)
+          addRoundRect(r, raio, raio, Path.Direction.CW)
+        }
+        canvas.drawPath(buraco, sombra)
         canvas.drawRoundRect(r, raio, raio, halo)
         canvas.drawRoundRect(r, raio, raio, anel)
         val limite = (tecladoTopo?.let { it - loc[1].toFloat() } ?: h) * 0.78f
