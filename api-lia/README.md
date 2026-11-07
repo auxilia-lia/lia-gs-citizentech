@@ -16,6 +16,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 | `POST /conversa` | `{mensagens, canal: "app" ou "ligacao", contexto}` → `{fala, acao, golpe}` |
 | `POST /entende` | Foto em base64 → explicação em linguagem simples + se parece golpe |
 | `POST /antigolpe` | Texto → domínio parecido com um oficial (Levenshtein) + sinais de golpe |
+| `POST /guia/proximo` | Tela do Guia (botões numerados, textos, título, caminho, imagem opcional) → próximo passo `{tipo, indice, alvo, fala, concluido, alerta, palavra}` |
+| `POST /guia/plano` | Objetivo → caminho provável (o celular segue sozinho enquanto bate com a tela) |
+| `POST /guia/explicar` | "O que é isso?": explica a tela em palavras simples |
 | `GET /gov` | gov.br **simulado** (abra no navegador do celular: `http://IP:8000/gov`) |
 | `GET /gov/fluxos` | Passos de cada serviço para o Guia (consulta, beneficio, multas) |
 

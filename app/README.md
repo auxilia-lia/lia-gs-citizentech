@@ -30,6 +30,31 @@ O APK aceita HTTP na rede local (`usesCleartextTraffic`), porque a API roda no n
 
 Na primeira vez, o app mostra 4 telas faladas (o que a Lia faz e a permissão de acessibilidade).
 
+## Como o Guia funciona
+O Guia lê a tela pelo serviço de acessibilidade do Android (texto, não imagem): cada botão com nome, posição,
+estado (`[ligado]`, `[desligado]`, `[selecionado]`) e o que está ao redor (`Instalar — Facebook`, `[anúncio]`).
+- **Próximo passo, nesta ordem:** caminho aprendido (a pessoa já fez isso antes) → plano montado pela IA no começo →
+  IA tela a tela (`/guia/proximo`). Os dois primeiros resolvem no celular, sem esperar a internet.
+- **Aponta pelo número do botão** (lugar exato), e a frase "Toque em X" é montada pelo servidor: a Lia nunca fala
+  de um botão que não está na tela. Botão cortado atrás das barras do sistema vira "arraste para ver".
+- **Entende o que a pessoa faz:** espera a tela parar de mudar; rolagem não muda o passo; enquanto ela digita, espera
+  (o balão sobe para o alto, longe do teclado); se ela sai do app, pausa e continua quando ela volta.
+- **Voz durante o Guia** (botão de microfone arrastável, e escuta automática de alguns segundos depois de cada
+  instrução): "e agora?", "não tô vendo", "o que é isso?", "espera", "continuar", "não olha esse app", "já consegui", "para".
+- **Quando trava:** olha a imagem da tela (Android 11+), com tarja preta sobre senhas, campos digitados, CPF,
+  valores e e-mails; nunca em app protegido.
+- **Apps protegidos:** bancos, Pix, carteiras e senhas (e os que a pessoa escolher em "Você"): a Lia não lê a tela.
+- **Antigolpe na tela:** se a tela tiver cara de golpe (pressa, Pix, link estranho), a Lia avisa uma vez.
+- **Holofote** (o resto da tela escurece), **vibração** no acerto e balão do tamanho da letra do celular.
+
+## Ensino e progresso
+- **"O que é isso?"** explica a tela em palavras simples (`/guia/explicar`).
+- **Palavras do celular** ("arrastar", "ícone", "aba"…) explicadas na primeira vez que aparecem; a aba "Você" mostra as que ela já sabe.
+- **Resumo no fim** ("Para lembrar: você tocou em Play Store, Pesquisar e Instalar.").
+- **Meus caminhos** (`src/lia/caminhos.ts`): cada coisa concluída vira um cartão com os passos, para rever, praticar ou mandar.
+- **Hora de praticar:** dias depois, a Início sugere fazer de novo sozinho (nível "só acompanha").
+- **Jornada** com o próximo marco, **certificado de autonomia** e **família comemorando** (a Lia pergunta antes de mandar no WhatsApp).
+
 ## Privacidade (#9)
 - `src/lia/pseudonimizar.ts`: CPF, telefone, e-mail, cartão e CEP viram etiquetas (`[CPF_1]`) antes de sair do celular. A resposta volta com os dados reais.
 - O telefone da família e o progresso ficam só no celular. A IA recebe só o parentesco.

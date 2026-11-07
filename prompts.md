@@ -34,4 +34,7 @@ Estes prompts rodam no servidor quando a Lia conversa. Ficam no código para qua
 | `api-lia/prompt_lia.py` | `PROMPT_LIA` + `FORMATO` + ações por canal | Personalidade e regras da Lia (frases curtas, uma pergunta por vez, sem jargão, nunca pedir senha, antigolpe) e o formato JSON das ações |
 | `api-lia/prompt_lia.py` | `CANAL_LIGACAO` | Ajustes para a ligação telefônica (sem tela) |
 | `api-lia/prompt_lia.py` | `PROMPT_ENTENDE` | Explicar a foto de um papel e avaliar se é golpe |
-| `api-lia/guia.py` | `PROMPT_GUIA` | Guia genérico: escolher o próximo toque a partir dos textos da tela, sem nunca escolher pagar ou apagar |
+| `api-lia/guia.py` | `PROMPT_GUIA` | Guia genérico: escolher o próximo passo pelo número do botão, a partir dos textos e estados da tela, sem nunca escolher pagar, apagar ou anúncio |
+| `api-lia/guia.py` | `IMAGEM` | Complemento do Guia quando ele travou e mandou a imagem da tela (com tarjas) |
+| `api-lia/guia.py` | `PROMPT_PLANO` | Caminho provável no começo do Guia |
+| `api-lia/guia.py` | `PROMPT_EXPLICAR` | "O que é isso?": explicar a tela em palavras simples |

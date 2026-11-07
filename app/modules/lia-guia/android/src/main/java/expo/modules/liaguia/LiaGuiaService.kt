@@ -232,6 +232,7 @@ class LiaGuiaService : AccessibilityService() {
     if (!ativo || !modoIA) return@naPrincipal
     // Resposta para uma tela que já não é a atual: ignora e espera a resposta da tela nova.
     if (tela >= 0 && tela != telaEnviada) return@naPrincipal
+    if (pausado || emProtegido != null) return@naPrincipal // pausado: ao continuar, a tela é olhada de novo
     indiceIA = indice
     faltas = 0
     pararVigia()
@@ -768,7 +769,8 @@ class LiaGuiaService : AccessibilityService() {
     falado = false
     candidata = ""
     if (!modoIA) { avaliarTela(); return }
-    if (tipoIA != null && appAtual == appDaInstrucao) { novaInstrucao(); agendar(200); return } // mesma tela: repete o passo
+    val agora = raizAtual()?.packageName?.toString() ?: appAtual
+    if (tipoIA != null && agora == appDaInstrucao) { appAtual = agora; novaInstrucao(); agendar(200); return } // mesmo app: repete o passo
     // Em outro lugar: olha a tela de novo e decide a partir dela.
     limparInstrucaoIA()
     assinaturaEmitida = ""
