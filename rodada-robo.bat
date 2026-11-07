@@ -53,5 +53,6 @@ type testes-robo\rodada.log
 :fim
 echo fim %date% %time% >> %STATUS%
 echo.
-echo Pronto. Pode fechar esta janela.
-pause
+echo Pronto.
+REM fecha sozinha (para a proxima rodada poder ser iniciada sem janela na frente)
+exit
