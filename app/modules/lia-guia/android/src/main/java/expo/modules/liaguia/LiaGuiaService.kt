@@ -615,6 +615,9 @@ class LiaGuiaService : AccessibilityService() {
     val margem = (40 * resources.displayMetrics.density).toInt()
     if (alvo != null && Rect.intersects(b, Rect(alvo).apply { inset(-margem, -margem) })) return acertou()
     val tocado = rotulo(src)
+    // O botão mudou de lugar entre o anel aparecer e o toque (painel que sobe, lista que mexe): vale pelo nome.
+    if (alvo != null && tocado != null && nomeAlvo.isNotBlank() &&
+      Matcher.normalize(tocado).trim() == Matcher.normalize(curto(nomeAlvo)).trim()) return acertou()
     if (alvo != null && tocado != null) errou(tocado)
     agendar(400)
   }

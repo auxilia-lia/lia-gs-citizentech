@@ -210,7 +210,9 @@ export function guiarComIA(
         rolavel: tela.rolavel,
         motivo: tela.motivo,
         errou: tela.errou ? p(tela.errou) : null,
-        seguiu: tela.seguiu ? p(tela.seguiu) : null,
+        // Se o Android não avisou o toque mas a tela mudou depois de um "toque em X", ela provavelmente tocou em X.
+        seguiu: tela.seguiu ? p(tela.seguiu)
+          : tela.motivo === 'mudou' && estado.instrucao?.tipo === 'tocar' ? p(estado.instrucao.nome) : null,
         feitos: estado.feitos.map(p),
         escondidos: (tela.escondidos ?? []).map(p),
         titulo: tela.titulo ? p(tela.titulo) : '',

@@ -516,3 +516,10 @@ def test_rodada7_galeria_ver_ontem():
     r = guia.regra_certeira("quero ver as fotos que eu tirei ontem", ["ontem — Excluir"], ["Pesquisar"], "app", [],
                             app="com.sec.android.gallery3d", titulo="Resultados da pesquisa", seguiu="Pesquisar", teclado=True)
     assert not (r and r.get("concluido"))
+
+
+def test_rodada8_gps_abreviado():
+    import guia
+    r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", ["Rotas para Av. Paulista — Rotas"], ["Busque aqui"], "app",
+                            ["Av. Paulista", "São Paulo - SP"], app="com.google.android.apps.maps", titulo="Maps")
+    assert r["concluido"]

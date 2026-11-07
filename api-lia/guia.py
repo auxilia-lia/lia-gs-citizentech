@@ -262,6 +262,15 @@ def campo_aberto(elementos: list[str]) -> int | None:
     return None
 
 
+ABREVIA = {"av": "avenida", "r": "rua", "pca": "praca", "al": "alameda", "rod": "rodovia", "est": "estrada",
+           "dr": "doutor", "sta": "santa", "sto": "santo"}
+
+
+def por_extenso(palavras_: set[str]) -> set[str]:
+    """"Av. Paulista" na tela vale por "Avenida Paulista" no pedido."""
+    return palavras_ | {ABREVIA[p] for p in palavras_ if p in ABREVIA}
+
+
 def termo_de_busca(objetivo: str) -> str:
     """'quero procurar a Avenida Paulista no GPS' -> 'Avenida Paulista' (na ordem da frase, sem as palavras do pedido)."""
     fora = GENERICAS | {"procurar", "pesquisar", "buscar", "achar", "encontrar", "gps", "mapa", "maps", "youtube", "galeria",
@@ -652,7 +661,7 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
         termo = termo_de_busca(objetivo)
         alvo_t = fichas(termo)
         visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [curto(e) for e in elementos]]) if elementos or textos else set()
-        if alvo_t and cobre(alvo_t, visivel_t):
+        if alvo_t and cobre(alvo_t, por_extenso(visivel_t)):
             return resposta("esperar", f"Pronto! Achei {termo}: está aqui na tela.", concluido=True)
     # Só VER algo ("as fotos de ontem"): depois de pelo menos um passo, se o que ela quer ver está na tela, pronto.
     if seguiu and VER.search(obj) and not ACHAR.search(obj) and k is None and not teclado and not quer_estado(objetivo):

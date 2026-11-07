@@ -58,7 +58,7 @@ class Texto(BaseModel):
 
 
 # Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
-VERSAO = "2026-11-07.9"
+VERSAO = "2026-11-07.10"
 
 
 @app.get("/saude")
