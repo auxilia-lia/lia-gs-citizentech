@@ -286,3 +286,16 @@ def test_guia6_prompt_mostra_botoes_cortados():
     p = guia.montar_prompt("trocar o papel de parede", "com.android.settings", ["Conexões", "Sons"], [],
                            escondidos=["Visor (mais abaixo)"])
     assert "Visor (mais abaixo)" in p and "rolar_baixo" in p
+
+
+def test_guia6_configuracoes_pesquisa_primeiro_e_prompt_sabe_onde_esta():
+    import guia
+    els = ["Pesquisar", "Conexões", "Sons e vibração", "Notificações"]
+    r = c.post("/guia/proximo", json={"objetivo": "trocar o plano de fundo", "app": "com.android.settings", "elementos": els}).json()
+    assert r["tipo"] == "tocar" and r["indice"] == 0
+    # já pesquisou: não insiste
+    r2 = guia.regra_certeira("trocar o plano de fundo", els, ["Pesquisar"], "app", [], app="com.android.settings")
+    assert r2 is None
+    p = guia.montar_prompt("trocar o plano de fundo", "com.android.settings", els, [], titulo="Visor",
+                           caminho=["Configurações", "Visor"])
+    assert 'na tela "Visor"' in p and "Configurações > Visor" in p

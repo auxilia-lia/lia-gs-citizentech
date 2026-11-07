@@ -123,6 +123,8 @@ export type PedidoGuia = {
   seguiu: string | null;
   feitos: string[];
   escondidos?: string[];
+  titulo?: string;
+  caminho?: string[];
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.

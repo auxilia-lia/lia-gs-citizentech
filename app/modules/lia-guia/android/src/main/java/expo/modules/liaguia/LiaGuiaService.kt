@@ -64,6 +64,7 @@ class LiaGuiaService : AccessibilityService() {
     val app: String, val tela: String, val elementos: List<String>, val textos: List<String>, val rolavel: Boolean,
     val alvos: List<Rect> = emptyList(),
     val escondidos: List<String> = emptyList(), // botões cortados/atrás das barras: só aparecem rolando
+    val titulo: String = "", // o nome da tela atual ("Visor", "Papel de parede"), para a IA saber onde a pessoa está
   )
 
   private val handler = Handler(Looper.getMainLooper())
@@ -732,7 +733,7 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
       "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,
-      "escondidos" to ctx.escondidos,
+      "escondidos" to ctx.escondidos, "titulo" to ctx.titulo,
     ))
   }
 
@@ -890,6 +891,10 @@ class LiaGuiaService : AccessibilityService() {
     val vistos = HashSet<String>()
     val textos = LinkedHashSet<String>()
     var rolavel = false
+    var titulo = ""
+    var tituloY = Int.MAX_VALUE
+    var tituloCabecalho = false
+    val faixaTitulo = util.top + (util.height() * 0.22f).toInt()
     fun andar(n: AccessibilityNodeInfo, prof: Int) {
       if (prof > MAX_PROFUNDIDADE) return
       if (n.isVisibleToUser) {
@@ -897,7 +902,15 @@ class LiaGuiaService : AccessibilityService() {
         val label = nomeDe(n)
         if (!label.isNullOrEmpty()) {
           val c = acharClicavel(n)
-          if (c == null) { if (textos.size < 25) textos.add(label) }
+          if (c == null) {
+            if (textos.size < 25) textos.add(label)
+            // Título: um cabeçalho, ou o texto mais alto no topo da tela.
+            val b = Rect().also { n.getBoundsInScreen(it) }
+            val cab = Build.VERSION.SDK_INT >= 28 && n.isHeading
+            if (b.top in util.top..faixaTitulo && label.length in 2..40 && ((cab && !tituloCabecalho) || (cab == tituloCabecalho && b.top < tituloY))) {
+              titulo = label; tituloY = b.top; tituloCabecalho = cab
+            }
+          }
           else if (elementos.size < 60) {
             val b = Rect().also { c.getBoundsInScreen(it) }
             // Só o que está de fato na tela e uma vez por botão (vários textos podem levar ao mesmo botão).
@@ -921,7 +934,8 @@ class LiaGuiaService : AccessibilityService() {
       app == "com.android.systemui" -> "painel"
       else -> "app"
     }
-    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos, escondidos.toList())
+    if (titulo.isEmpty()) titulo = (if (Build.VERSION.SDK_INT >= 24) root.window?.title?.toString() else null)?.take(40) ?: ""
+    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos, escondidos.toList(), titulo)
   }
 
   // " [ligado]" / " [desligado]" / " [selecionado]" / " [indisponível]": o estado do botão, de qualquer app.

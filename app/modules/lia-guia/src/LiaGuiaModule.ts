@@ -7,7 +7,9 @@ export type StepEvent =
   | { type: 'wrong'; step: string; tocado: string }
   | { type: 'finished'; total: number }
   /** A pessoa abriu um app protegido: a Lia não lê a tela dele. */
-  | { type: 'protected'; app: string };
+  | { type: 'protected'; app: string }
+  /** A pessoa saiu do app no meio do passo: o Guia pausou e espera ela voltar ou dizer "continuar". */
+  | { type: 'paused'; app: string };
 
 export type AppDoCelular = { pkg: string; nome: string; auto: boolean; protegido: boolean };
 
@@ -25,6 +27,8 @@ export type TelaEvent = {
   id: number;
   /** Botões cortados ou atrás das barras do sistema: só aparecem rolando. */
   escondidos?: string[];
+  /** Nome da tela atual ("Visor", "Papel de parede e estilo"). */
+  titulo?: string;
 };
 
 export type TipoPasso = 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';

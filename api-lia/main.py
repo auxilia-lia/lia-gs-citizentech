@@ -155,6 +155,8 @@ class TelaGuia(BaseModel):
     seguiu: str | None = Field(default=None, max_length=120)  # a instrução que a pessoa acabou de cumprir
     feitos: list[str] = Field(default=[], max_length=30)
     escondidos: list[str] = Field(default=[], max_length=20)  # botões cortados: só aparecem rolando
+    titulo: str = Field(default="", max_length=120)  # nome da tela atual
+    caminho: list[str] = Field(default=[], max_length=12)  # telas por onde ela passou
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -171,9 +173,10 @@ async def guia_proximo(t: TelaGuia):
     elementos = [e.strip()[:80] for e in t.elementos if e.strip()]
     textos = [e.strip()[:80] for e in t.textos if e.strip()]
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
-    extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()])
+    extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()], titulo=t.titulo,
+                 caminho=[c.strip()[:80] for c in t.caminho if c.strip()])
     if t.motivo != "errou":
-        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos)
+        certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app)
         if certeira:
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):

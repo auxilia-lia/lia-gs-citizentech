@@ -44,7 +44,10 @@ Dicas do Android que você conhece:
   Na página do app: "Instalar" = ainda não tem; "Abrir" ou "Desinstalar" = JÁ ESTÁ instalado (objetivo de instalar
   já cumprido: diga que já está instalado e concluido=true); "Atualizar" = instalado, mas desatualizado.
 - WhatsApp: o clipe (Anexar) manda foto e documento; a câmera tira foto na hora; segurar o microfone grava áudio.
-- Configurações: a lupa no alto pesquisa qualquer opção (ex.: "fonte", "brilho").
+- Configurações: a lupa no alto pesquisa qualquer opção (ex.: "fonte", "brilho", "papel de parede"). Se a opção
+  não está à vista, PREFIRA a pesquisa a adivinhar menus. No Samsung, plano de fundo = "Papel de parede e estilo"
+  (na lista principal), e NÃO fica em "Visor".
+- Em qualquer app com pesquisa/lupa: se o que ela quer não está à vista, pesquise em vez de abrir menus ao acaso.
 - Se a pessoa precisa escrever, peça para tocar no campo e usar o microfone do teclado para falar.
 A pessoa quer: "{objetivo}".
 
@@ -58,7 +61,10 @@ Celular Samsung: puxar do alto pelo meio ou pela esquerda abre as NOTIFICAÇÕES
 painel rápido (Wi-Fi, Bluetooth, lanterna). Se ela está no painel e os botões rápidos não aparecem, ela abriu as notificações:
 explique com calma e peça para fechar e puxar de novo pelo lado direito.
 
-Agora ela está em: {onde} (app "{app}").
+Agora ela está em: {onde} (app "{app}"), na tela "{titulo}".
+Telas por onde ela passou, em ordem: {caminho}.
+Se esta tela NÃO tem relação com o objetivo (entrou no lugar errado), mande "voltar" para a última tela certa do
+caminho, assumindo o erro com leveza. Não fique tentando botões ao acaso numa tela errada.
 Botões que dá para tocar (número: texto):
 {elementos}
 Outros textos na tela: {textos}
@@ -314,7 +320,8 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
-                  seguiu: str | None = None, escondidos: list[str] | None = None) -> str:
+                  seguiu: str | None = None, escondidos: list[str] | None = None, titulo: str = "",
+                  caminho: list[str] | None = None) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
@@ -322,6 +329,7 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
         motivo=MOTIVOS.get(motivo, MOTIVOS["mudou"]).format(errou=errou or ""), feitos=", ".join(feitos) or "nada ainda",
         seguiu=f'. Ela fez exatamente o que você pediu: "{seguiu}".' if seguiu else "",
         escondidos=", ".join(escondidos or []) or "(nenhum)",
+        titulo=titulo or "sem título", caminho=" > ".join(caminho or []) or "só esta",
     )
 
 
@@ -377,7 +385,7 @@ def pagina_do_app(nome: str, elementos: list[str], textos: list[str]) -> bool:
 
 
 def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str,
-                   textos: list[str] | None = None) -> dict | None:
+                   textos: list[str] | None = None, app: str = "") -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(curto(f)) for f in feitos}
@@ -386,8 +394,8 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
         if not anuncio(e):
             nomes.setdefault(normalizar(curto(e)), i)
     # Play Store: só decide sozinho na página DO APP PEDIDO (antes apontava o "Instalar" do primeiro app da lista)
-    app = nome_do_app(objetivo) if any(p in obj for p in PEDE_INSTALAR) else None
-    if app and pagina_do_app(app, elementos, textos or []):
+    pedido = nome_do_app(objetivo) if any(p in obj for p in PEDE_INSTALAR) else None
+    if pedido and pagina_do_app(pedido, elementos, textos or []):
         if all(any(n == i or n.startswith(i + " ") for n in nomes) for i in INSTALADO):
             return resposta("esperar", "Esse app já está instalado no seu celular! Para usar, é só tocar em Abrir.", concluido=True)
         if "instalar" in nomes and "instalar" not in feitos_n:
@@ -404,4 +412,12 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
             return tocar(elementos, i)
         if tela in ("inicio", "app"):
             return resposta("painel", FALAS_GESTO["painel"])
+    # Configurações: se nada na tela tem a ver com o objetivo, pesquisar é mais certeiro que adivinhar menus.
+    if "settings" in (app or "").lower():
+        ent = entidades(objetivo)
+        visivel = set().union(*[palavras(x) for x in (textos or []) + elementos]) if (textos or elementos) else set()
+        j = busca(elementos)
+        ja_pesquisou = any(BUSCA.search(normalizar(curto(f))) for f in feitos)
+        if ent and j is not None and not ja_pesquisou and not (ent & visivel):
+            return tocar(elementos, j, "Nas Configurações, o jeito mais fácil é pesquisar.")
     return None

@@ -19,6 +19,7 @@ const MAX_PASSOS = 15;
 type Estado = {
   objetivo: string;
   feitos: string[];
+  caminho: string[]; // telas por onde a pessoa passou (para a IA perceber quando entrou no lugar errado)
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -38,7 +39,7 @@ export function pararGuiaIA(pararNativo = true) {
 export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => void): boolean {
   pararGuiaIA();
   const mapa = novoMapa();
-  const estado: Estado = { objetivo, feitos: [], ocupado: false, pendente: null, remover: () => {} };
+  const estado: Estado = { objetivo, feitos: [], caminho: [], ocupado: false, pendente: null, remover: () => {} };
   const p = (t: string) => pseudonimizar(t, mapa);
 
   const decidir = async (tela: TelaEvent) => {
@@ -53,6 +54,8 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         LiaGuia.finishAI('Já demos muitos passos. Vamos voltar para a Lia e tentar de novo?');
         return;
       }
+      const nomeTela = tela.titulo ? `${tela.titulo} (${tela.app})` : tela.app;
+      if (estado.caminho[estado.caminho.length - 1] !== nomeTela) estado.caminho = [...estado.caminho, nomeTela].slice(-8);
       const r = await proximoPasso({
         objetivo: p(objetivo),
         app: tela.app,
@@ -65,6 +68,8 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         seguiu: tela.seguiu ? p(tela.seguiu) : null,
         feitos: estado.feitos.map(p),
         escondidos: (tela.escondidos ?? []).map(p),
+        titulo: tela.titulo ? p(tela.titulo) : '',
+        caminho: estado.caminho.map(p),
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.
