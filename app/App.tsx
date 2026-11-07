@@ -14,7 +14,7 @@ import TesteGuia from './src/telas/TesteGuia';
 import BoasVindas from './src/telas/BoasVindas';
 import BarraAbas, { Aba } from './src/ui/BarraAbas';
 import Cabecalho from './src/ui/Cabecalho';
-import { carregarEnderecoSalvo } from './src/lia/api';
+import { acordarServidor, carregarEnderecoSalvo } from './src/lia/api';
 import { prepararVoz } from './src/lia/fala';
 import { gravar, ler } from './src/lia/armazenamento';
 import { cores } from './src/ui/tema';
@@ -31,7 +31,7 @@ export default function App() {
   const margens = useMargens();
 
   useEffect(() => {
-    Promise.all([carregarEnderecoSalvo(), ler('lia:boas-vindas', false), prepararVoz()]).then(([, viu]) => {
+    Promise.all([carregarEnderecoSalvo().then((b) => { acordarServidor(); return b; }), ler('lia:boas-vindas', false), prepararVoz()]).then(([, viu]) => {
       setPrimeiraVez(!viu);
       setPronto(true);
     });

@@ -21,7 +21,7 @@ O APK aceita HTTP na rede local (`usesCleartextTraffic`), porque a API roda no n
 1. Suba a API no Render: New → Blueprint → este repositório (usa o `render.yaml`). No painel, preencha `GEMINI_API_KEY` e `LIA_TOKEN` (o mesmo token de `app/.env.production.local`).
 2. Copie o endereço que o Render der (`https://lia-api-xxxx.onrender.com`) para `EXPO_PUBLIC_LIA_API` em `app/.env.production.local`.
 3. Gere o APK: `npm run apk`. O APK de release lê esse arquivo e já sai apontando para a nuvem, sem Metro e sem cabo.
-4. No plano grátis, a API dorme depois de 15 min parada: a primeira mensagem pode levar uns 50 s. Antes de gravar, abra `/saude` no navegador para acordar.
+4. No plano grátis, a API dorme depois de 15 min parada. Para não dormir: no UptimeRobot (monitor HTTP), chame `https://SEU-ENDERECO.onrender.com/saude` a cada 10 min. E o app acorda a API sozinho ao abrir.
 
 ## Abas
 - **Conversar:** voz (pt-BR) ou texto. A Lia pode:

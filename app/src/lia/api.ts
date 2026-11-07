@@ -40,6 +40,12 @@ export async function carregarEnderecoSalvo(): Promise<string> {
   return base;
 }
 
+// A API na nuvem (plano grátis) dorme quando fica parada: o app a acorda assim que abre, em segundo plano,
+// para que a primeira mensagem da pessoa não espere. Sem resposta, não faz nada.
+export function acordarServidor() {
+  fetch(`${base}/saude`).catch(() => undefined);
+}
+
 // Robô de testes: usa a API pelo cabo USB (adb reverse → localhost), sem depender do Wi-Fi,
 // e depois devolve o endereço que estava antes.
 export async function enderecoTemporario(url: string) {
