@@ -1,5 +1,6 @@
 import LiaGuia, { TelaEvent, TipoPasso } from '../../modules/lia-guia';
-import { planoGuia, proximoPasso } from './api';
+import { explicarTela, planoGuia, proximoPasso } from './api';
+import { aprenderPalavra, carregarPalavras } from './palavras';
 import { acharCaminho, fraseDoPasso, nomeCurto, PassoCaminho, salvarCaminho } from './caminhos';
 import { novoMapa, pseudonimizar, restaurar } from './pseudonimizar';
 import { normalizar } from './texto';
@@ -44,6 +45,7 @@ type Estado = {
   posPlano: number;
   alertas: Set<string>;
   resumoDito: boolean;
+  palavras: string[];
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -99,9 +101,11 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, ocupado: false, pendente: null, remover: () => {},
+    alertas: new Set(), resumoDito: false, palavras: [], ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
+
+  carregarPalavras().then((l) => { estado.palavras = l; });
 
   // Caminho aprendido (instantâneo) ou plano da IA (pedido em paralelo, sem segurar o começo).
   (async () => {
@@ -169,10 +173,15 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
         caminho: estado.caminho.map(p),
         plano: estado.plano.slice(estado.posPlano).map((x) => (x.tipo === 'tocar' ? p(x.nome) : x.tipo)),
         imagem: tela.imagem ?? null,
+        palavras: estado.palavras,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.
       if (estado.pendente) return;
+      if (r.palavra && !estado.palavras.includes(r.palavra)) {
+        estado.palavras = [...estado.palavras, r.palavra];
+        aprenderPalavra(r.palavra);
+      }
       let fala = restaurar(r.fala, mapa);
       // Antigolpe: o aviso vem uma vez só por guia (não repete a cada tela).
       if (r.alerta && !estado.alertas.has(r.alerta)) {
@@ -198,6 +207,19 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   };
 
   const sTela = LiaGuia.addListener('onScreen', (e) => decidir(e));
+  // "O que é isso?": explica a tela; a instrução atual continua valendo.
+  const sExplicar = LiaGuia.addListener('onExplicar', async (e) => {
+    if (atual !== estado) return;
+    try {
+      const r = await explicarTela({
+        pergunta: e.pergunta, app: e.appNome || e.app, titulo: e.titulo ? p(e.titulo) : '',
+        elementos: e.elementos.map(p), textos: e.textos.map(p), objetivo: p(objetivo),
+      });
+      if (atual === estado) LiaGuia.say(restaurar(r.fala, mapa));
+    } catch {
+      if (atual === estado) LiaGuia.say('Não consegui explicar agora. A internet está lenta.');
+    }
+  });
   const sPasso = LiaGuia.addListener('onStep', (e) => {
     if (atual !== estado) return;
     if (e.type === 'done_step' && e.step) {
@@ -215,7 +237,7 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
       aoTerminar?.();
     }
   });
-  estado.remover = () => { sTela.remove(); sPasso.remove(); };
+  estado.remover = () => { sTela.remove(); sPasso.remove(); sExplicar.remove(); };
   atual = estado;
   const ok = LiaGuia.startAI(nivel);
   if (!ok) pararGuiaIA(false);

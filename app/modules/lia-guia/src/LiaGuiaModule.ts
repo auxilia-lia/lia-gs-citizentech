@@ -34,6 +34,8 @@ export type TelaEvent = {
 };
 
 /** tocar_ponto: a IA viu o botão só na imagem da tela; alvo = "x,y|nome" (x e y em milésimos da tela). */
+export type ExplicarEvent = { pergunta: string; app: string; appNome: string; titulo: string; elementos: string[]; textos: string[] };
+
 export type TipoPasso = 'tocar' | 'tocar_ponto' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
 
 export type ScreenNode = {
@@ -54,6 +56,8 @@ type LiaGuiaEvents = {
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
   onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean }) => void;
+  /** "O que é isso?": a tela atual (já limpa) para a Lia explicar. */
+  onExplicar: (e: ExplicarEvent) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {

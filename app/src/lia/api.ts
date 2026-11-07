@@ -109,6 +109,8 @@ export type PassoGuia = {
   indice: number;
   /** Aviso antigolpe sobre algo que apareceu na tela (falado uma vez). */
   alerta?: string | null;
+  /** Palavra do celular explicada nesta fala (vira "aprendida"). */
+  palavra?: string | null;
   fala: string;
   concluido: boolean;
 };
@@ -130,10 +132,16 @@ export type PedidoGuia = {
   plano?: string[];
   /** Imagem da tela (JPEG em base64, dados pessoais cobertos), só quando o Guia travou. */
   imagem?: string | null;
+  /** Palavras do celular que ela já aprendeu (a Lia não explica de novo). */
+  palavras?: string[];
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.
 export const proximoPasso = (pedido: PedidoGuia) => post<PassoGuia>('/guia/proximo', pedido, pedido.imagem ? 20000 : 12000);
+
+// "O que é isso?": a explicação da tela em palavras simples.
+export const explicarTela = (pedido: { pergunta: string; app: string; titulo: string; elementos: string[]; textos: string[]; objetivo: string }) =>
+  post<{ fala: string }>('/guia/explicar', pedido, 12000);
 
 // Caminho provável, pedido uma vez no começo do Guia.
 export const planoGuia = (objetivo: string, app: string) =>

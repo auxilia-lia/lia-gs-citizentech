@@ -162,6 +162,7 @@ class TelaGuia(BaseModel):
     caminho: list[str] = Field(default=[], max_length=12)  # telas por onde ela passou
     plano: list[str] = Field(default=[], max_length=10)  # o resto do caminho provável (dica para a IA)
     imagem: str | None = Field(default=None, max_length=3_000_000)  # JPEG base64 com tarjas, só quando travou
+    palavras: list[str] = Field(default=[], max_length=40)  # palavras do celular que ela já aprendeu
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -171,6 +172,29 @@ CACHE_GUIA_S = 180
 
 def _chave_guia(t: "TelaGuia", elementos: list[str]) -> tuple:
     return (t.objetivo, t.app, t.tela, tuple(elementos), tuple(t.feitos), t.motivo, t.seguiu)
+
+
+class PedidoExplicar(BaseModel):
+    pergunta: str = Field(default="o que é isso?", max_length=200)
+    app: str = Field(default="", max_length=120)
+    titulo: str = Field(default="", max_length=120)
+    elementos: list[str] = Field(default=[], max_length=60)
+    textos: list[str] = Field(default=[], max_length=40)
+    objetivo: str = Field(default="", max_length=300)
+
+
+@app.post("/guia/explicar")
+async def guia_explicar(e: PedidoExplicar):
+    """"O que é isso?": explica a tela em palavras simples (ensina a entender, não só onde tocar)."""
+    if provedor() in ("gemini", "claude"):
+        try:
+            r = await gerar(guia.montar_explicacao(e.pergunta, e.app, e.titulo, e.elementos, e.textos, e.objetivo),
+                            [{"papel": "pessoa", "texto": e.pergunta}], max_tokens=250, prazo=9)
+            if str(r.get("fala") or "").strip():
+                return {"fala": str(r["fala"]).strip(), "provedor": provedor()}
+        except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+            log.exception("IA indisponível para explicar a tela")
+    return {"fala": guia.explicacao_teste(e.app, e.titulo, e.elementos), "provedor": "regras"}
 
 
 class PedidoPlano(BaseModel):
@@ -194,7 +218,11 @@ async def guia_plano(pp: PedidoPlano):
 @app.post("/guia/proximo")
 async def guia_proximo(t: TelaGuia):
     passo = await _guia_proximo(t)
-    return {**passo, "alerta": alerta_da_tela(t)}
+    palavra = None
+    if not passo.get("concluido"):
+        fala, palavra = guia.ensinar_palavra(passo["fala"], t.palavras)
+        passo = {**passo, "fala": fala}
+    return {**passo, "alerta": alerta_da_tela(t), "palavra": palavra}
 
 
 def alerta_da_tela(t: TelaGuia) -> str | None:

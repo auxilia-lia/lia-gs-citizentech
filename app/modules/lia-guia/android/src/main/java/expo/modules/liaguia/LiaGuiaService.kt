@@ -292,6 +292,21 @@ class LiaGuiaService : AccessibilityService() {
     }
   }
 
+  // "O que é isso?": manda a tela (só a lista de textos, já limpa) para a Lia explicar em palavras simples.
+  // Ensina a ENTENDER o celular, não só onde tocar.
+  private fun explicarTela(pergunta: String) {
+    if (emProtegido != null) return falar("Este app é protegido, então eu não olho esta tela.")
+    val root = raizAtual() ?: return falar("Não consegui ver a tela agora. Pergunte de novo daqui a pouco.")
+    val ctx = lerContexto(root)
+    overlay?.mostrarMensagem("Deixa eu te explicar esta tela…")
+    handler.removeCallbacks(lembrar)
+    handler.postDelayed(lembrar, LEMBRETE_MS * 2) // dá tempo de ouvir a explicação antes de lembrar o passo
+    LiaGuiaBridge.emit("onExplicar", mapOf(
+      "pergunta" to pergunta, "app" to ctx.app, "appNome" to Protecao.nome(this, ctx.app), "titulo" to ctx.titulo,
+      "elementos" to ctx.elementos.take(30), "textos" to ctx.textos.take(15),
+    ))
+  }
+
   // O que o Guia está mostrando agora (a conversa usa isso para não dizer "siga a tela" quando não há nada nela).
   fun estado(): String = when {
     !ativo -> "o Guia está desligado"
@@ -360,6 +375,11 @@ class LiaGuiaService : AccessibilityService() {
         falar("Tudo bem, parei. Se precisar, é só me chamar.")
         pararAgora()
         voltarParaLia()
+        return
+      }
+      EXPLICAR.containsMatchIn(Matcher.normalize(texto)) -> {
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        explicarTela(texto)
         return
       }
       PAUSAR.containsMatchIn(Matcher.normalize(texto)) -> {

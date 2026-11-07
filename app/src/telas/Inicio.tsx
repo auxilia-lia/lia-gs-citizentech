@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import LiaGuia from '../../modules/lia-guia';
 import { AULAS } from '../lia/aulas';
 import { autonomiaGeral, carregarProgresso, Progresso } from '../lia/autonomia';
+import { Caminho, carregarCaminhos } from '../lia/caminhos';
 import { Aviso, Botao, Cartao, IconeCirculo, NomeIcone, Secao } from '../ui/componentes';
 import { Aparecer, BarraAnimada, Flutuar, Ondas, Toque } from '../ui/anim';
 import { Aba } from '../ui/BarraAbas';
@@ -25,13 +26,17 @@ function saudacao() {
   return h < 12 ? 'Bom dia!' : h < 18 ? 'Boa tarde!' : 'Boa noite!';
 }
 
+const DIAS_PRATICA = 2; // depois de quantos dias a Lia sugere praticar sozinho
+
 export default function Inicio({ pedir, irPara }: { pedir: (p: Omit<Pedido, 'id'>) => void; irPara: (a: Aba) => void }) {
   const [guiaAtivo, setGuiaAtivo] = useState(true);
   const [progresso, setProgresso] = useState<Progresso>({});
+  const [caminhos, setCaminhos] = useState<Caminho[]>([]);
 
   const atualizar = useCallback(async () => {
     setGuiaAtivo(LiaGuia.isEnabled());
     setProgresso(await carregarProgresso());
+    setCaminhos(await carregarCaminhos());
   }, []);
 
   useEffect(() => {
@@ -40,6 +45,12 @@ export default function Inicio({ pedir, irPara }: { pedir: (p: Omit<Pedido, 'id'
     const g = LiaGuia.addListener('onStatus', (e) => setGuiaAtivo(e.enabled));
     return () => { s.remove(); g.remove(); };
   }, [atualizar]);
+
+  // "Tenta sozinho que eu olho": algo que ela já fez com a Lia há uns dias e ainda não faz sozinha.
+  // Repetir espaçado é o que transforma "fiz com a Lia" em "sei fazer".
+  const praticar = caminhos
+    .filter((c) => c.sozinho < 2 && Date.now() - new Date(c.ultima).getTime() > DIAS_PRATICA * 86400000)
+    .sort((a, b) => a.ultima.localeCompare(b.ultima))[0];
 
   const aulasFeitas = AULAS.filter((a) => (progresso[`aula:${a.id}`] ?? 0) > 0).length;
   const autonomia = Math.round(autonomiaGeral(progresso) * 100);
@@ -76,6 +87,21 @@ export default function Inicio({ pedir, irPara }: { pedir: (p: Omit<Pedido, 'id'
           <Aviso tipo="atencao" titulo="Falta uma permissão" texto="Para eu te mostrar onde tocar nos outros apps, peça para alguém de confiança me ativar uma vez.">
             <Botao texto="Ativar agora" icone="hand-left" onPress={() => LiaGuia.openAccessibilitySettings()} />
           </Aviso>
+        </Aparecer>
+      )}
+
+      {praticar && (
+        <Aparecer atraso={150} estilo={{ marginTop: espaco.lg }}>
+          <Cartao estilo={st.praticar} onPress={() => pedir({ tipo: 'praticar', caminho: praticar })}>
+            <View style={st.praticarTopo}>
+              <IconeCirculo nome="fitness" cor="#8A5A00" fundo={cores.destaqueSuave} tam={52} />
+              <View style={{ flex: 1 }}>
+                <Text style={st.praticarTitulo}>Hora de praticar</Text>
+                <Text style={st.praticarTexto}>Lembra como {praticar.objetivo.toLowerCase().replace(/^(quero|eu quero|como) /, '')}? Tente sozinho, que eu só fico olhando.</Text>
+              </View>
+            </View>
+            <Botao texto="Praticar agora" icone="play" onPress={() => pedir({ tipo: 'praticar', caminho: praticar })} />
+          </Cartao>
         </Aparecer>
       )}
 
@@ -168,4 +194,8 @@ const st = StyleSheet.create({
   atalhoTitulo: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
   atalhoSub: { fontSize: tamanho.mini, color: cores.textoSuave },
   linha: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
+  praticar: { gap: espaco.md, borderWidth: 2, borderColor: cores.destaque },
+  praticarTopo: { flexDirection: 'row', alignItems: 'center', gap: espaco.md },
+  praticarTitulo: { fontSize: tamanho.corpo, fontWeight: '800', color: cores.tinta },
+  praticarTexto: { fontSize: tamanho.mini, color: cores.textoSuave, lineHeight: 21, marginTop: 2 },
 });

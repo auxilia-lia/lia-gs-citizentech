@@ -14,7 +14,7 @@ class LiaGuiaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LiaGuia")
 
-    Events("onStep", "onStatus", "onScreen", "onVoz")
+    Events("onStep", "onStatus", "onScreen", "onVoz", "onExplicar")
 
     OnCreate {
       LiaGuiaBridge.listener = { name, body -> sendEvent(name, body) }

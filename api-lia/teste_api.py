@@ -256,7 +256,7 @@ def test_guia4_extrato_de_pagamento_nao_e_acao_final():
 
 def test_guia4_regras_mandam_indice():
     r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Bluetooth", "Wi-Fi — Casa"]}).json()
-    assert r["tipo"] == "tocar" and r["indice"] == 1 and r["fala"].endswith("Toque em Wi-Fi.")
+    assert r["tipo"] == "tocar" and r["indice"] == 1 and "Toque em Wi-Fi." in r["fala"]
 
 
 def test_guiar_app_de_qualquer_app_comeca_da_tela_inicial():
@@ -274,7 +274,7 @@ def test_guia5_sabe_se_ja_esta_ligado():
     assert r["concluido"]
     # ainda não está: manda tocar no botão certo
     r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Bluetooth [ligado]", "Wi-Fi [ligado]"]}).json()
-    assert r["tipo"] == "tocar" and r["indice"] == 1 and r["fala"].endswith("Toque em Wi-Fi.")
+    assert r["tipo"] == "tocar" and r["indice"] == 1 and "Toque em Wi-Fi." in r["fala"]
     # vale para a resposta da IA em qualquer app (ex.: interruptor das Configurações)
     els = ["Modo escuro [ligado] — Tela"]
     assert guia.interpretar({"tipo": "tocar", "indice": 0}, els, "ativar o modo escuro")["concluido"]
@@ -334,3 +334,15 @@ def test_guia9_antigolpe_na_tela():
     assert r["alerta"] and "golpe" in r["alerta"]
     r = c.post("/guia/proximo", json={"objetivo": "ligar o wifi", "tela": "painel", "elementos": ["Wi-Fi [desligado]"]}).json()
     assert r["alerta"] is None
+
+
+def test_ensino_explicar_e_palavras():
+    import guia
+    r = c.post("/guia/explicar", json={"app": "WhatsApp", "titulo": "Conversas", "elementos": ["Câmera", "Status", "Chamadas"]}).json()
+    assert "Conversas" in r["fala"] and "Câmera" in r["fala"]
+    f, p = guia.ensinar_palavra("Toque em Pesquisar.", [])
+    assert p == "tocar" and "encostar" in f
+    f, p = guia.ensinar_palavra("Toque em Pesquisar.", ["tocar"])
+    assert p == "pesquisa"
+    r = c.post("/guia/proximo", json={"objetivo": "desligar o wifi", "tela": "painel", "elementos": ["Wi-Fi [ligado]"], "palavras": []}).json()
+    assert r["palavra"] == "tocar"

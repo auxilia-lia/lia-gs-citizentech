@@ -12,11 +12,12 @@ import { novoMapa, quantosEscondidos } from '../lia/pseudonimizar';
 import { precisaConfirmar, respostaSimNao } from '../lia/risco';
 import { useVoz } from '../lia/useVoz';
 import type { Aula } from '../lia/aulas';
+import type { Caminho } from '../lia/caminhos';
 import { Aviso, Botao } from '../ui/componentes';
 import { Aparecer, Ondas, Toque } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
-export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir' | 'aula'; texto?: string; aula?: Aula };
+export type Pedido = { id: number; tipo: 'texto' | 'foto' | 'ouvir' | 'aula' | 'praticar'; texto?: string; aula?: Aula; caminho?: Caminho };
 
 const BOAS_VINDAS = 'Oi! Eu sou a Lia. Me fala o que você quer fazer, que eu te ajudo.';
 const SEM_SERVIDOR = 'Não consegui falar com a Lia agora. Confira se o celular está com internet e tente de novo.';
@@ -64,6 +65,12 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       const a = pedido.aula;
       setMensagens((m) => [...m, { papel: 'pessoa', texto: `Quero aprender: ${a.titulo}` }]);
       dizer(`Vamos aprender: ${a.titulo.toLowerCase()}. Eu vou te mostrando cada passo na tela.`, () => guiarApp(a.app, a.objetivo, `aula:${a.id}`));
+    } else if (pedido.tipo === 'praticar' && pedido.caminho) {
+      // "Tenta sozinho que eu olho": nível "só acompanha"; a Lia só aparece se ela travar.
+      const cm = pedido.caminho;
+      setMensagens((m) => [...m, { papel: 'pessoa', texto: `Quero praticar: ${cm.objetivo}` }]);
+      dizer('Vamos praticar. Desta vez você faz sozinho, e eu só fico olhando. Se travar, eu mostro.',
+        () => guiarApp(cm.app, cm.objetivo, undefined, undefined, 2));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido?.id]);
@@ -178,10 +185,10 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
 
   // atalhoApp: a pessoa só quer resolver ("instala pra mim"): a Play Store já abre na busca do app pedido,
   // longe dos anúncios da página inicial. Sem atalho, ela faz o caminho todo (e aprende).
-  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string) => {
+  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
-    const nivel = nivelDe((await carregarProgresso())[chave] ?? 0);
+    const nivel = nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
     guiarComIA(objetivo, nivel, async () => parabens(await registrarConclusao(chave)), app);
     const abriu = app === 'playstore' && atalhoApp
       ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)

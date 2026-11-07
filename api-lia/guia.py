@@ -480,3 +480,58 @@ def plano_teste(objetivo: str, app: str) -> list[dict]:
         nome = {"wi fi": "Wi-Fi"}.get(item, item.capitalize())
         return [{"tipo": "painel", "nome": ""}, {"tipo": "tocar", "nome": nome}]
     return []
+
+
+# ================= "o que é isso?" =================
+
+PROMPT_EXPLICAR = """Você é a Lia e ensina pessoas idosas ou com pouca leitura a ENTENDER o celular.
+A pessoa perguntou: "{pergunta}". Ela está no app "{app}", na tela "{titulo}".
+Botões da tela: {elementos}
+Textos da tela: {textos}
+O que ela está tentando fazer agora: {objetivo}.
+Explique em 2 a 4 frases curtas: que tela é esta e para que servem os 2 ou 3 botões mais importantes (pelo nome).
+Se tiver relação com o que ela quer fazer, diga qual botão leva até lá. Não use jargão, sem apelidos nem diminutivos.
+Não invente botões que não estão na lista. Responda SOMENTE com JSON: {{"fala": "..."}}"""
+
+
+def montar_explicacao(pergunta: str, app: str, titulo: str, elementos: list[str], textos: list[str], objetivo: str) -> str:
+    return PROMPT_EXPLICAR.format(pergunta=pergunta, app=app, titulo=titulo or "sem título",
+                                  elementos=" | ".join(elementos[:30]) or "(nenhum)",
+                                  textos=" | ".join(textos[:15]) or "(nenhum)", objetivo=objetivo or "não disse")
+
+
+def explicacao_teste(app: str, titulo: str, elementos: list[str]) -> str:
+    nomes = [curto(e) for e in elementos if not anuncio(e)][:3]
+    onde = f"Esta é a tela {titulo}, do {app}." if titulo else f"Você está no {app}."
+    if not nomes:
+        return onde + " Não estou vendo botões com nome aqui."
+    lista = ", ".join(nomes[:-1]) + (" e " if len(nomes) > 1 else "") + nomes[-1]
+    return f"{onde} Os botões principais são: {lista}. Cada um abre uma parte do app."
+
+
+# ================= palavras do celular =================
+# Na primeira vez que uma palavra aparece numa instrução, a Lia explica em uma frase. Depois, usa sem explicar.
+
+GLOSSARIO = [
+    ("tocar", r"\btoque\b", "Tocar é encostar a ponta do dedo na tela e tirar logo."),
+    ("arrastar", r"\b(arraste|deslize|puxe)\b", "Arrastar é encostar o dedo na tela e mover, sem tirar o dedo."),
+    ("painel", r"\bpainel\b", "O painel rápido é a parte que desce do alto da tela, com Wi-Fi, Bluetooth e lanterna."),
+    ("icone", r"\bicone", "Ícone é o desenho pequeno que representa um app ou uma função."),
+    ("notificacao", r"\bnotifica", "Notificações são os avisos dos apps, que aparecem no alto da tela."),
+    ("campo", r"\bcampo\b", "Campo é o espaço da tela onde a gente escreve."),
+    ("teclado", r"\bteclado\b", "O teclado aparece embaixo quando você toca num campo para escrever."),
+    ("pesquisa", r"\b(lupa|pesquis)", "A lupa serve para pesquisar: você escreve o que procura e o celular acha."),
+    ("aba", r"\baba\b", "Aba é cada opção da faixa no alto ou embaixo da tela; ela troca o que aparece."),
+    ("menu", r"\b(menu|tres pontinhos)\b", "Menu é a lista de opções que abre nos três pontinhos."),
+    ("voltar", r"\bvoltar\b", "Voltar leva para a tela anterior, como virar a página para trás."),
+    ("tela_inicial", r"\btela inicial\b", "A tela inicial é onde ficam os ícones dos seus apps."),
+]
+
+
+def ensinar_palavra(fala: str, conhecidas: list[str]) -> tuple[str, str | None]:
+    """Acrescenta a explicação de UMA palavra nova (a primeira que aparecer e ela ainda não sabe)."""
+    n = normalizar(fala)
+    for chave, padrao, frase in GLOSSARIO:
+        if chave not in conhecidas and re.search(padrao, n):
+            return f"{fala} {frase}".strip(), chave
+    return fala, None
