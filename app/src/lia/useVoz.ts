@@ -51,11 +51,16 @@ export function useVoz(onOuvido: (texto: string) => void) {
 
   const falar = (texto: string, depois?: () => void) => {
     setFalando(true);
+    // O que vem depois da fala (abrir o Guia, por exemplo) acontece MESMO se a voz travar ou ficar muda:
+    // antes, sem o "terminou de falar", a Lia nem abria o Guia.
+    let feito = false;
+    const seguir = () => { if (feito) return; feito = true; clearTimeout(t); setFalando(false); depois?.(); };
+    const t = setTimeout(seguir, Math.min(15000, 2500 + texto.length * 75));
     Speech.stop();
     falarComVoz(texto, {
-      onDone: () => { setFalando(false); depois?.(); },
-      onStopped: () => setFalando(false),
-      onError: () => { setFalando(false); depois?.(); },
+      onDone: seguir,
+      onStopped: () => { if (!feito) { feito = true; clearTimeout(t); setFalando(false); } },
+      onError: seguir,
     });
   };
 

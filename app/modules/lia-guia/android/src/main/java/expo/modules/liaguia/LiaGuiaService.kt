@@ -198,6 +198,9 @@ class LiaGuiaService : AccessibilityService() {
   override fun onServiceConnected() {
     super.onServiceConnected()
     instance = this
+    // Se o serviço caiu no meio de um Guia (ex.: app reinstalado), os sons do sistema podiam ficar mudos: devolve.
+    bipesMudos = true
+    silenciarBipes(false)
     tts = TextToSpeech(this) { status ->
       ttsPronto = status == TextToSpeech.SUCCESS
       if (ttsPronto) {

@@ -32,9 +32,19 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   if (!voz) return Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
   // Se a voz escolhida der erro, fala com a voz padrão SÓ desta vez. Antes, um atraso qualquer (o Guia falando
   // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
+  // Se a voz da Lia não começar em 3 s (motor de voz preso nela), fala esta frase com a voz padrão.
+  let comecou = false;
+  const reserva = setTimeout(() => {
+    if (comecou) return;
+    Speech.stop();
+    Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+  }, 3000);
   Speech.speak(texto, {
     language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes,
+    onStart: () => { comecou = true; clearTimeout(reserva); opcoes.onStart?.(); },
     onError: (e) => {
+      comecou = true;
+      clearTimeout(reserva);
       falhas++;
       if (falhas >= 3) voz = undefined; // a voz sumiu do celular de verdade
       Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
