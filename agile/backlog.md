@@ -20,7 +20,7 @@ Atualizado em 05/11/2026. "Código pronto" = feito e testado no computador; falt
 | 11 | Canal por ligação telefônica (simulado) | Conectividade | Baixa | 3 | Código pronto | `app/src/telas/Ligacao.tsx` |
 | 12 | Data Science: CSV público e notebook | Matérias | Alta | 2 | Feito (falta a cidade) | `data-science/analise_lia.ipynb` |
 | 13 | Database: modelo conceitual e lógico | Matérias | Alta | 2 | Não iniciado | |
-| 14 | DDD Java: domínio de pedidos com níveis de risco | Matérias | Alta | 2 | Não iniciado | |
+| 14 | DDD Java: domínio de pedidos com níveis de risco ([contrato com o app](../core-java/CONTRATO.md)) | Matérias | Alta | 2 | Não iniciado | |
 | 15 | Dynamic Programming: Levenshtein e relatório | Matérias | Alta | 2 | Não iniciado | Levenshtein já usado no app e na API |
 | 16 | Redes: CRAS no Packet Tracer e PDF | Matérias | Alta | 2 | Não iniciado | |
 | 17 | Maya: cena com 3 objetos e vídeo | Matérias | Média | 3 | Não iniciado | |
