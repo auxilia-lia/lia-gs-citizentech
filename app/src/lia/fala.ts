@@ -34,10 +34,12 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
   // Se a voz da Lia não começar em 3 s (motor de voz preso nela), fala esta frase com a voz padrão.
   let comecou = false;
+  // Se não começar em 3 s, o motor de voz do app se soltou ("not bound to TTS engine"): quem fala é o
+  // serviço do Guia, que reconecta sozinho.
   const reserva = setTimeout(() => {
     if (comecou) return;
     Speech.stop();
-    Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+    try { LiaGuia.say(texto); } catch { Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes }); }
   }, 3000);
   Speech.speak(texto, {
     language: 'pt-BR', rate: RITMO, voice: voz, ...opcoes,
@@ -47,7 +49,7 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
       clearTimeout(reserva);
       falhas++;
       if (falhas >= 3) voz = undefined; // a voz sumiu do celular de verdade
-      Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes });
+      try { LiaGuia.say(texto); } catch { Speech.speak(texto, { language: 'pt-BR', rate: RITMO, ...opcoes }); }
       opcoes.onError?.(e);
     },
     onDone: () => { falhas = 0; opcoes.onDone?.(); },

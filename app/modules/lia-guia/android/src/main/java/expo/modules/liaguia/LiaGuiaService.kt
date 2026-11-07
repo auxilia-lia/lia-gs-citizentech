@@ -1347,6 +1347,20 @@ class LiaGuiaService : AccessibilityService() {
     }
   }
 
+  private fun reconectarVoz(falarDepois: String) {
+    try { tts?.shutdown() } catch (_: Exception) {}
+    ttsPronto = false
+    tts = TextToSpeech(this) { status ->
+      ttsPronto = status == TextToSpeech.SUCCESS
+      if (ttsPronto) {
+        tts?.language = Locale("pt", "BR")
+        escolherVoz()
+        tts?.setSpeechRate(1.08f)
+        tts?.speak(falarDepois, TextToSpeech.QUEUE_FLUSH, null, "lia-guia")
+      }
+    }
+  }
+
   private var vozEscolhida: Voice? = null
   // O motor de voz às vezes volta sozinho para a voz padrão (troca de áudio, outro app falando): reaplica a da Lia.
   private fun garantirVoz() {
@@ -1359,7 +1373,9 @@ class LiaGuiaService : AccessibilityService() {
     // A pessoa está falando (tocou no microfone): a Lia não fala por cima, senão o microfone ouve a própria Lia.
     if (escutaManual && botao?.ouvindo == true) { robo("fala_suprimida", "texto" to texto); return }
     if (texto.isNotBlank()) robo("fala", "texto" to texto, "tts" to ttsPronto)
-    if (ttsPronto && texto.isNotBlank()) tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "lia-guia")
+    if (texto.isBlank()) return
+    // O motor de voz se solta às vezes (ele divide o app do Google com o reconhecimento de voz): reconecta e fala.
+    if (!ttsPronto || tts?.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "lia-guia") == TextToSpeech.ERROR) reconectarVoz(texto)
   }
 
   private fun falarUmaVez(texto: String) {
