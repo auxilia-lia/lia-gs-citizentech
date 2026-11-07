@@ -85,7 +85,7 @@ function passoDoPlano(e: Estado, tela: TelaEvent): { passo: PassoCaminho; indice
       // Interruptor (Wi-Fi, Bluetooth…): o servidor confere se já está como ela quer, para não desligar sem querer.
       if (i >= 0 && /\[(ligado|desligado)\]/.test(tela.elementos[i])) return null;
       if (i >= 0) return { passo: { ...passo, nome: nomeCurto(tela.elementos[i]) }, indice: i, pos };
-    } else if (pos === e.posPlano && e.aprendido && passo.app === tela.app) {
+    } else if (pos === e.posPlano && e.aprendido && passo.app === tela.app && FALAS_GESTO[passo.tipo]) {
       // Gesto do caminho aprendido, no mesmo app de antes.
       return { passo, indice: -1, pos };
     }
@@ -122,7 +122,8 @@ export function guiarComIA(objetivo: string, nivel: number, aoTerminar?: () => v
   })();
 
   const instruir = (tela: TelaEvent, tipo: TipoPasso, alvo: string | null, fala: string, indice: number) => {
-    estado.instrucao = tipo === 'esperar' ? null : { tipo, nome: alvo ? nomeCurto(alvo) : '', app: tela.app };
+    const nome = !alvo ? '' : tipo === 'tocar_ponto' ? alvo.split('|')[1] ?? '' : nomeCurto(alvo);
+    estado.instrucao = tipo === 'esperar' ? null : { tipo, nome, app: tela.app };
     LiaGuia.instruct(tipo, alvo, fala, indice, tela.id ?? -1);
   };
 

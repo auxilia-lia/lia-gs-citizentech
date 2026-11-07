@@ -33,7 +33,8 @@ export type TelaEvent = {
   imagem?: string | null;
 };
 
-export type TipoPasso = 'tocar' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
+/** tocar_ponto: a IA viu o botão só na imagem da tela; alvo = "x,y|nome" (x e y em milésimos da tela). */
+export type TipoPasso = 'tocar' | 'tocar_ponto' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
 
 export type ScreenNode = {
   text: string | null;

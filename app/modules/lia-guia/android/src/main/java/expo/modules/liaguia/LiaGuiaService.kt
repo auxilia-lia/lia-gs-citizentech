@@ -6,7 +6,17 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.util.Base64
+import android.view.Display
+import android.view.View
+import java.io.ByteArrayOutputStream
 import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
@@ -65,6 +75,7 @@ class LiaGuiaService : AccessibilityService() {
     val alvos: List<Rect> = emptyList(),
     val escondidos: List<String> = emptyList(), // botões cortados/atrás das barras: só aparecem rolando
     val titulo: String = "", // o nome da tela atual ("Visor", "Papel de parede"), para a IA saber onde a pessoa está
+    val sensiveis: List<Rect> = emptyList(), // onde há dado pessoal (senha, campo digitado, CPF, valor): tarja na imagem
   )
 
   private val handler = Handler(Looper.getMainLooper())
@@ -102,6 +113,18 @@ class LiaGuiaService : AccessibilityService() {
   private var passosIA = 0
   private var faltas = 0 // leituras seguidas sem achar o botão que a IA pediu
   private var indiceIA = -1 // número do botão escolhido na última tela enviada
+  private var pontoIA: Rect? = null // "tocar_ponto": lugar que a IA viu na imagem
+
+  // "500,320" (milésimos da tela) -> um quadrado de 56dp em volta desse ponto
+  private fun pontoDe(alvo: String?): Rect? {
+    val partes = alvo?.split(",")?.mapNotNull { it.trim().toIntOrNull() } ?: return null
+    if (partes.size != 2 || partes.any { it !in 0..1000 }) return null
+    val dm = resources.displayMetrics
+    val x = dm.widthPixels * partes[0] / 1000
+    val y = dm.heightPixels * partes[1] / 1000
+    val m = (28 * dm.density).toInt()
+    return Rect(x - m, y - m, x + m, y + m)
+  }
   private var telaEnviada = 0 // conta as telas enviadas para a IA (resposta de tela antiga é descartada)
   private var rotulosEnviados: List<String> = emptyList()
   private var assinaturaEmitida = "" // a última tela mandada para a IA
@@ -129,7 +152,7 @@ class LiaGuiaService : AccessibilityService() {
     if (!ativo || !modoIA || tipoIA != null || emProtegido != null || pausado) return@Runnable
     val root = raizAtual()
     if (root == null) { reagendarVigia(3000); return@Runnable }
-    emitirTela(lerContexto(root), "parado")
+    enviarTela(lerContexto(root), "parado")
   }
   private fun reagendarVigia(ms: Long) { handler.removeCallbacks(reenviar); handler.postDelayed(reenviar, ms) }
   private fun pararVigia() { handler.removeCallbacks(aguardando); handler.removeCallbacks(reenviar) }
@@ -202,6 +225,9 @@ class LiaGuiaService : AccessibilityService() {
     ultimoAlvoRect = null
     tipoIA = tipo
     alvoIA = alvo?.takeIf { it.isNotBlank() }
+    // "tocar_ponto": alvo = "x,y|nome" (x e y em milésimos da tela)
+    pontoIA = if (tipo == "tocar_ponto") pontoDe(alvoIA?.substringBefore("|")) else null
+    if (tipo == "tocar_ponto") alvoIA = alvoIA?.substringAfter("|", "")?.ifBlank { null } ?: "aqui"
     falaIA = fala
     nomeAlvo = alvoIA ?: ""
     alvoAtual = null
@@ -209,7 +235,7 @@ class LiaGuiaService : AccessibilityService() {
     novaInstrucao()
     when {
       tipo in GESTOS -> { overlay?.mostrarGesto(tipo, fala); falarUmaVez(fala) }
-      tipo == "tocar" && (alvoIA != null || indice >= 0) -> { overlay?.mostrarMensagem("…"); agendar(50) }
+      (tipo == "tocar" && (alvoIA != null || indice >= 0)) || (tipo == "tocar_ponto" && pontoIA != null) -> { overlay?.mostrarMensagem("…"); agendar(50) }
       else -> { overlay?.mostrarMensagem(fala); falarUmaVez(fala) }
     }
   }
@@ -238,8 +264,8 @@ class LiaGuiaService : AccessibilityService() {
       falado = false; revelado = true; avaliarTela(); return
     }
     if (tipo == null || (tipo == "tocar" && alvoAtual == null)) {
-      falar("Deixa eu olhar a tela de novo.")
-      raizAtual()?.let { emitirTela(lerContexto(it), "parado") } ?: agendar(800)
+      pediuVer = true
+      raizAtual()?.let { enviarTela(lerContexto(it), "parado") } ?: agendar(800)
       return
     }
     revelado = true
@@ -422,7 +448,7 @@ class LiaGuiaService : AccessibilityService() {
     if (instrucao.isNotBlank()) falar("Vamos com calma. $instrucao")
     avaliarTela()
     if (modoIA && lembretes >= MAX_LEMBRETES) {
-      raizAtual()?.let { emitirTela(lerContexto(it), "parado") }
+      raizAtual()?.let { enviarTela(lerContexto(it), "parado") }
     } else {
       handler.postDelayed(lembrar, LEMBRETE_MS)
     }
@@ -609,7 +635,7 @@ class LiaGuiaService : AccessibilityService() {
     if (tipo != null && tipo !in GESTOS && saiuPorContaPropria(ctx)) return pausar()
 
     when {
-      tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) emitirTela(ctx, motivo)
+      tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) enviarTela(ctx, motivo)
       tipo == "tocar" -> {
         val achado = localizar(root, ctx)
         val rolandoAgora = SystemClock.uptimeMillis() - ultimaRolagem < ROLANDO_MS
@@ -624,9 +650,14 @@ class LiaGuiaService : AccessibilityService() {
             alvoAtual = null
             overlay?.mostrarMensagem("Deixa eu ver a tela…")
             faltas++
-            if (faltas >= 2) emitirTela(ctx, "parado") else agendar(400)
+            if (faltas >= 2) enviarTela(ctx, "parado") else agendar(400)
           }
         }
+      }
+      tipo == "tocar_ponto" -> when {
+        // A IA viu o botão só na imagem: o anel vai no ponto que ela indicou.
+        !mudouDesdeInstrucao -> pontoIA?.let { desenharAlvo(Alvo(curto(nomeAlvo).ifBlank { "aqui" }, it, 0.0, it.width() * it.height()), falaIA) }
+        assentou(assinatura) -> { seguiu = nomeAlvo; trocaEsperada = true; emitirTela(ctx, motivo) }
       }
       tipo in GESTOS -> if (mudouDesdeInstrucao && assentou(assinatura)) {
         // A tela mudou: o gesto foi feito.
@@ -716,7 +747,63 @@ class LiaGuiaService : AccessibilityService() {
   // "Instalar — Pier: Seguro Auto [anúncio]" → "Instalar"
   private fun curto(rotulo: String) = rotulo.substringBefore(" — ").replace(Regex("\\s*\\[[^\\]]*\\]"), "").trim()
 
-  private fun emitirTela(ctx: Contexto, motivo: String) {
+  // ================= imagem da tela (plano B quando trava) =================
+  // Só quando o Guia travou (ou a tela quase não tem botões com nome): a Lia olha a imagem da tela.
+  // Antes de sair do celular, senhas, campos digitados, CPF, valores e e-mails ganham uma tarja preta.
+  // Nunca em app protegido, e a imagem não fica guardada em lugar nenhum.
+  private var ultimaImagem = 0L
+  private var pediuVer = false
+
+  private fun querImagem(ctx: Contexto, motivo: String): Boolean {
+    if (Build.VERSION.SDK_INT < 30 || emProtegido != null || Protecao.bloqueado(this, ctx.app)) return false
+    if (SystemClock.uptimeMillis() - ultimaImagem < 15000) return false
+    return motivo == "parado" || pediuVer || (ctx.tela == "app" && ctx.elementos.size < 3)
+  }
+
+  private fun enviarTela(ctx: Contexto, motivo: String) {
+    if (!querImagem(ctx, motivo)) return emitirTela(ctx, motivo)
+    ultimaImagem = SystemClock.uptimeMillis()
+    pediuVer = false
+    overlay?.mostrarMensagem("Deixa eu olhar a tela com mais atenção…")
+    falar("Deixa eu olhar a tela com mais atenção.")
+    // Esconde o balão e o botão por um instante, para a foto mostrar só o app.
+    overlay?.visibility = View.INVISIBLE
+    botao?.visibility = View.INVISIBLE
+    handler.postDelayed({ capturar(ctx, motivo) }, 150)
+  }
+
+  private fun capturar(ctx: Contexto, motivo: String) {
+    fun reexibir() { overlay?.visibility = View.VISIBLE; botao?.visibility = View.VISIBLE }
+    if (Build.VERSION.SDK_INT < 30) { reexibir(); return emitirTela(ctx, motivo) }
+    try {
+      takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+        override fun onSuccess(r: ScreenshotResult) {
+          reexibir()
+          val img = try { prepararImagem(r, ctx.sensiveis) } catch (_: Exception) { null } finally { r.hardwareBuffer.close() }
+          if (ativo) emitirTela(ctx, motivo, img)
+        }
+        override fun onFailure(codigo: Int) { reexibir(); if (ativo) emitirTela(ctx, motivo) }
+      })
+    } catch (_: Exception) { reexibir(); emitirTela(ctx, motivo) }
+  }
+
+  private fun prepararImagem(r: ScreenshotResult, sensiveis: List<Rect>): String? {
+    if (Build.VERSION.SDK_INT < 30) return null
+    val hw = Bitmap.wrapHardwareBuffer(r.hardwareBuffer, r.colorSpace) ?: return null
+    val bmp = hw.copy(Bitmap.Config.ARGB_8888, true)
+    hw.recycle()
+    val tarja = Paint().apply { color = Color.BLACK }
+    Canvas(bmp).apply { sensiveis.forEach { drawRect(it, tarja) } }
+    val largura = 540
+    val menor = Bitmap.createScaledBitmap(bmp, largura, (bmp.height * largura.toFloat() / bmp.width).toInt(), true)
+    bmp.recycle()
+    val out = ByteArrayOutputStream()
+    menor.compress(Bitmap.CompressFormat.JPEG, 60, out)
+    menor.recycle()
+    return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+  }
+
+  private fun emitirTela(ctx: Contexto, motivo: String, imagem: String? = null) {
     limparInstrucaoIA()
     telaEnviada++
     rotulosEnviados = ctx.elementos
@@ -733,7 +820,7 @@ class LiaGuiaService : AccessibilityService() {
     LiaGuiaBridge.emit("onScreen", mapOf(
       "app" to ctx.app, "tela" to ctx.tela, "elementos" to ctx.elementos, "textos" to ctx.textos,
       "rolavel" to ctx.rolavel, "motivo" to motivo, "errou" to erro, "seguiu" to cumpriu, "id" to telaEnviada,
-      "escondidos" to ctx.escondidos, "titulo" to ctx.titulo,
+      "escondidos" to ctx.escondidos, "titulo" to ctx.titulo, "imagem" to imagem,
     ))
   }
 
@@ -886,6 +973,7 @@ class LiaGuiaService : AccessibilityService() {
     val telaToda = Rect(0, 0, dm.widthPixels, dm.heightPixels)
     val util = areaUtil()
     val escondidos = LinkedHashSet<String>()
+    val sensiveis = mutableListOf<Rect>()
     val elementos = mutableListOf<String>()
     val alvos = mutableListOf<Rect>()
     val vistos = HashSet<String>()
@@ -899,6 +987,10 @@ class LiaGuiaService : AccessibilityService() {
       if (prof > MAX_PROFUNDIDADE) return
       if (n.isVisibleToUser) {
         if (n.isScrollable) rolavel = true
+        val bruto = (n.text ?: n.contentDescription)?.toString()
+        if (n.isPassword || n.isEditable || (bruto != null && Protecao.limpar(bruto) != bruto)) {
+          if (sensiveis.size < 60) sensiveis.add(Rect().also { n.getBoundsInScreen(it) })
+        }
         val label = nomeDe(n)
         if (!label.isNullOrEmpty()) {
           val c = acharClicavel(n)
@@ -935,7 +1027,7 @@ class LiaGuiaService : AccessibilityService() {
       else -> "app"
     }
     if (titulo.isEmpty()) titulo = (if (Build.VERSION.SDK_INT >= 24) root.window?.title?.toString() else null)?.take(40) ?: ""
-    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos, escondidos.toList(), titulo)
+    return Contexto(app, tela, elementos, textos.toList(), rolavel, alvos, escondidos.toList(), titulo, sensiveis)
   }
 
   // " [ligado]" / " [desligado]" / " [selecionado]" / " [indisponível]": o estado do botão, de qualquer app.

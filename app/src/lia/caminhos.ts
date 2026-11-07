@@ -55,7 +55,8 @@ export async function salvarCaminho(objetivo: string, app: string, passos: Passo
 // Frase curta para cada passo (usada nos cartões e no resumo do fim).
 export function fraseDoPasso(p: PassoCaminho): string {
   switch (p.tipo) {
-    case 'tocar': return `Toque em ${p.nome}`;
+    case 'tocar':
+    case 'tocar_ponto': return `Toque em ${p.nome}`;
     case 'painel': return 'Puxe do alto da tela, pelo lado direito';
     case 'rolar_baixo': return 'Arraste a tela para cima';
     case 'rolar_cima': return 'Arraste a tela para baixo';

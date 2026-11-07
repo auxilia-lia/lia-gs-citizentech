@@ -307,3 +307,13 @@ def test_guia7_plano():
     assert [p["tipo"] for p in r["passos"]] == ["painel", "tocar"] and r["passos"][1]["nome"] == "Bluetooth"
     assert guia.interpretar_plano({"passos": [{"tipo": "tocar", "nome": "Pagar"}, {"tipo": "tocar", "nome": "Pesquisar"},
                                               {"tipo": "voar"}]}) == [{"tipo": "tocar", "nome": "Pesquisar"}]
+
+
+def test_guia8_tocar_ponto_so_com_imagem():
+    import guia
+    r = {"tipo": "tocar_ponto", "ponto": [880, 120], "nome": "o lápis", "fala": "É ali que edita."}
+    p = guia.interpretar(r, ["Voltar"], "editar o contato", com_imagem=True)
+    assert p["tipo"] == "tocar_ponto" and p["alvo"] == "880,120|o lápis" and "círculo" in p["fala"]
+    assert guia.interpretar(r, ["Voltar"], "editar", com_imagem=False)["tipo"] == "esperar"
+    assert guia.interpretar({**r, "ponto": [2000, 1]}, [], "x", com_imagem=True)["tipo"] == "esperar"
+    assert "IMAGEM" in guia.montar_prompt("x", "app", [], [], com_imagem=True)

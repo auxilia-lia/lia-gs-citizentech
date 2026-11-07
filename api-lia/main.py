@@ -158,6 +158,7 @@ class TelaGuia(BaseModel):
     titulo: str = Field(default="", max_length=120)  # nome da tela atual
     caminho: list[str] = Field(default=[], max_length=12)  # telas por onde ela passou
     plano: list[str] = Field(default=[], max_length=10)  # o resto do caminho provável (dica para a IA)
+    imagem: str | None = Field(default=None, max_length=3_000_000)  # JPEG base64 com tarjas, só quando travou
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -201,18 +202,21 @@ async def guia_proximo(t: TelaGuia):
     if provedor() not in ("gemini", "claude"):
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": provedor()}
     # "parado" e "errou" pedem um caminho novo: não usam a resposta guardada.
-    chave = _chave_guia(t, elementos) if t.motivo in ("mudou", "inicio") else None
+    chave = _chave_guia(t, elementos) if t.motivo in ("mudou", "inicio") and not t.imagem else None
     agora = time.monotonic()
     if chave and chave in _CACHE_GUIA and agora - _CACHE_GUIA[chave][0] < CACHE_GUIA_S:
         return {**_CACHE_GUIA[chave][1], "provedor": f"{provedor()} (guardado)"}
     lista = elementos[:45]
     try:
-        r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args, **extra),
-                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], max_tokens=180, prazo=7)
+        img = {"base64": t.imagem, "mime": "image/jpeg"} if t.imagem else None
+        r = await gerar(guia.montar_prompt(t.objetivo, t.app, lista, t.feitos, textos=textos[:20], **args, **extra,
+                                           com_imagem=bool(img)),
+                        [{"papel": "pessoa", "texto": "Qual é o próximo passo?"}], imagem=img, max_tokens=220,
+                        prazo=14 if img else 7)
     except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
         log.exception("IA indisponível para o Guia; usando as regras")
         return {**guia.proximo_teste(t.objetivo, elementos, t.feitos, **args), "provedor": "regras (IA indisponível)"}
-    passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel)
+    passo = guia.interpretar(r, lista, t.objetivo, textos, t.rolavel, com_imagem=bool(t.imagem))
     if chave:
         if len(_CACHE_GUIA) > 300:
             _CACHE_GUIA.clear()

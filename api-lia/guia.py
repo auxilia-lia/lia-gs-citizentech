@@ -6,7 +6,7 @@ import re
 from antigolpe import normalizar
 from gov_simulado import FLUXOS
 
-TIPOS = {"tocar", "painel", "rolar_baixo", "rolar_cima", "voltar", "inicio", "esperar"}
+TIPOS = {"tocar", "tocar_ponto", "painel", "rolar_baixo", "rolar_cima", "voltar", "inicio", "esperar"}
 GESTOS = {"painel", "rolar_baixo", "rolar_cima", "voltar", "inicio"}
 
 # Passos que a Lia nunca escolhe sozinha: a decisão final é da pessoa.
@@ -97,6 +97,14 @@ Quem errou: se ela FEZ o que você pediu e a tela não é a esperada, o erro foi
 ("Me enganei, esse não era o caminho. Vamos voltar.") e NUNCA diga que ela tocou errado.
 Só diga que ela tocou em outro lugar quando "O que aconteceu" disser isso, e mesmo assim sem culpa ("sem problema").
 Responda SOMENTE com JSON: {{"tipo": "...", "indice": número ou null, "fala": "...", "concluido": true ou false}}"""
+
+IMAGEM = """
+Você também recebeu a IMAGEM da tela (dados pessoais cobertos com tarja preta), porque o Guia travou.
+Use a imagem para entender a tela. Se o botão certo está na lista, use "tocar" com o número.
+Se ele NÃO está na lista mas aparece na imagem (ícone sem nome, por exemplo), use "tipo": "tocar_ponto" com
+"ponto": [x, y] = centro do botão em milésimos da imagem (0 a 1000; x a partir da esquerda, y a partir do topo)
+e "nome": como a pessoa chamaria esse botão (ex.: "o lápis", "a engrenagem").
+Nunca aponte para uma tarja preta."""
 
 ONDE = {"inicio": "a tela inicial do celular", "painel": "o painel rápido (aberto do alto da tela)", "app": "dentro de um app"}
 MOTIVOS = {"mudou": "a tela mudou depois do último passo", "errou": "ela tocou no lugar errado: \"{errou}\"",
@@ -322,7 +330,7 @@ def proximo_teste(objetivo: str, elementos: list[str], feitos: list[str], tela: 
 def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[str], tela: str = "app",
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
                   seguiu: str | None = None, escondidos: list[str] | None = None, titulo: str = "",
-                  caminho: list[str] | None = None, plano: list[str] | None = None) -> str:
+                  caminho: list[str] | None = None, plano: list[str] | None = None, com_imagem: bool = False) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
@@ -332,11 +340,11 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
         escondidos=", ".join(escondidos or []) or "(nenhum)",
         titulo=titulo or "sem título", caminho=" > ".join(caminho or []) or "só esta",
         plano=" > ".join(plano or []) or "não sei",
-    )
+    ) + (IMAGEM if com_imagem else "")
 
 
 def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[str] | None = None,
-                rolavel: bool = False) -> dict:
+                rolavel: bool = False, com_imagem: bool = False) -> dict:
     """Valida a resposta da IA: tipo conhecido, botão existente na lista, nada de anúncio, nunca uma ação final,
     e a fala de "tocar"/gestos montada aqui (a IA só explica o porquê)."""
     fala = str(r.get("fala") or "").strip()
@@ -361,6 +369,13 @@ def interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list[
         # A IA citou um botão fora da lista: não repete o que ela disse.
         return resposta("rolar_baixo", FALAS_GESTO["rolar_baixo"]) if rolavel else \
             resposta("esperar", "Não estou vendo o próximo botão nesta tela. Espere um momento, que eu já te mostro.")
+    if tipo == "tocar_ponto" and com_imagem:
+        ponto, nome = r.get("ponto"), str(r.get("nome") or "esse botão").strip()[:40]
+        if (isinstance(ponto, list) and len(ponto) == 2 and all(isinstance(v, (int, float)) and 0 <= v <= 1000 for v in ponto)
+                and not FINAIS.search(normalizar(nome))):
+            x, y = int(ponto[0]), int(ponto[1])
+            fala_p = f"{explicacao(fala)} Toque em {nome}, onde está o círculo.".strip()
+            return resposta("tocar_ponto", fala_p, f"{x},{y}|{nome}")
     if tipo in GESTOS:
         return resposta(tipo, f"{explicacao(fala)} {FALAS_GESTO[tipo]}".strip())
     return resposta("esperar", fala_espera(fala, elementos) or "Espere um momento, que eu já te mostro.")
