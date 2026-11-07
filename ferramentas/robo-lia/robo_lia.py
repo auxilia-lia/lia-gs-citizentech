@@ -39,10 +39,10 @@ CENARIOS = [
     {"nome": "bateria", "texto": "onde eu vejo quanto de bateria tem e o que está gastando", "escrever": "bateria"},
     # Estes dois param ANTES de mudar algo: chegar na tela certa já é o teste.
     {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "escrever": "tamanho da fonte",
-     "parar_antes": ["aumentar", "reduzir", "diminuir", "aplicar", "salvar", "fonte padrão", "estilo da fonte"], "sucesso_ao_parar": True},
+     "parar_antes": ["aumentar", "reduzir", "diminuir", "aplicar", "salvar", "fonte padrão"], "sucesso_ao_parar": True},
     {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "escrever": "papel de parede",
      "parar_antes": ["galeria", "definir", "aplicar", "salvar", "concluído", "tela de bloqueio", "tela inicial"], "sucesso_ao_parar": True},
-    {"nome": "galeria", "texto": "quero ver as fotos que eu tirei ontem"},
+    {"nome": "galeria", "texto": "quero ver as fotos que eu tirei ontem", "escrever": "ontem"},
     {"nome": "youtube", "texto": "quero assistir um vídeo de receita de bolo no YouTube", "escrever": "receita de bolo"},
 ]
 
@@ -139,6 +139,7 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
 def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
     passos = 0
     telas: dict = {}
+    nomes_tocados: list = []
     ultima_novidade = time.time()
     escreveu = False
     resultado = "limite de tempo"
@@ -192,6 +193,11 @@ def seguir(cenario, pasta, w, h, vistos, historico, inicio, toques, gestos):
                 break
             # A Lia mandando tocar 3x no mesmo lugar sem a tela avançar = bug (ex.: liga/desliga sem fim).
             toques.append((acao["x"], acao["y"]))
+            nomes_tocados.append(nome)
+            if len(nomes_tocados) >= 4 and len(set(nomes_tocados[-4:])) == 1:
+                resultado = f"LOOP: mandou tocar 4 vezes em '{nome}'"
+                print_tela(pasta, passos, "loop")
+                break
             if len(toques) >= 3 and all(abs(x - toques[-1][0]) < 15 and abs(y - toques[-1][1]) < 15 for x, y in toques[-3:]):
                 resultado = f"LOOP: mandou tocar 3 vezes no mesmo lugar ({nome})"
                 print_tela(pasta, passos, "loop")

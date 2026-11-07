@@ -463,3 +463,21 @@ def test_bluetooth_desligado_com_outro_interruptor_ativado():
     els = ["Desativado [desligado] — Bluetooth, Ative o Bluetooth", "Ativado [ligado] — Bluetooth, Mostrar dispositivos"]
     r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "app": "com.android.systemui", "elementos": els}).json()
     assert not r["concluido"]
+
+
+def test_robo_rodada4():
+    import guia
+    loja = "com.android.vending"
+    # resultado: o nome do botão tem que ser o app (não "Navegar para cima — spotify"); "Instalado" conclui
+    els = ["Navegar para cima — spotify", "Spotify: música e podcasts Instalado — Abrir"]
+    r = guia.roteiro_loja("quero instalar o Spotify", els, [], [], titulo="Play Store")
+    assert r["concluido"] and "já está instalado" in r["fala"]
+    # página carregando: espera em vez de reabrir a busca
+    r = guia.roteiro_loja("quero instalar o Spotify", ["Voltar", "Mais opções"], [], [], titulo="")
+    assert r["tipo"] == "esperar" and not r["concluido"]
+    # termo de busca na ordem da frase
+    assert guia.termo_de_busca("quero procurar a Avenida Paulista no GPS") == "Avenida Paulista"
+    # depois de pesquisar, achou o que procurava = concluiu
+    r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", ["Iniciar — Rotas", "Av. Paulista"], ["Busque aqui"], "app",
+                            ["Avenida Paulista, São Paulo"], app="com.google.android.apps.maps", titulo="Maps")
+    assert r["concluido"]

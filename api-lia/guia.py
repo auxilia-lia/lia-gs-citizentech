@@ -219,7 +219,7 @@ def fala_espera(fala: str, elementos: list[str]) -> str:
 # Botões que confirmam algo: só valem na tela DAQUILO que a pessoa pediu.
 COMPROMETE = re.compile(r"^(instalar|atualizar|enviar|confirmar|assinar|aceitar|finalizar|concluir|cadastrar|inscrever|"
                         r"solicitar|baixar|obter|get|install)\b")
-BUSCA = re.compile(r"\b(pesquis\w*|busca\w*|buscar|procurar|lupa|search)\b")
+BUSCA = re.compile(r"\b(pesquis\w*|busc\w*|busqu\w*|procurar|lupa|search)\b")
 GENERICAS = {"quero", "preciso", "como", "fazer", "ajuda", "ajudar", "celular", "agora", "voce", "pode", "favor", "por",
              "instalar", "baixar", "instala", "baixa", "enviar", "mandar", "manda", "envia", "confirmar", "abrir",
              "aplicativo", "app", "apps", "meu", "minha", "uma", "para", "pra", "com", "sobre", "loja", "play", "store",
@@ -249,11 +249,21 @@ def campo_aberto(elementos: list[str]) -> int | None:
     return None
 
 
+def termo_de_busca(objetivo: str) -> str:
+    """'quero procurar a Avenida Paulista no GPS' -> 'Avenida Paulista' (na ordem da frase, sem as palavras do pedido)."""
+    fora = GENERICAS | {"procurar", "pesquisar", "buscar", "achar", "encontrar", "gps", "mapa", "maps", "youtube", "galeria",
+                        "assistir", "video", "videos", "fotos", "foto", "que", "eu", "tirei", "no", "na", "nos", "nas", "um", "uma",
+                        "o", "a", "os", "as", "de", "do", "da", "em", "e", "ver", "quero", "minha", "meu", "app"}
+    palavras_ = [w for w in re.findall(r"[\wÀ-ÿ]+", objetivo) if normalizar(w) not in fora]
+    return " ".join(palavras_[:5])
+
+
 # Objetivos de procurar algo dentro do app: o caminho mais certo é a pesquisa do próprio app.
 PROCURA = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|rota|como chego|assistir|video|musica|receita)\b")
 AJUSTE = re.compile(r"\b(aumentar|diminuir|reduzir|mais|menos|maior|menor|subir|baixar|proximo|anterior)\b")
 ESCOLHER = re.compile(r"\b(selecion\w*|escolh\w*|nenhum item|galeria|fotos|imagens|albuns|arquivos)\b")
 # Objetivos de só VER uma informação: quando ela aparece na tela, acabou.
+ACHAR = re.compile(r"\b(procur\w*|pesquis\w*|busc\w*|achar|encontrar|endereco|onde fica|localizar)\b")
 VER = re.compile(r"\b(ver|vejo|saber|sei|olhar|olho|conferir|confiro|qual|quanto|quantos|quantas|onde)\b")
 
 
@@ -480,6 +490,7 @@ def pagina_do_app(nome: str, elementos: list[str], textos: list[str]) -> bool:
 #   página do app pedido → Instalar (ou "já está instalado") · baixando → espera · terminou → pronto
 #   resultados da busca → o Instalar/resultado DO APP PEDIDO · qualquer outra tela → reabre a busca dele.
 LOJA = "com.android.vending"
+NAVEGA = re.compile(r"\b(navegar|voltar|limpar|fechar|cancelar|mais opcoes|menu|pesquisa por voz)\b")
 ACOES_LOJA = {"instalar", "abrir", "atualizar", "desinstalar", "cancelar", "jogar"}
 NAO_NOME = {"do", "da", "de", "o", "a", "e", "app", "apps", "aplicativo"}
 
@@ -549,8 +560,16 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
         if acao_loja(e) == "instalar" and cobre(nome, fichas(e)):
             return tocar(elementos, i, f"Esse é o {bonito}.")
     for i, e in validos:
-        if not acao_loja(e) and not BUSCA.search(normalizar(curto(e))) and cobre(nome, fichas(e)) and len(curto(e)) > 2:
+        c = curto(e)
+        # o NOME do resultado tem que ser o app (antes "Navegar para cima — spotify" passava pelo contexto)
+        if not acao_loja(e) and not BUSCA.search(normalizar(c)) and not NAVEGA.search(normalizar(c)) and cobre(nome, fichas(c)) and len(c) > 2:
+            if re.search(r"\binstalado\b", normalizar(c)):
+                return resposta("esperar", f"O {bonito} já está instalado no seu celular! Para usar, é só abrir.", concluido=True)
             return tocar(elementos, i, f"Esse é o {bonito}. Vamos abrir a página dele.")
+
+    # Página ainda carregando (quase nada na tela): espera, não reabre a busca.
+    if len(validos) <= 3 and not titulo:
+        return resposta("esperar", "Só um momento, a página está abrindo.")
 
     # Página de outro app, tela inicial da loja ou qualquer outra: reabre a busca do app pedido (no máximo 2 vezes).
     if reabriu < 2:
@@ -599,9 +618,17 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     k = campo_aberto(elementos)
     ja_pesquisou = any(BUSCA.search(normalizar(curto(f))) for f in feitos)
     if k is not None and (ja_pesquisou or BUSCA.search(normalizar(curto(elementos[k])))):
-        termo = " ".join(sorted(entidades(objetivo))) or "o que você procura"
+        termo = termo_de_busca(objetivo) or "o que você procura"
         return resposta("esperar", f"Agora escreva {termo} no campo e toque na lupa ou no Enter. "
                                    "Se preferir, toque no microfone do teclado e fale.")
+    # Procurar um lugar/coisa: depois de pesquisar, se o que ela procurou está na tela, achou. (Antes a Lia seguia
+    # tocando em "Iniciar rota" e no resultado sem parar.)
+    if ja_pesquisou and ACHAR.search(normalizar(objetivo)) and k is None:
+        termo = termo_de_busca(objetivo)
+        alvo_t = fichas(termo)
+        visivel_t = set().union(*[fichas(x) for x in [titulo] + (textos or []) + [curto(e) for e in elementos]]) if elementos or textos else set()
+        if alvo_t and cobre(alvo_t, visivel_t):
+            return resposta("esperar", f"Pronto! Achei {termo}: está aqui na tela.", concluido=True)
     # Procurar algo dentro de um app (endereço, vídeo, música…): a pesquisa do app primeiro.
     j = busca(elementos)
     if tela == "app" and j is not None and not ja_pesquisou and PROCURA.search(normalizar(objetivo)) and "settings" not in (app or ""):

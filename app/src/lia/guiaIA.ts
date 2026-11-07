@@ -52,6 +52,8 @@ type Estado = {
   reaberturas: number;
   visitas: Record<string, number>; // quantas vezes passou por cada tela (para perceber quando anda em círculos)
   ultimaTela: string;
+  ultimaInstrucao: string;
+  repeticoes: number; // a mesma instrução seguida, sem avanço
   ocupado: boolean;
   pendente: TelaEvent | null;
   remover: () => void;
@@ -113,7 +115,7 @@ export function guiarComIA(
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '',
+    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '', ultimaInstrucao: '', repeticoes: 0,
     ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
@@ -140,6 +142,15 @@ export function guiarComIA(
   })();
 
   const instruir = (tela: TelaEvent, tipo: TipoPasso, alvo: string | null, fala: string, indice: number) => {
+    // A mesma instrução 3 vezes seguidas (mesmo com outras palavras em volta): não está avançando. Para com calma.
+    const chave = `${tipo}|${alvo ? nomeCurto(alvo) : ''}|${tipo === 'esperar' ? fala : ''}`;
+    estado.repeticoes = chave === estado.ultimaInstrucao ? estado.repeticoes + 1 : 1;
+    estado.ultimaInstrucao = chave;
+    if (estado.repeticoes >= 3) {
+      LiaGuia.cancel('Não estou conseguindo avançar por aqui. Vou voltar para a Lia, e você me explica de outro jeito.');
+      pararGuiaIA(false);
+      return;
+    }
     const nome = !alvo ? '' : tipo === 'tocar_ponto' ? alvo.split('|')[1] ?? '' : nomeCurto(alvo);
     estado.instrucao = tipo === 'esperar' ? null : { tipo, nome, app: tela.app };
     LiaGuia.instruct(tipo, alvo, fala, indice, tela.id ?? -1);

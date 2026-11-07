@@ -765,6 +765,12 @@ class LiaGuiaService : AccessibilityService() {
     when {
       tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) enviarTela(ctx, motivo)
       tipo == "tocar" && trocouEstado(ctx) -> acertou()
+      // Ela tocou (o Android avisou o toque, mas sem dizer onde) e a tela mudou: segue a partir da tela nova.
+      // Antes, com dois botões de mesmo nome (Maps), o anel pulava de um para o outro sem fim.
+      tipo == "tocar" && mudouDesdeInstrucao && ultimoClique > instrucaoDesdeUp && ultimoErro == null -> if (assentou(assinatura)) {
+        seguiu = alvoIA; trocaEsperada = true
+        emitirTela(ctx, "mudou")
+      }
       tipo == "tocar" -> {
         val achado = localizar(root, ctx, parecido = !mudouDesdeInstrucao)
         val rolandoAgora = SystemClock.uptimeMillis() - ultimaRolagem < ROLANDO_MS
