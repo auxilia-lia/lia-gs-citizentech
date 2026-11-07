@@ -26,10 +26,17 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 # Cenários que não mexem em nada importante do celular (o robô toca de verdade onde a Lia mandar).
 CENARIOS = [
     {"nome": "bluetooth", "texto": "quero ligar o bluetooth"},
+    {"nome": "bluetooth-ja-ligado", "texto": "quero ligar o bluetooth"},  # roda logo depois: tem que dizer que já está
+    {"nome": "lanterna", "texto": "como eu acendo a lanterna"},
     {"nome": "spotify-ja-instalado", "texto": "quero instalar o Spotify"},
     {"nome": "gps", "texto": "quero procurar a Avenida Paulista no GPS", "escrever": "Avenida Paulista"},
     {"nome": "whatsapp-arquivadas", "texto": "como eu vejo as conversas arquivadas no WhatsApp"},
+    {"nome": "versao-android", "texto": "como eu vejo a versão do Android do meu celular"},
+    {"nome": "bateria", "texto": "onde eu vejo quanto de bateria tem e o que está gastando"},
     {"nome": "configuracoes-letra", "texto": "onde eu mudo o tamanho da letra", "parar_antes": ["aplicar", "salvar"]},
+    {"nome": "papel-de-parede", "texto": "quero trocar o papel de parede", "parar_antes": ["definir", "aplicar", "salvar"]},
+    {"nome": "galeria", "texto": "quero ver as fotos que eu tirei ontem"},
+    {"nome": "youtube", "texto": "quero assistir um vídeo de receita de bolo no YouTube", "escrever": "receita de bolo"},
 ]
 
 MAX_PASSOS = 18
@@ -108,6 +115,7 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
     inicio = time.time()
     ultima_novidade = time.time()
     escreveu = False
+    toques: list = []
     resultado = "limite de tempo"
     while time.time() - inicio < LIMITE_S:
         time.sleep(1.5)
@@ -147,6 +155,12 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
             if any(p in nome.lower() for p in cenario.get("parar_antes", [])):
                 resultado = f"parado antes de '{nome}' (de propósito)"
                 break
+            # A Lia mandando tocar 3x no mesmo lugar sem a tela avançar = bug (ex.: liga/desliga sem fim).
+            toques.append((acao["x"], acao["y"]))
+            if len(toques) >= 3 and all(abs(x - toques[-1][0]) < 15 and abs(y - toques[-1][1]) < 15 for x, y in toques[-3:]):
+                resultado = f"LOOP: mandou tocar 3 vezes no mesmo lugar ({nome})"
+                print_tela(pasta, passos, "loop")
+                break
             print_tela(pasta, passos, "tocar")
             print(f"  robô: toca em {nome} ({acao.get('x')}, {acao.get('y')})")
             adb("shell", "input", "tap", str(acao["x"]), str(acao["y"]))
@@ -161,8 +175,11 @@ def rodar(cenario: dict, pasta_base: pathlib.Path) -> dict:
             print_tela(pasta, passos, acao["tipo"])
             print(f"  robô: gesto {acao['tipo']}")
             gesto(acao["tipo"], w, h)
-    # Parar o Guia (se ainda estiver) e guardar tudo.
-    adb("shell", "am", "start", "-n", f"{PACOTE}/.MainActivity")
+    # Encerra o Guia (senão ele continua no próximo cenário), fecha o painel e guarda tudo.
+    adb("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "lia://parar", PACOTE)
+    time.sleep(1.5)
+    adb("shell", "input", "keyevent", "3")  # tela inicial (fecha o painel rápido, se ficou aberto)
+    time.sleep(1)
     log = adb("logcat", "-d", "-v", "time", timeout=60)
     (pasta / "logcat-completo.txt").write_text(log, encoding="utf-8")
     relevantes = [l for l in log.splitlines() if re.search(r"LIA_ROBO|LiaGuia|ReactNativeJS|AndroidRuntime|FATAL|TextToSpeech|SpeechRecognizer", l)]

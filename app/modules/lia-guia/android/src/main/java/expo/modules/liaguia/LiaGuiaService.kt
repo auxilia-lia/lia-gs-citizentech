@@ -136,6 +136,7 @@ class LiaGuiaService : AccessibilityService() {
   }
   private var telaEnviada = 0 // conta as telas enviadas para a IA (resposta de tela antiga é descartada)
   private var rotulosEnviados: List<String> = emptyList()
+  private var alvosEnviados: List<Rect> = emptyList()
   private var assinaturaEmitida = "" // a última tela mandada para a IA
 
   // O que a pessoa está fazendo (para a Lia não se confundir quando ela mexe no celular)
@@ -349,6 +350,7 @@ class LiaGuiaService : AccessibilityService() {
     botao?.atento = false
     tts?.stop()
     handler.removeCallbacks(lembrar)
+    escutaManual = true
     iniciarEscuta()
   }
 
@@ -439,7 +441,7 @@ class LiaGuiaService : AccessibilityService() {
   private val ouvinte = object : RecognitionListener {
     override fun onResults(results: Bundle?) {
       val texto = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
-      if (escutaAutomatica) {
+      if (!escutaManual) {
         escutaAutomatica = false
         botao?.atento = false
         val chamou = Regex("^(oi |ola |ei )?lia\\b[ ,]*").find(Matcher.normalize(texto))
@@ -450,16 +452,19 @@ class LiaGuiaService : AccessibilityService() {
         }
         return
       }
+      escutaManual = false
       aoOuvir(texto)
     }
     override fun onError(error: Int) {
       botao?.ouvindo = false
-      if (escutaAutomatica) { // silêncio ou barulho: tudo bem, recomeça
+      // Escuta automática (ou cancelada porque a Lia foi falar): silêncio ou barulho, tudo bem, recomeça.
+      if (!escutaManual || error == SpeechRecognizer.ERROR_CLIENT) {
         escutaAutomatica = false
         botao?.atento = false
         agendarEscuta(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 1200 else 300)
         return
       }
+      escutaManual = false
       agendarEscuta(1500)
       falar("Não ouvi direito. Toque no microfone e fale de novo.")
       if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS)
@@ -733,6 +738,7 @@ class LiaGuiaService : AccessibilityService() {
 
     when {
       tipo == null -> if (assinatura != assinaturaEmitida && assentou(assinatura)) enviarTela(ctx, motivo)
+      tipo == "tocar" && trocouEstado(ctx) -> acertou()
       tipo == "tocar" -> {
         val achado = localizar(root, ctx)
         val rolandoAgora = SystemClock.uptimeMillis() - ultimaRolagem < ROLANDO_MS
@@ -756,7 +762,7 @@ class LiaGuiaService : AccessibilityService() {
         !mudouDesdeInstrucao -> pontoIA?.let { desenharAlvo(Alvo(curto(nomeAlvo).ifBlank { "aqui" }, it, 0.0, it.width() * it.height()), falaIA) }
         assentou(assinatura) -> { seguiu = nomeAlvo; trocaEsperada = true; emitirTela(ctx, motivo) }
       }
-      tipo in GESTOS -> if (mudouDesdeInstrucao && assentou(assinatura)) {
+      tipo in GESTOS -> if (mudouDesdeInstrucao && (tipo != "painel" || ctx.tela == "painel") && assentou(assinatura)) {
         // A tela mudou: o gesto foi feito.
         seguiu = tipo
         trocaEsperada = true
@@ -837,10 +843,34 @@ class LiaGuiaService : AccessibilityService() {
         val b = ctx.alvos[j]
         return Alvo(curto(rotulo), b, 0.0, b.width() * b.height())
       }
-      // O número não vale mais (a tela mudou): o nome curto ainda pode estar em outro lugar.
-      return melhorAlvo(root, curto(rotulo))
+      // O número não vale mais (a tela mudou): o nome curto ainda pode estar em outro lugar,
+      // mas nunca o "oposto" ("Ativado" não é "Desativado": era o mesmo botão, que já mudou de estado).
+      return melhorAlvo(root, curto(rotulo))?.takeUnless { oposto(it.label, curto(rotulo)) }
     }
-    return alvoIA?.let { melhorAlvo(root, curto(it)) }
+    return alvoIA?.let { a -> melhorAlvo(root, curto(a))?.takeUnless { oposto(it.label, curto(a)) } }
+  }
+
+  private fun oposto(a: String, b: String): Boolean {
+    val x = Matcher.normalize(a).trim()
+    val y = Matcher.normalize(b).trim()
+    if (x == y) return false
+    val pares = listOf("ligado" to "desligado", "ativado" to "desativado", "ativar" to "desativar", "ligar" to "desligar", "on" to "off")
+    return x.removePrefix("des") == y.removePrefix("des") || pares.any { (p, q) -> (x.contains(p) && y.contains(q)) || (x.contains(q) && y.contains(p)) } &&
+      x.replace(Regex("\\b(des)?(ligad[oa]|ativad[oa]|ligar|ativar|on|off)\\b"), "").trim() == y.replace(Regex("\\b(des)?(ligad[oa]|ativad[oa]|ligar|ativar|on|off)\\b"), "").trim()
+  }
+
+  // O botão pedido continua no MESMO lugar, mas o estado mudou ([desligado] → [ligado]): a pessoa tocou nele.
+  // (Alguns interruptores do Samsung não avisam o toque; antes a Lia mandava tocar de novo e desligava.)
+  private val ESTADO = Regex("\\[(ligado|desligado|selecionado)\\]")
+  private fun trocouEstado(ctx: Contexto): Boolean {
+    val i = indiceIA
+    if (i !in rotulosEnviados.indices || i !in alvosEnviados.indices) return false
+    val antes = ESTADO.find(rotulosEnviados[i].substringBefore(" — "))?.value ?: return false
+    val lugar = alvosEnviados[i]
+    val j = ctx.alvos.indexOfFirst { kotlin.math.abs(it.centerX() - lugar.centerX()) < 12 && kotlin.math.abs(it.centerY() - lugar.centerY()) < 12 }
+    if (j < 0) return false
+    val agora = ESTADO.find(ctx.elementos[j].substringBefore(" — "))?.value ?: return false
+    return agora != antes
   }
 
   // "Instalar — Pier: Seguro Auto [anúncio]" → "Instalar"
@@ -906,6 +936,7 @@ class LiaGuiaService : AccessibilityService() {
     limparInstrucaoIA()
     telaEnviada++
     rotulosEnviados = ctx.elementos
+    alvosEnviados = ctx.alvos
     assinaturaEmitida = "${ctx.app}|${ctx.tela}|${estavel(ctx.elementos)}"
     candidata = ""
     resumoTela = "tela \"${ctx.titulo}\" do app ${Protecao.nome(this, ctx.app)}; botões: " + ctx.elementos.take(12).joinToString(", ") { curto(it) + (Regex("\\[(ligado|desligado)\\]").find(it)?.value?.let { e -> " $e" } ?: "") }
@@ -1276,6 +1307,7 @@ class LiaGuiaService : AccessibilityService() {
   // Pedidos do Guia valem direto ("e agora?", "espera", "para", "já baixou?", "o que é isso?"); qualquer outra coisa
   // precisa começar com "Lia" ("Lia, quero outra coisa"), para conversa da sala ou TV não virar mensagem.
   private var escutaAutomatica = false
+  private var escutaManual = false // a pessoa tocou no microfone (só aí a Lia diz "não ouvi")
   private var escutaContinua = false
   private val escutar = Runnable {
     if (!escutaContinua || !ativo || botao?.ouvindo == true || tts?.isSpeaking == true) return@Runnable

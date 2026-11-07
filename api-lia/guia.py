@@ -154,8 +154,15 @@ def ja_esta(objetivo: str, elemento: str) -> dict | None:
     q, e = quer_estado(objetivo), estado(elemento)
     nome = curto(elemento)
     junto = lambda t: re.sub(r"[^a-z0-9]", "", normalizar(t))  # noqa: E731  ("Wi-Fi" e "wifi" viram "wifi")
-    if q and e == q and len(junto(nome)) > 1 and (palavras(nome) & palavras(objetivo) or junto(nome) in junto(objetivo)):
+    if not (q and e == q):
+        return None
+    if len(junto(nome)) > 1 and (palavras(nome) & palavras(objetivo) or junto(nome) in junto(objetivo)):
         return resposta("esperar", f"O {nome} já está {q}. Não precisa fazer nada!", concluido=True)
+    # Interruptor com nome genérico ("Ativado", "Desativado") no detalhe de um item: o item vem no contexto
+    # ("Ativado [ligado] — Bluetooth, ..."). Vale se o primeiro nome do contexto é o que ela quer.
+    ctx = contexto(elemento).split(",")[0].strip()
+    if ctx and len(junto(ctx)) > 1 and (palavras(ctx) & palavras(objetivo) or junto(ctx) in junto(objetivo)):
+        return resposta("esperar", f"O {ctx} já está {q}. Não precisa fazer nada!", concluido=True)
     return None
 
 
@@ -523,6 +530,10 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
     # Painel rápido: o item já está na tela
     item = item_do_painel(objetivo)
     if item:
+        for e in elementos:  # inclusive o interruptor do detalhe ("Ativado [ligado] — Bluetooth")
+            pronto = ja_esta(objetivo, e)
+            if pronto:
+                return pronto
         i = achar_i(elementos, item)
         if i is not None and ja_esta(objetivo, elementos[i]):
             return ja_esta(objetivo, elementos[i])

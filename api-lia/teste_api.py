@@ -402,3 +402,18 @@ def test_loja_sabe_quando_terminou_sem_titulo():
     assert r["tipo"] == "esperar" and not r["concluido"]
     r = guia.roteiro_loja(obj, ["Desinstalar", "Abrir"], [], ["Instalar"], titulo="")
     assert r["concluido"] and "foi instalado" in r["fala"]
+
+
+def test_interruptor_generico_no_detalhe():
+    import guia
+    els = ["Ativado [ligado] — Bluetooth, Ative o Bluetooth para consultar uma lista"]
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, els, "quero ligar o bluetooth")
+    assert r["concluido"] and "Bluetooth já está ligado" in r["fala"]
+    r = guia.interpretar({"tipo": "tocar", "indice": 0}, ["Desativado [desligado] — Bluetooth, Ative"], "quero ligar o bluetooth")
+    assert r["tipo"] == "tocar"
+
+
+def test_painel_detalhe_bluetooth_conclui():
+    r = c.post("/guia/proximo", json={"objetivo": "quero ligar o bluetooth", "tela": "painel", "app": "com.android.systemui",
+                                      "elementos": ["Ativado [ligado] — Bluetooth, Ative o Bluetooth", "Concluído"]}).json()
+    assert r["concluido"]

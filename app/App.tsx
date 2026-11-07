@@ -3,6 +3,7 @@ import { Linking, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useMargens } from './src/ui/margens';
 import Inicio from './src/telas/Inicio';
+import { pararGuiaIA } from './src/lia/guiaIA';
 import Conversa, { Pedido } from './src/telas/Conversa';
 import Familia from './src/telas/Familia';
 import Voce from './src/telas/Voce';
@@ -43,6 +44,7 @@ export default function App() {
   // lia://pedir?texto=... manda um pedido para a conversa (usado pelo robô de testes, ferramentas/robo-lia).
   useEffect(() => {
     const abrir = (url?: string | null) => {
+      if (url === 'lia://parar') { pararGuiaIA(); return; } // robô: encerra o Guia entre um teste e outro
       const m = url?.match(/^lia:\/\/pedir\?texto=(.+)$/);
       if (m) pedir({ tipo: 'texto', texto: decodeURIComponent(m[1].replace(/\+/g, ' ')) });
     };
