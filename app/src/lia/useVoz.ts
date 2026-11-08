@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import * as Speech from 'expo-speech';
-import { falar as falarComVoz } from './fala';
+import { calar as calarTudo, falar as falarComVoz } from './fala';
+import { registrar } from './registro';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 // Ouvir (reconhecimento de voz do Android, pt-BR) e falar (texto para voz).
@@ -24,19 +25,22 @@ export function useVoz(onOuvido: (texto: string) => void) {
   useSpeechRecognitionEvent('end', () => {
     setOuvindo(false);
     const t = (final.current || ultimoParcial.current).trim();
+    registrar('app_ouviu', { texto: t });
     final.current = '';
     ultimoParcial.current = '';
     setParcial('');
     callback.current(t);
   });
   useSpeechRecognitionEvent('error', (e) => {
+    registrar('app_erro_escuta', { erro: String(e.error) });
     const silencio = ['no-speech', 'aborted', 'speech-timeout'];
     if (!silencio.includes(String(e.error))) setErro(`Não consegui ouvir (${e.error}).`);
   });
 
   const ouvir = async () => {
     setErro('');
-    Speech.stop();
+    calarTudo(); // a voz do Guia também: senão o microfone ouve a própria Lia
+    registrar('app_microfone', { acao: 'abrir' });
     setFalando(false);
     const p = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!p.granted) {
@@ -49,22 +53,29 @@ export function useVoz(onOuvido: (texto: string) => void) {
 
   const pararDeOuvir = () => ExpoSpeechRecognitionModule.stop();
 
-  const falar = (texto: string, depois?: () => void) => {
+  // fila: a resposta chega em partes; cada parte continua a anterior. O "depois" (abrir o Guia, por exemplo)
+  // espera o fim previsto de TUDO o que está na fila, e acontece mesmo se a voz travar ou ficar muda.
+  const fimPrevisto = useRef(0);
+  const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const falar = (texto: string, depois?: () => void, fila = false) => {
     setFalando(true);
-    // O que vem depois da fala (abrir o Guia, por exemplo) acontece MESMO se a voz travar ou ficar muda:
-    // antes, sem o "terminou de falar", a Lia nem abria o Guia.
+    const duracao = Math.min(15000, 1500 + texto.length * 70);
+    fimPrevisto.current = (fila ? Math.max(Date.now(), fimPrevisto.current) : Date.now()) + duracao;
     let feito = false;
-    const seguir = () => { if (feito) return; feito = true; clearTimeout(t); setFalando(false); depois?.(); };
-    const t = setTimeout(seguir, Math.min(15000, 2500 + texto.length * 75));
-    Speech.stop();
+    let meu: ReturnType<typeof setTimeout> | undefined;
+    const seguir = () => { if (feito) return; feito = true; clearTimeout(meu); if (espera.current === meu) setFalando(false); depois?.(); };
+    meu = setTimeout(seguir, Math.max(800, fimPrevisto.current - Date.now() + 1000));
+    espera.current = meu;
+    if (!fila) Speech.stop();
     falarComVoz(texto, {
+      fila,
       onDone: seguir,
-      onStopped: () => { if (!feito) { feito = true; clearTimeout(t); setFalando(false); } },
+      onStopped: () => { if (!feito && !fila) { feito = true; clearTimeout(meu); setFalando(false); } },
       onError: seguir,
     });
   };
 
-  const calar = () => { Speech.stop(); setFalando(false); };
+  const calar = () => { calarTudo(); setFalando(false); };
 
   return { ouvindo, falando, parcial, erro, setErro, ouvir, pararDeOuvir, falar, calar };
 }

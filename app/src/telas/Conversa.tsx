@@ -4,7 +4,9 @@ import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
-import { Acao, AnaliseGolpe, buscarFluxos, conversar, entenderFoto, Mensagem, urlGov } from '../lia/api';
+import { Acao, AnaliseGolpe, buscarFluxos, conversar, conversarEmPartes, entenderFoto, Mensagem, urlGov } from '../lia/api';
+import { registrar } from '../lia/registro';
+import { respostaRapida } from '../lia/rapido';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
 import { ler } from '../lia/armazenamento';
 import { montarContexto } from '../lia/contexto';
@@ -193,13 +195,63 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     const historico: Mensagem[] = [...mensagens, { papel: 'pessoa', texto }];
     setMensagens(historico);
     setPensando(true);
+    const t0 = Date.now();
+    registrar('app_pedido', { texto });
+    const contexto = await montarContexto();
+
+    // Pedido comum (Bluetooth, lanterna, letra...): resolve no celular, sem esperar a IA.
+    const rapida = !contexto.guia ? respostaRapida(texto) : null;
+    if (rapida) {
+      registrar('app_resposta', { ms: Date.now() - t0, rapida: true, acao: rapida.acao.tipo });
+      setPensando(false);
+      setMensagens((m) => [...m, { papel: 'lia', texto: rapida.fala }]);
+      voz.falar(rapida.fala, () => executar(rapida.acao));
+      return;
+    }
+
+    // A resposta chega em partes: a Lia já fala a primeira frase enquanto o resto ainda está chegando.
+    const partes: string[] = [];
+    let jaFalou = false;
+    // Se a primeira frase demorar, a Lia avisa que ouviu (o silêncio parece travamento).
+    const aviso = setTimeout(() => {
+      if (partes.length) return;
+      jaFalou = true;
+      voz.falar('Só um instante.');
+      registrar('app_aviso_espera', { ms: Date.now() - t0 });
+    }, 1800);
+    const aoParcial = (frase: string) => {
+      if (!partes.length) {
+        registrar('app_primeira_frase', { ms: Date.now() - t0 });
+        setPensando(false);
+        setMensagens((m) => [...m, { papel: 'lia', texto: frase }]);
+      } else {
+        setMensagens((m) => [...m.slice(0, -1), { papel: 'lia', texto: [...partes, frase].join(' ') }]);
+      }
+      partes.push(frase);
+      voz.falar(frase, undefined, jaFalou);
+      jaFalou = true;
+    };
     try {
-      const r = await conversar(historico.slice(1), mapa.current, 'app', await montarContexto());
+      let r;
+      try {
+        r = await conversarEmPartes(historico.slice(1), mapa.current, 'app', contexto, aoParcial);
+      } catch (e) {
+        if (partes.length) throw e;
+        r = await conversar(historico.slice(1), mapa.current, 'app', contexto); // servidor sem partes
+      }
+      clearTimeout(aviso);
+      registrar('app_resposta', { ms: Date.now() - t0, partes: partes.length, acao: r.acao?.tipo ?? null });
       setEscondidos(quantosEscondidos(mapa.current));
       setGolpe(r.golpe);
-      setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
-      voz.falar(r.fala, () => r.acao && executar(r.acao));
+      const dito = partes.join(' ');
+      const resto = !partes.length ? r.fala : r.fala.startsWith(dito) ? r.fala.slice(dito.length).trim() : '';
+      if (partes.length) setMensagens((m) => [...m.slice(0, -1), { papel: 'lia', texto: r.fala }]);
+      else setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
+      const depois = () => { if (r.acao) executar(r.acao); };
+      voz.falar(resto, depois, jaFalou);
     } catch {
+      clearTimeout(aviso);
+      registrar('app_erro_resposta', { ms: Date.now() - t0 });
       voz.setErro(SEM_SERVIDOR);
     } finally {
       setPensando(false);

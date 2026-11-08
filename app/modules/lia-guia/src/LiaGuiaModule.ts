@@ -94,6 +94,9 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   voice(): string | null;
   /** A Lia fala por cima do outro app. */
   say(texto: string): void;
+  sayNext(texto: string): void;
+  shutUp(): void;
+  log(evento: string, json: string): void;
   readScreen(): ScreenNode[];
 }
 

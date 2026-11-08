@@ -168,6 +168,14 @@ class LiaGuiaService : AccessibilityService() {
   private fun log(onde: String, e: Throwable) = android.util.Log.e("LiaGuia", "falha em $onde", e)
 
   // Registro para o robô de testes (adb logcat -s LIA_ROBO): o que o Guia está mostrando, em JSON.
+  // Registro de uso (logcat LIA_ROBO): o app também escreve aqui pelo módulo (LiaGuia.log).
+  fun registrar(evento: String, json: String) {
+    try {
+      val j = org.json.JSONObject(json).put("evento", evento).put("t", System.currentTimeMillis())
+      android.util.Log.i("LIA_ROBO", j.toString())
+    } catch (_: Exception) {}
+  }
+
   private fun robo(evento: String, vararg dados: Pair<String, Any?>) {
     try {
       val j = org.json.JSONObject().put("evento", evento).put("t", System.currentTimeMillis())
@@ -291,6 +299,17 @@ class LiaGuiaService : AccessibilityService() {
   // A Lia fala por cima do outro app (resposta da conversa durante o Guia).
   fun dizer(texto: String) = naPrincipal { falar(texto) }
 
+  // Cala a Lia na hora (a pessoa tocou no microfone do app: senão o microfone ouve a própria Lia).
+  fun calarVoz() = naPrincipal { try { tts?.stop() } catch (_: Exception) {} }
+
+  // Continua a fala sem cortar a anterior (a resposta da Lia chega em partes).
+  fun dizerEmSeguida(texto: String) = naPrincipal {
+    garantirVoz()
+    if (texto.isBlank()) return@naPrincipal
+    robo("fala", "texto" to texto, "tts" to ttsPronto, "fila" to true)
+    if (!ttsPronto || tts?.speak(texto, TextToSpeech.QUEUE_ADD, null, "lia-guia") == TextToSpeech.ERROR) reconectarVoz(texto)
+  }
+
   // A pessoa desistiu: para sem dizer que conseguiu, e volta para a Lia.
   fun cancelar(fala: String) = naPrincipal {
     falar(fala)
@@ -372,6 +391,7 @@ class LiaGuiaService : AccessibilityService() {
   private var tentativasManual = 0
 
   private fun iniciarEscuta() {
+    robo("escuta_inicio", "manual" to escutaManual)
     val r = reconhecedor ?: SpeechRecognizer.createSpeechRecognizer(this).also {
       it.setRecognitionListener(ouvinte)
       reconhecedor = it
@@ -462,6 +482,7 @@ class LiaGuiaService : AccessibilityService() {
         escutaAutomatica = false
         botao?.atento = false
         val chamou = Regex("^(oi |ola |ei )?lia\\b[ ,]*").find(Matcher.normalize(texto))
+        robo("ouviu", "texto" to texto, "manual" to false, "destino" to when { chamou != null -> "chamou_lia"; comandoDoGuia(texto) -> "comando"; else -> "ignorado" })
         when {
           chamou != null -> aoOuvir(Matcher.normalize(texto).removeRange(chamou.range).ifBlank { "e agora" })
           comandoDoGuia(texto) -> aoOuvir(texto)
@@ -469,10 +490,12 @@ class LiaGuiaService : AccessibilityService() {
         }
         return
       }
+      robo("ouviu", "texto" to texto, "manual" to true, "destino" to "botao")
       escutaManual = false
       aoOuvir(texto)
     }
     override fun onError(error: Int) {
+      robo("erro_escuta", "codigo" to error, "manual" to escutaManual, "lia_falando" to (tts?.isSpeaking == true))
       botao?.ouvindo = false
       // Escuta automática (ou cancelada porque a Lia foi falar): silêncio ou barulho, tudo bem, recomeça.
       if (!escutaManual || error == SpeechRecognizer.ERROR_CLIENT) {

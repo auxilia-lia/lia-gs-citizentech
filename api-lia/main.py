@@ -2,6 +2,7 @@
 A chave da IA fica aqui no servidor, nunca dentro do app (RNF05).
 Rodar: uvicorn main:app --host 0.0.0.0 --port 8000
 """
+import json
 import os
 import logging
 import time
@@ -9,6 +10,7 @@ import time
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -17,7 +19,7 @@ import antigolpe  # noqa: E402
 import cerebro_teste  # noqa: E402
 import gov_simulado  # noqa: E402
 import guia  # noqa: E402
-from ia import gerar, provedor  # noqa: E402
+from ia import _extrair_json, fala_parcial, frases_prontas, gerar, gerar_fluxo, provedor  # noqa: E402
 from prompt_lia import PROMPT_ENTENDE, montar_sistema  # noqa: E402
 
 log = logging.getLogger("lia")
@@ -72,7 +74,7 @@ class Texto(BaseModel):
 
 
 # Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
-VERSAO = "2026-11-07.10"
+VERSAO = "2026-11-08.1"
 
 
 @app.get("/saude")
@@ -121,6 +123,28 @@ def executar_na_ligacao(acao: dict) -> str:
     return ""
 
 
+def _sem_ia(msgs: list[dict], c: "Conversa", contexto: dict, analise: dict) -> dict:
+    """Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo)."""
+    r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
+    if not r.get("acao") and str(r.get("fala", "")).startswith("Modo teste"):
+        # A IA não respondeu a tempo e as regras não entenderam: diz a verdade em vez do texto do modo teste.
+        r = {"fala": "A internet oscilou e eu não consegui pensar agora. Pode repetir o que você quer?", "acao": None}
+    if contexto.get("guia") and not r.get("acao"):
+        # Durante o Guia, a resposta genérica das regras confunde: avisa e deixa o Guia seguir.
+        r = {"fala": "A internet está lenta agora. Continuo com você: o Guia segue na tela.", "acao": None}
+    return r
+
+
+def _finalizar(r: dict, c: "Conversa", analise: dict, p: str) -> dict:
+    fala = str(r.get("fala") or "").strip() or "Desculpa, não entendi. Pode repetir?"
+    acao = validar_acao(r.get("acao"), c.canal)
+    if acao and c.canal == "ligacao":
+        extra = executar_na_ligacao(acao)
+        if extra:
+            fala = f"{fala} {extra}".strip()
+    return {"fala": fala, "acao": acao, "golpe": analise if analise["golpe"] else None, "provedor": p}
+
+
 @app.post("/conversa")
 async def conversa(c: Conversa):
     msgs = [m.model_dump() for m in c.mensagens]
@@ -131,26 +155,49 @@ async def conversa(c: Conversa):
         try:
             r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=14)
         except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
-            # Último recurso: sem IA, a Lia responde pelas regras do modo teste (o antigolpe continua valendo).
             log.exception("IA indisponível; respondendo pelas regras")
-            r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
-            if not r.get("acao") and str(r.get("fala", "")).startswith("Modo teste"):
-                # A IA não respondeu a tempo e as regras não entenderam: diz a verdade em vez do texto do modo teste.
-                r = {"fala": "A internet oscilou e eu não consegui pensar agora. Pode repetir o que você quer?", "acao": None}
-            if contexto.get("guia") and not r.get("acao"):
-                # Durante o Guia, a resposta genérica das regras confunde: avisa e deixa o Guia seguir.
-                r = {"fala": "A internet está lenta agora. Continuo com você: o Guia segue na tela.", "acao": None}
+            r = _sem_ia(msgs, c, contexto, analise)
             p = "regras (IA indisponível)"
     else:
         r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
+    return _finalizar(r, c, analise, p)
 
-    fala = str(r.get("fala") or "").strip() or "Desculpa, não entendi. Pode repetir?"
-    acao = validar_acao(r.get("acao"), c.canal)
-    if acao and c.canal == "ligacao":
-        extra = executar_na_ligacao(acao)
-        if extra:
-            fala = f"{fala} {extra}".strip()
-    return {"fala": fala, "acao": acao, "golpe": analise if analise["golpe"] else None, "provedor": p}
+
+@app.post("/conversa/fluxo")
+async def conversa_fluxo(c: Conversa):
+    """Igual a /conversa, mas em partes (uma linha JSON por vez): {"parcial": "frase"} assim que cada frase
+    da fala fica pronta, e por último {"final": {...resposta completa...}}. A Lia começa a falar mais cedo."""
+    msgs = [m.model_dump() for m in c.mensagens]
+    analise = antigolpe.analisar(msgs[-1]["texto"])
+    contexto = c.contexto.model_dump()
+
+    async def linhas():
+        p = provedor()
+        r = None
+        if p == "gemini":
+            bruto, enviado = "", 0
+            try:
+                async for pedaco in gerar_fluxo(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=14):
+                    bruto += pedaco
+                    frase, enviado = frases_prontas(fala_parcial(bruto), enviado)
+                    if frase:
+                        yield json.dumps({"parcial": frase}, ensure_ascii=False) + "\n"
+                r = _extrair_json(bruto)
+            except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+                log.exception("fluxo da IA falhou")
+                if enviado:
+                    r = _extrair_json(bruto) if bruto.strip().endswith("}") else {"fala": fala_parcial(bruto), "acao": None}
+        if r is None:
+            if p in ("gemini", "claude"):
+                try:
+                    r = await gerar(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=12)
+                except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+                    r, p = _sem_ia(msgs, c, contexto, analise), "regras (IA indisponível)"
+            else:
+                r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
+        yield json.dumps({"final": _finalizar(r, c, analise, p)}, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(linhas(), media_type="application/x-ndjson")
 
 
 @app.post("/entende")

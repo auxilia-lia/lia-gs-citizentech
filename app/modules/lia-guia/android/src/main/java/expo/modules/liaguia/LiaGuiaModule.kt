@@ -118,6 +118,19 @@ class LiaGuiaModule : Module() {
       LiaGuiaService.instance?.dizer(texto)
     }
 
+    Function("shutUp") {
+      LiaGuiaService.instance?.calarVoz()
+    }
+
+    Function("sayNext") { texto: String ->
+      LiaGuiaService.instance?.dizerEmSeguida(texto)
+    }
+
+    // Registro de uso: aparece no logcat (LIA_ROBO), para analisar bugs do uso real.
+    Function("log") { evento: String, json: String ->
+      LiaGuiaService.instance?.registrar(evento, json) ?: android.util.Log.i("LIA_ROBO", "{\"evento\":\"$evento\",\"semServico\":true}")
+    }
+
     // Para o Guia sem contar como conquista (a pessoa desistiu) e volta para a Lia.
     Function("cancel") { fala: String ->
       LiaGuiaService.instance?.cancelar(fala)

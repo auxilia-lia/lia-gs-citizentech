@@ -26,7 +26,10 @@ export async function prepararVoz() {
 
 let tentouGuia = false;
 
-export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
+// fila: continua depois do que já está sendo falado (a resposta chega em partes), sem cortar.
+export function falar(texto: string, opcoes: Speech.SpeechOptions & { fila?: boolean } = {}) {
+  const { fila, ...resto } = opcoes;
+  opcoes = resto;
   // Se o Guia foi ligado depois de abrir o app, passa a usar a voz dele.
   if (!tentouGuia) { tentouGuia = true; try { const n = LiaGuia.voice(); if (n) voz = n; } catch { /* sem Guia */ } }
   // Sem voz escolhida (o motor de voz do app não respondeu ao abrir) também passa pela reserva abaixo.
@@ -35,7 +38,7 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
   let guiaLigado = false;
   try { guiaLigado = !!LiaGuia.isEnabled(); } catch { guiaLigado = false; }
   if (guiaLigado) {
-    try { LiaGuia.say(texto); opcoes.onStart?.(); return; } catch { /* segue com a voz do app */ }
+    try { if (fila) LiaGuia.sayNext(texto); else LiaGuia.say(texto); opcoes.onStart?.(); return; } catch { /* segue com a voz do app */ }
   }
   // Se a voz escolhida der erro, fala com a voz padrão SÓ desta vez. Antes, um atraso qualquer (o Guia falando
   // ao mesmo tempo, por exemplo) trocava a voz para a padrão de vez, e a Lia "voltava para a voz antiga".
@@ -65,4 +68,5 @@ export function falar(texto: string, opcoes: Speech.SpeechOptions = {}) {
 
 let falhas = 0;
 
-export const calar = () => Speech.stop();
+// Cala as duas vozes: a do app e a do serviço do Guia.
+export const calar = () => { Speech.stop(); try { LiaGuia.shutUp(); } catch { /* sem Guia */ } };

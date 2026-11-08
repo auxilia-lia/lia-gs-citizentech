@@ -523,3 +523,17 @@ def test_rodada8_gps_abreviado():
     r = guia.regra_certeira("quero procurar a Avenida Paulista no GPS", ["Rotas para Av. Paulista — Rotas"], ["Busque aqui"], "app",
                             ["Av. Paulista", "São Paulo - SP"], app="com.google.android.apps.maps", titulo="Maps")
     assert r["concluido"]
+
+
+def test_conversa_em_partes_termina_com_final():
+    import json as _json
+    r = c.post("/conversa/fluxo", json={"mensagens": [{"papel": "pessoa", "texto": "quero ligar o bluetooth"}]})
+    assert r.status_code == 200
+    linhas = [_json.loads(l) for l in r.text.splitlines() if l.strip()]
+    assert "final" in linhas[-1] and linhas[-1]["final"]["fala"]
+
+
+def test_frases_prontas_so_frase_completa():
+    from ia import fala_parcial, frases_prontas
+    assert frases_prontas(fala_parcial('{"fala": "Claro! Vou te mostrar. Prim'), 0)[0] == "Claro! Vou te mostrar."
+    assert frases_prontas(fala_parcial('{"fala": "Custa R$ 1.5'), 0)[0] == ""

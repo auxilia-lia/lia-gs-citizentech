@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { fetch as fetchEmPartes } from 'expo/fetch';
 import { ler, gravar } from './armazenamento';
 import { Mapa, pseudonimizar, restaurar } from './pseudonimizar';
 
@@ -105,6 +106,52 @@ export async function conversar(
   const r = await post<RespostaLia>('/conversa', { mensagens, canal, contexto }, 20000);
   const acao = r.acao && 'mensagem' in r.acao ? { ...r.acao, mensagem: restaurar(r.acao.mensagem, mapa) } : r.acao;
   return { ...r, fala: restaurar(r.fala, mapa), acao };
+}
+
+// Igual a conversar(), mas a resposta chega em partes: aoParcial recebe cada frase pronta da fala, para a Lia
+// começar a falar antes de a resposta inteira chegar. Se o servidor não mandar em partes, quem chamou usa conversar().
+export async function conversarEmPartes(
+  historico: Mensagem[],
+  mapa: Mapa,
+  canal: Canal,
+  contexto: Contexto,
+  aoParcial: (frase: string) => void,
+): Promise<RespostaLia> {
+  const mensagens = historico.slice(-20).map((m) => ({ ...m, texto: pseudonimizar(m.texto, mapa) }));
+  const controle = new AbortController();
+  const t = setTimeout(() => controle.abort(), 25000);
+  try {
+    const r = await fetchEmPartes(`${base}/conversa/fluxo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Lia-Token': process.env.EXPO_PUBLIC_LIA_TOKEN ?? '' },
+      body: JSON.stringify({ mensagens, canal, contexto }),
+      signal: controle.signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`API respondeu ${r.status}`);
+    const leitor = r.body.getReader();
+    const decodificar = new TextDecoder();
+    let resto = '';
+    let final: RespostaLia | null = null;
+    for (;;) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      resto += decodificar.decode(value, { stream: true });
+      let i: number;
+      while ((i = resto.indexOf('\n')) >= 0) {
+        const linha = resto.slice(0, i).trim();
+        resto = resto.slice(i + 1);
+        if (!linha) continue;
+        const j = JSON.parse(linha) as { parcial?: string; final?: RespostaLia };
+        if (j.parcial) aoParcial(restaurar(j.parcial, mapa));
+        if (j.final) final = j.final;
+      }
+    }
+    if (!final) throw new Error('resposta sem final');
+    const acao = final.acao && 'mensagem' in final.acao ? { ...final.acao, mensagem: restaurar(final.acao.mensagem, mapa) } : final.acao;
+    return { ...final, fala: restaurar(final.fala, mapa), acao };
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 export type RespostaFoto = { fala: string; golpe: boolean; motivo: string };

@@ -112,3 +112,66 @@ async def _claude(sistema: str, mensagens: list[dict], imagem: dict | None, praz
         r = await c.post("https://api.anthropic.com/v1/messages", json=corpo, headers=headers)
         r.raise_for_status()
     return "".join(b.get("text", "") for b in r.json()["content"] if b.get("type") == "text")
+
+
+async def gerar_fluxo(sistema: str, mensagens: list[dict], max_tokens: int = 300, prazo: float = 14):
+    """Como gerar(), mas devolve o texto aos pedaços conforme a IA escreve (só Gemini, modelo principal).
+    Assim a Lia começa a falar a primeira frase antes de a resposta inteira ficar pronta.
+    Se falhar antes do primeiro pedaço, levanta o erro: quem chamou cai para gerar() ou para as regras."""
+    if provedor() != "gemini":
+        raise RuntimeError("fluxo só no Gemini")
+    modelo = os.getenv("GEMINI_MODELO", "gemini-flash-lite-latest")
+    conteudos = [{"role": "user" if m["papel"] == "pessoa" else "model", "parts": [{"text": m["texto"]}]} for m in mensagens]
+    corpo = {
+        "systemInstruction": {"parts": [{"text": sistema}]},
+        "contents": conteudos,
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4, "responseMimeType": "application/json",
+                             **_config_pensamento(modelo)},
+    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:streamGenerateContent?alt=sse"
+    headers = {"x-goog-api-key": os.environ["GEMINI_API_KEY"]}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(prazo, connect=5)) as c:
+        async with c.stream("POST", url, json=corpo, headers=headers) as r:
+            if r.status_code == 400 and "thinkingConfig" in corpo["generationConfig"]:
+                _SEM_PENSAMENTO.add(modelo)
+                raise RuntimeError("modelo sem configuração de pensamento")
+            r.raise_for_status()
+            async for linha in r.aiter_lines():
+                if not linha.startswith("data:"):
+                    continue
+                try:
+                    pedaco = json.loads(linha[5:])
+                    partes = pedaco["candidates"][0]["content"]["parts"]
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
+                texto = "".join(p.get("text", "") for p in partes)
+                if texto:
+                    yield texto
+
+
+_FALA = re.compile(r'"fala"\s*:\s*"((?:[^"\\]|\\.)*)')
+
+
+def fala_parcial(json_incompleto: str) -> str:
+    """Tira o valor de "fala" de um JSON que ainda está chegando (pode estar sem fechar)."""
+    m = _FALA.search(json_incompleto)
+    if not m:
+        return ""
+    bruto = m.group(1)
+    if bruto.endswith("\\") and not bruto.endswith("\\\\"):
+        bruto = bruto[:-1]
+    try:
+        return json.loads(f'"{bruto}"')
+    except json.JSONDecodeError:
+        return bruto.replace('\\"', '"').replace("\\n", " ")
+
+
+def frases_prontas(texto: str, ja_enviado: int) -> tuple[str, int]:
+    """Do texto que já chegou, devolve as frases completas ainda não enviadas (termina em . ! ? seguido de espaço)."""
+    fim = -1
+    for m in re.finditer(r"[.!?…](\s|$)", texto[ja_enviado:]):
+        if m.group(1) or False:
+            fim = ja_enviado + m.end()
+    if fim <= ja_enviado:
+        return "", ja_enviado
+    return texto[ja_enviado:fim].strip(), fim
