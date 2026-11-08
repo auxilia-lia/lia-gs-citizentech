@@ -338,7 +338,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
             </Aparecer>
           ) : (
             <Aparecer key={i} distancia={12} estilo={{ alignSelf: 'flex-end', maxWidth: '88%' }}>
-              <View style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></View>
+              <Pressable onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir" style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></Pressable>
             </Aparecer>
           )
         ))}

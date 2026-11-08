@@ -7,6 +7,7 @@ import { AULAS } from '../lia/aulas';
 import { carregarProgresso, Progresso } from '../lia/autonomia';
 import { Caminho, carregarCaminhos } from '../lia/caminhos';
 import { falar } from '../lia/fala';
+import { apresentar } from '../lia/apresentar';
 import { NomeIcone } from '../ui/componentes';
 import { Aparecer, Toque } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
@@ -46,6 +47,7 @@ export default function Inicio({ pedir }: { pedir: (p: Omit<Pedido, 'id'>) => vo
   }, []);
 
   useEffect(() => {
+    apresentar('inicio');
     atualizar();
     const s = AppState.addEventListener('change', (e) => e === 'active' && atualizar());
     const g = LiaGuia.addListener('onStatus', (e) => setGuiaAtivo(e.enabled));

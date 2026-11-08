@@ -6,6 +6,7 @@ import { AULAS } from '../lia/aulas';
 import { carregarProgresso, nivelDe, Progresso } from '../lia/autonomia';
 import { ler } from '../lia/armazenamento';
 import { falar } from '../lia/fala';
+import { apresentar } from '../lia/apresentar';
 import { Botao, Titulo } from '../ui/componentes';
 import { Aparecer, BarraAnimada } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
@@ -41,6 +42,7 @@ export default function Eu({ abrirAjustes }: { abrirAjustes: () => void }) {
   }, []);
 
   useEffect(() => {
+    apresentar('eu');
     atualizar();
     const s = AppState.addEventListener('change', (e) => e === 'active' && atualizar());
     return () => s.remove();

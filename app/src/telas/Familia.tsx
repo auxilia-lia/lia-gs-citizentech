@@ -6,6 +6,8 @@ import { abrirWhatsApp, carregarFamilia, Familiar, salvarFamilia } from '../lia/
 import { Aviso, Botao, Campo, Cartao, Texto, Titulo } from '../ui/componentes';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 import { Aparecer } from '../ui/anim';
+import { apresentar } from '../lia/apresentar';
+import { falar } from '../lia/fala';
 
 const PARENTESCOS = ['filha', 'filho', 'neta', 'neto', 'esposa', 'marido', 'irmã', 'irmão', 'vizinha', 'vizinho'];
 
@@ -135,7 +137,7 @@ export function FamiliaEditar() {
 // O que quem usa a Lia vê: só as pessoas e um botão verde para mandar mensagem.
 export default function Familia() {
   const [familia, setFamilia] = useState<Familiar[]>([]);
-  useEffect(() => { carregarFamilia().then(setFamilia); }, []);
+  useEffect(() => { apresentar('familia'); carregarFamilia().then(setFamilia); }, []);
   return (
     <ScrollView contentContainerStyle={st.telaSimples} showsVerticalScrollIndicator={false}>
       <Titulo>Sua família</Titulo>
@@ -149,7 +151,7 @@ export default function Familia() {
             <View style={st.inicial}><Text style={st.inicialTexto}>{f.nome[0]?.toUpperCase()}</Text></View>
             <Text style={st.nomeSimples} numberOfLines={2}>{f.nome}, {f.parentesco}</Text>
             {f.telefone ? (
-              <Pressable onPress={() => abrirWhatsApp(f.telefone, '')} style={({ pressed }) => [st.msg, pressed && { opacity: 0.8 }]}
+              <Pressable onPress={() => abrirWhatsApp(f.telefone, '')} onLongPress={() => falar(`Mandar mensagem para ${f.nome}`)} style={({ pressed }) => [st.msg, pressed && { opacity: 0.8 }]}
                 accessibilityRole="button" accessibilityLabel={`Mandar mensagem para ${f.nome}`}>
                 <Ionicons name="chatbox-outline" size={26} color={cores.branco} />
               </Pressable>
