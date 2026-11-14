@@ -7,7 +7,7 @@ import LiaGuia from '../../modules/lia-guia';
 import { Acao, AnaliseGolpe, buscarFluxos, conversar, conversarEmPartes, entenderFoto, Mensagem, restoDaFala, urlGov } from '../lia/api';
 import { registrar } from '../lia/registro';
 import { respostaRapida } from '../lia/rapido';
-import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
+import { anotarErro, comecarTentativa, nivelPara, NOMES_NIVEL, registrarConclusao, Resultado } from '../lia/autonomia';
 import { ler } from '../lia/armazenamento';
 import { montarContexto } from '../lia/contexto';
 import { abrirWhatsApp, acharFamiliar, carregarFamilia, Familiar } from '../lia/familia';
@@ -19,7 +19,7 @@ import { modoRobo } from '../lia/robo';
 import { useVoz } from '../lia/useVoz';
 import type { Aula } from '../lia/aulas';
 import type { Caminho } from '../lia/caminhos';
-import { Aviso, Botao } from '../ui/componentes';
+import { Aviso, Botao, Tocavel } from '../ui/componentes';
 import { Aparecer, Ondas, Toque } from '../ui/anim';
 import { cores, espaco, raio, sombra, tamanho } from '../ui/tema';
 
@@ -84,7 +84,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     else if (pedido.tipo === 'aula' && pedido.aula) {
       const a = pedido.aula;
       setMensagens((m) => [...m, { papel: 'pessoa', texto: `Quero aprender: ${a.titulo}` }]);
-      dizer(`Vamos aprender: ${a.titulo.toLowerCase()}. Eu vou te mostrando cada passo na tela.`, () => guiarApp(a.app, a.objetivo, `aula:${a.id}`));
+      dizer(`Vamos aprender: ${a.titulo.toLowerCase()}. Eu vou te mostrando cada passo na tela.`, () => guiarApp(a.app, a.objetivo, `aula:${a.id}`, undefined, undefined, undefined, true));
     } else if (pedido.tipo === 'praticar' && pedido.caminho) {
       // "Tenta sozinho que eu olho": nível "só acompanha"; a Lia só aparece se ela travar.
       const cm = pedido.caminho;
@@ -100,6 +100,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   // Quando o Guia termina um serviço, conta para a autonomia progressiva.
   useEffect(() => {
     const s = LiaGuia.addListener('onStep', async (e) => {
+      if (e.type === 'wrong') { anotarErro(); return; } // tocou no lugar errado: conta para a autonomia
       if (e.type !== 'finished' || !guiaAtivo.current) return;
       const servico = guiaAtivo.current;
       guiaAtivo.current = null;
@@ -112,6 +113,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   useEffect(() => {
     const s = LiaGuia.addListener('onVoz', async (e) => {
       const guiando = objetivoAtual() ?? (guiaAtivo.current ? `fazer: ${guiaAtivo.current}` : null);
+      if (e.repetiu) anotarErro(); // pediu para repetir ("e agora?", "não entendi"): conta para a autonomia
       if (e.protegeu || e.tratado) return; // "não olha esse app", "e agora?": o Guia já resolveu sozinho
       if (e.conseguiu) {
         // "Já consegui": o Guia conclui e conta para a autonomia (o evento de fim chega em seguida).
@@ -155,17 +157,18 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     LiaGuia.cancel('Tudo bem, parei. Quando quiser, a gente tenta de novo.');
   };
 
-  const parabens = async (vezes: number, oque?: string) => {
+  const parabens = async (r: Resultado, oque?: string) => {
     if (modoRobo()) return;
-    const nivel = NOMES_NIVEL[nivelDe(vezes)].toLowerCase();
-    setMensagens((m) => [...m, { papel: 'lia', texto: `Parabéns! Você já fez isso ${vezes} ${vezes === 1 ? 'vez' : 'vezes'}. Da próxima, eu ajudo assim: ${nivel}.` }]);
-    // Família comemorando: na 1ª vez (aprendeu) e na 3ª (fez sozinho), a Lia oferece contar para alguém da família.
+    setMensagens((m) => [...m, { papel: 'lia', texto: textoDoResultado(r) }]);
+    if (r.demo) return;
+    // Família comemorando: na 1ª vez (aprendeu) e quando passa a fazer sozinho, a Lia oferece contar para alguém da família.
     // Nada é mandado sem a pessoa dizer sim; e dá para desligar em "Você".
-    if (!oque || !(vezes === 1 || vezes === 3) || !(await ler('lia:comemorar', true))) return;
+    const sozinho = r.mudou === 'subiu' && r.nivel === 2;
+    if (!oque || !(r.vezes === 1 || sozinho) || !(await ler('lia:comemorar', true))) return;
     const fam = (await carregarFamilia()).find((f) => f.telefone);
     if (!fam) return;
     const coisa = oque.replace(/[?!.]/g, '').trim().replace(/^(eu )?(quero|queria|preciso|como( eu)?|me ajuda a|aprender a) /i, '').toLowerCase();
-    const mensagem = vezes === 3
+    const mensagem = sozinho
       ? `Oi, ${fam.nome}! Hoje eu consegui ${coisa} sozinho no celular! 🎉`
       : `Oi, ${fam.nome}! Hoje eu aprendi a ${coisa} no celular, com a ajuda da Lia! 🎉`;
     const p = { familiar: fam, mensagem };
@@ -260,7 +263,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   // ---------- ações ----------
   const executar = async (acao: Acao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
-    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.nome_app, undefined, acao.abrir);
+    if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.ensinar ? undefined : acao.nome_app, undefined, acao.abrir, !!acao.ensinar);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
     if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
     if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
@@ -273,8 +276,9 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       const fluxo = (await buscarFluxos())[servico];
       if (!fluxo) return;
       if (!LiaGuia.isEnabled()) return semGuia();
-      const nivel = nivelDe((await carregarProgresso())[servico] ?? 0);
+      const nivel = await nivelPara(servico);
       guiaAtivo.current = servico;
+      comecarTentativa();
       LiaGuia.start(fluxo.passos, nivel);
       await Linking.openURL(urlGov(fluxo.caminho));
     } catch {
@@ -282,21 +286,31 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     }
   };
 
-  // atalhoApp: para instalar um app com nome, a Play Store já abre na busca dele, longe dos anúncios
+  // atalhoApp: para a Lia FAZER (instalar um app com nome), a Play Store já abre na busca dele, longe dos anúncios
   // da página inicial (onde a pessoa se perdia com os "Instalar" de outros apps).
-  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number, abrir?: string) => {
+  // ensinar: pedido para ENSINAR. Nada de atalho: começa da tela inicial e a pessoa faz cada passo
+  // (achar a Play Store, tocar na busca, escrever o nome, escolher o app certo, instalar).
+  const guiarApp = async (app: string, objetivo: string, chaveAula?: string, atalhoApp?: string, nivelForcado?: number, abrir?: string, ensinar = false) => {
     if (!LiaGuia.isEnabled()) return semGuia();
     const chave = chaveAula ?? `app:${app}`;
-    const nivel = modoRobo() ? 0 : nivelForcado ?? nivelDe((await carregarProgresso())[chave] ?? 0);
+    const nivel = modoRobo() ? 0 : nivelForcado ?? await nivelPara(chave);
+    comecarTentativa();
+    const aoTerminar = async () => { if (!modoRobo()) parabens(await registrarConclusao(chave), objetivo); };
     // Um app específico (Maps, YouTube, Facebook…): procura entre os apps do celular e abre direto nele.
     const alvo = abrir ? acharApp(abrir) : null;
+    if (ensinar && (alvo || app === 'playstore')) {
+      // Ensinando: o caminho começa na tela inicial; achar e abrir o app faz parte da aula.
+      guiarComIA(objetivo, nivel, aoTerminar, alvo ? `abrir:${alvo.nome}` : app, { appAlvo: alvo ?? undefined, ensinar: true });
+      if (!LiaGuia.openApp('home')) dizer('Não consegui ir para a tela inicial.');
+      return;
+    }
     if (alvo) {
       // O caminho guardado lembra o app ("abrir:Maps"), para praticar depois abrindo direto nele.
-      guiarComIA(objetivo, nivel, async () => { if (!modoRobo()) parabens(await registrarConclusao(chave), objetivo); }, `abrir:${alvo.nome}`, { appAlvo: alvo });
+      guiarComIA(objetivo, nivel, aoTerminar, `abrir:${alvo.nome}`, { appAlvo: alvo });
       if (!LiaGuia.openApp(alvo.pkg)) dizer(`Não consegui abrir o ${alvo.nome}.`);
       return;
     }
-    guiarComIA(objetivo, nivel, async () => { if (!modoRobo()) parabens(await registrarConclusao(chave), objetivo); }, app);
+    guiarComIA(objetivo, nivel, aoTerminar, app, { ensinar });
     const abriu = app === 'playstore' && atalhoApp
       ? LiaGuia.openUrl(`market://search?q=${encodeURIComponent(atalhoApp)}&c=apps`)
       : LiaGuia.openApp(PACOTES[app] ?? app);
@@ -370,26 +384,33 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
           <Text style={st.nome}>Lia</Text>
           <Text style={[st.status, (voz.ouvindo || pensando) && { color: cores.primaria }]}>{status}</Text>
         </View>
-        {escondidos > 0 && (
-          <View style={st.cadeado} accessibilityLabel={`${escondidos} dados pessoais escondidos da inteligência artificial`}>
-            <Ionicons name="lock-closed" size={16} color={cores.sucesso} />
-            <Text style={st.cadeadoTexto}>{escondidos} protegido{escondidos > 1 ? 's' : ''}</Text>
-          </View>
-        )}
       </View>
+      {escondidos > 0 && (
+        // Privacidade visível: CPF, telefone, e-mail, cartão e CEP viram etiquetas antes de ir para a IA.
+        <Tocavel
+          onPress={() => voz.falar(falaPrivacidade(escondidos))}
+          fala={falaPrivacidade(escondidos)}
+          accessibilityRole="button"
+          accessibilityLabel={avisoPrivacidade(escondidos)}
+          style={st.cadeado}
+        >
+          <Ionicons name="lock-closed" size={16} color={cores.sucesso} />
+          <Text style={st.cadeadoTexto}>{avisoPrivacidade(escondidos)}</Text>
+        </Tocavel>
+      )}
 
       <ScrollView ref={rolagem} contentContainerStyle={st.lista} onContentSizeChange={() => rolagem.current?.scrollToEnd({ animated: true })}>
         {mensagens.map((m, i) => (
           m.papel === 'lia' ? (
             <Aparecer key={i} distancia={12} estilo={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
-              <Pressable onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir de novo" style={[st.balao, st.balaoLia]}>
+              <Pressable onPress={() => voz.falar(m.texto)} onLongPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir de novo" style={[st.balao, st.balaoLia]}>
                 <Text style={st.texto}>{m.texto}</Text>
                 <View style={st.ouvir}><Ionicons name="volume-high" size={18} color={cores.primaria} /><Text style={st.ouvirTexto}>Ouvir de novo</Text></View>
               </Pressable>
             </Aparecer>
           ) : (
             <Aparecer key={i} distancia={12} estilo={{ alignSelf: 'flex-end', maxWidth: '88%' }}>
-              <Pressable onPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir" style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></Pressable>
+              <Pressable onPress={() => voz.falar(m.texto)} onLongPress={() => voz.falar(m.texto)} accessibilityHint="Toque para ouvir" style={[st.balao, st.balaoPessoa]}><Text style={[st.texto, { color: cores.branco }]}>{m.texto}</Text></Pressable>
             </Aparecer>
           )
         ))}
@@ -399,9 +420,10 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
 
       <View style={st.extras}>
         {golpe?.golpe && (
-          <Pressable onPress={() => setGolpe(null)}>
+          <Tocavel onPress={() => setGolpe(null)} accessibilityRole="button"
+            fala="Cuidado: isso pode ser golpe. Não clique, não pague e não passe códigos. Toque para fechar o aviso.">
             <Aviso tipo="perigo" titulo="Cuidado: pode ser golpe" texto={[...golpe.motivos.slice(0, 2), 'Não clique, não pague e não passe códigos.'].join('\n')} />
-          </Pressable>
+          </Tocavel>
         )}
         {pendente && (
           <Aviso tipo="info" titulo={`Mandar para ${pendente.familiar.nome}?`} texto={`"${pendente.mensagem}"`}>
@@ -420,14 +442,14 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
             style={st.input} value={digitado} onChangeText={setDigitado} placeholder="Escreva aqui…"
             placeholderTextColor="#9AA3B8" onSubmitEditing={enviarDigitado} returnKeyType="send" autoFocus
           />
-          <Pressable onPress={enviarDigitado} style={st.enviar} accessibilityLabel="Enviar">
+          <Tocavel onPress={enviarDigitado} style={st.enviar} accessibilityRole="button" accessibilityLabel="Enviar" fala="Enviar o que você escreveu para a Lia.">
             <Ionicons name="send" size={24} color={cores.branco} />
-          </Pressable>
+          </Tocavel>
         </View>
       )}
 
       <View style={st.doca}>
-        <BotaoLado icone="camera" texto="Ler papel" onPress={tirarFoto} disabled={pensando} />
+        <BotaoLado icone="camera" texto="Ler papel" fala="Ler papel: tire uma foto de uma carta, conta ou exame, e eu explico." onPress={tirarFoto} disabled={pensando} />
         <View style={st.microArea}>
           <Ondas tamanho={96} cor={cores.perigo} ativo={voz.ouvindo} />
           <Toque
@@ -435,25 +457,49 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
             disabled={pensando}
             accessibilityRole="button"
             accessibilityLabel={voz.ouvindo ? 'Parar de ouvir' : 'Falar com a Lia'}
+            fala={voz.ouvindo ? 'Toque para eu parar de ouvir.' : 'Toque aqui e fale o que você precisa.'}
             estilo={[st.micro, voz.ouvindo && st.microAtivo, pensando && { opacity: 0.5 }]}
           >
             <Ionicons name={voz.ouvindo ? 'stop' : 'mic'} size={44} color={cores.branco} />
           </Toque>
         </View>
-        <BotaoLado icone={escrevendo ? 'close' : 'create'} texto={escrevendo ? 'Fechar' : 'Escrever'} onPress={() => setEscrevendo(!escrevendo)} />
+        <BotaoLado icone={escrevendo ? 'close' : 'create'} texto={escrevendo ? 'Fechar' : 'Escrever'}
+          fala={escrevendo ? 'Fechar o teclado.' : 'Escrever: se preferir, escreva o que você quer em vez de falar.'} onPress={() => setEscrevendo(!escrevendo)} />
       </View>
       <Text style={st.dica}>{voz.ouvindo ? 'Pode falar. Toque de novo para parar.' : 'Toque no microfone e fale'}</Text>
     </KeyboardAvoidingView>
   );
 }
 
-function BotaoLado({ icone, texto, onPress, disabled }: { icone: 'camera' | 'create' | 'close'; texto: string; onPress: () => void; disabled?: boolean }) {
+function BotaoLado({ icone, texto, fala, onPress, disabled }: { icone: 'camera' | 'create' | 'close'; texto: string; fala: string; onPress: () => void; disabled?: boolean }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={texto} style={[st.lado, disabled && { opacity: 0.5 }]}>
+    <Tocavel onPress={onPress} disabled={disabled} fala={fala} accessibilityRole="button" accessibilityLabel={texto} style={[st.lado, disabled && { opacity: 0.5 }]}>
       <View style={st.ladoCirculo}><Ionicons name={icone} size={28} color={cores.primaria} /></View>
       <Text style={st.ladoTexto}>{texto}</Text>
-    </Pressable>
+    </Tocavel>
   );
+}
+
+// "2 dados protegidos: não saíram do celular"
+export const avisoPrivacidade = (n: number) =>
+  `${n} ${n === 1 ? 'dado protegido' : 'dados protegidos'}: não ${n === 1 ? 'saiu' : 'saíram'} do celular`;
+export const falaPrivacidade = (n: number) =>
+  `${n === 1 ? 'Um dado pessoal seu, como CPF, telefone ou e-mail, ficou' : `${n} dados pessoais seus, como CPF, telefone ou e-mail, ficaram`} só no celular. ` +
+  'Antes de mandar a conversa para a inteligência artificial, eu troco esses dados por etiquetas.';
+
+// Mensagem do fim, de acordo com a autonomia (sobe com 2 vezes seguidas sem erro).
+export function textoDoResultado(r: Resultado): string {
+  if (r.demo) return `Parabéns! Você conseguiu. (Nível de demonstração: ${NOMES_NIVEL[r.nivel].toLowerCase()}.)`;
+  const nivel = NOMES_NIVEL[r.nivel].toLowerCase();
+  if (r.mudou === 'subiu') return r.nivel === 2
+    ? 'Parabéns! Duas vezes seguidas sem errar. Agora você faz sozinho, e eu só acompanho.'
+    : `Parabéns! Duas vezes seguidas sem errar. Da próxima, eu ajudo menos: ${nivel}.`;
+  if (r.mudou === 'desceu') return `Você conseguiu! Da próxima, eu ajudo um pouco mais: ${nivel}.`;
+  if (r.errosUltima > 0) return r.nivel === 2
+    ? 'Você conseguiu! Continuo só acompanhando.'
+    : 'Você conseguiu! Para eu ajudar menos, falta fazer duas vezes seguidas sem errar.';
+  if (r.nivel === 2) return 'Parabéns! Você já faz isso sozinho.';
+  return 'Parabéns! Sem nenhum erro. Mais uma vez assim e eu passo a ajudar menos.';
 }
 
 const st = StyleSheet.create({
@@ -462,7 +508,7 @@ const st = StyleSheet.create({
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
   nome: { fontSize: tamanho.subtitulo, fontWeight: '600', color: cores.tinta },
   status: { fontSize: tamanho.mini, color: cores.textoSuave, fontWeight: '500' },
-  cadeado: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.pilula, paddingHorizontal: 10, paddingVertical: 6 },
+  cadeado: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, backgroundColor: cores.sucessoSuave, borderRadius: raio.pilula, paddingHorizontal: 12, paddingVertical: 6, marginTop: espaco.sm, minHeight: 36 },
   cadeadoTexto: { color: cores.sucesso, fontSize: 13, fontWeight: '600' },
   lista: { padding: espaco.md, gap: espaco.md },
   balao: { borderRadius: raio.md, padding: espaco.md },

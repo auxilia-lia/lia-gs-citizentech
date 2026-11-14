@@ -44,11 +44,13 @@ class GuiaOverlayView(context: Context) : View(context) {
   private val ambarForte = Color.parseColor("#FFB300")
   private val marinho = Color.parseColor("#0B1B4D")
   private val verde = Color.parseColor("#16A06A")
+  private val verdeEscuro = Color.parseColor("#0E5C3F")
 
   // ---------- estado ----------
   private var modo = Modo.NADA
   private var gesto = ""
   private var mensagem = ""
+  private var protegido = false // aviso de app protegido: balão verde com cadeado
   private var alvo: RectF? = null // onde o anel está indo
   private var alvoDe: RectF? = null // de onde o anel saiu (para deslizar)
   private var tAlvo = 0L
@@ -77,6 +79,7 @@ class GuiaOverlayView(context: Context) : View(context) {
   private val barra = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = marinho; strokeCap = Paint.Cap.ROUND; style = Paint.Style.STROKE; strokeWidth = 3 * d }
   private val ponto = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
   private val sucesso = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+  private val cadeadoArco = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.WHITE; strokeCap = Paint.Cap.ROUND }
   private val check = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 6 * d; color = Color.WHITE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
 
   // Segue o tamanho de letra do celular: quem usa letra grande vê o balão grande.
@@ -101,6 +104,7 @@ class GuiaOverlayView(context: Context) : View(context) {
       tAlvo = agora
     }
     alvo = novo
+    protegido = false
     trocarMensagem(msg)
     trocarModo(Modo.ALVO, agora)
   }
@@ -109,17 +113,27 @@ class GuiaOverlayView(context: Context) : View(context) {
     val agora = SystemClock.uptimeMillis()
     if (modo != Modo.GESTO || gesto != tipo) tGesto = agora
     gesto = tipo
+    protegido = false
     trocarMensagem(msg)
     trocarModo(Modo.GESTO, agora)
   }
 
   fun mostrarMensagem(msg: String) {
     val agora = SystemClock.uptimeMillis()
+    protegido = false
     trocarMensagem(msg)
     trocarModo(if (msg.isBlank()) Modo.NADA else Modo.MENSAGEM, agora)
   }
 
   fun limpar() { mostrarMensagem("") }
+
+  // App protegido (banco, Pix, carteira, senhas): balão verde com cadeado, sem anel nem sombra na tela.
+  fun mostrarProtegido(msg: String) {
+    val agora = SystemClock.uptimeMillis()
+    trocarMensagem(msg)
+    protegido = true
+    trocarModo(Modo.MENSAGEM, agora)
+  }
 
   // Acertou: círculo verde com "check" no lugar tocado (sobrevive à troca de tela).
   fun mostrarAcerto(rect: Rect?) {
@@ -420,18 +434,32 @@ class GuiaOverlayView(context: Context) : View(context) {
       }
       canvas.drawPath(p, balao)
     }
+    balao.color = if (protegido) verdeEscuro else marinho
     canvas.drawRoundRect(caixa, raio, raio, balao)
+    balao.color = marinho
 
-    // Avatar da Lia: círculo âmbar com ondas de voz que se mexem de leve.
     val ax = caixa.left + dentro + tamAvatar / 2
     val ay = caixa.top + dentro + tamAvatar / 2
-    canvas.drawCircle(ax, ay, tamAvatar / 2, avatar)
-    val alturas = floatArrayOf(0.35f, 0.7f, 0.5f)
-    for (i in 0..2) {
-      val vai = if (semMovimento) 0.6f else (0.55f + 0.45f * sin(agora / 180.0 + i * 1.3).toFloat())
-      val hb = tamAvatar * alturas[i] * vai
-      val bx = ax + (i - 1) * tamAvatar * 0.2f
-      canvas.drawLine(bx, ay - hb / 2, bx, ay + hb / 2, barra)
+    if (protegido) {
+      // Cadeado: corpo arredondado e arco em cima, em branco sobre um círculo verde.
+      sucesso.color = verde; sucesso.alpha = 255
+      canvas.drawCircle(ax, ay, tamAvatar / 2, sucesso)
+      val u = tamAvatar / 10
+      canvas.drawRoundRect(RectF(ax - 3 * u, ay - 0.5f * u, ax + 3 * u, ay + 3.5f * u), u, u, ponto)
+      cadeadoArco.strokeWidth = 1.4f * u
+      canvas.drawArc(RectF(ax - 2 * u, ay - 4 * u, ax + 2 * u, ay + 0.5f * u), 180f, 180f, false, cadeadoArco)
+      canvas.drawLine(ax - 2 * u, ay - 1.75f * u, ax - 2 * u, ay - 0.3f * u, cadeadoArco)
+      canvas.drawLine(ax + 2 * u, ay - 1.75f * u, ax + 2 * u, ay - 0.3f * u, cadeadoArco)
+    } else {
+      // Avatar da Lia: círculo âmbar com ondas de voz que se mexem de leve.
+      canvas.drawCircle(ax, ay, tamAvatar / 2, avatar)
+      val alturas = floatArrayOf(0.35f, 0.7f, 0.5f)
+      for (i in 0..2) {
+        val vai = if (semMovimento) 0.6f else (0.55f + 0.45f * sin(agora / 180.0 + i * 1.3).toFloat())
+        val hb = tamAvatar * alturas[i] * vai
+        val bx = ax + (i - 1) * tamAvatar * 0.2f
+        canvas.drawLine(bx, ay - hb / 2, bx, ay + hb / 2, barra)
+      }
     }
 
     // Texto

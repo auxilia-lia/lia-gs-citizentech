@@ -17,3 +17,25 @@ export async function gravar<T>(chave: string, valor: T): Promise<void> {
     // sem armazenamento, a Lia continua funcionando nesta sessão
   }
 }
+
+// Tudo o que a Lia guarda sobre o que a PESSOA já fez. (Família, servidor, nome no certificado, "comemorar com a
+// família" e os apps protegidos são ajustes de quem configurou: ficam.)
+const DA_PESSOA = [
+  'lia:progresso', // nível de autonomia por serviço
+  'lia:historico', // cada conclusão
+  'lia:caminhos', // caminhos aprendidos ("Meus caminhos")
+  'lia:palavras', // palavras do celular que ela já aprendeu
+  'lia:nivel-demo', // nível de demonstração
+  'lia:boas-vindas', // já viu a apresentação (volta a aparecer ao abrir o app)
+];
+const PREFIXOS_DA_PESSOA = ['lia:apresentou:']; // telas que já se apresentaram em voz
+
+export async function apagarTudoDaPessoa(): Promise<void> {
+  try {
+    const todas = await AsyncStorage.getAllKeys();
+    const apagar = todas.filter((k) => DA_PESSOA.includes(k) || PREFIXOS_DA_PESSOA.some((p) => k.startsWith(p)));
+    await AsyncStorage.multiRemove(apagar);
+  } catch {
+    // sem armazenamento: nada para apagar
+  }
+}

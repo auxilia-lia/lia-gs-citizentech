@@ -320,7 +320,7 @@ class LiaGuiaService : AccessibilityService() {
   // A pessoa pediu ajuda ("e agora?"): repete o que está valendo ou, se não há nada na tela, olha de novo.
   private fun mostrarDeNovo() {
     if (!ativo) return
-    emProtegido?.let { falar("Este app é protegido, então eu não olho esta tela. Saia dele para eu voltar a ajudar."); return }
+    emProtegido?.let { falar("${Protecao.aviso(this, it)} Quando sair dele, eu volto a ajudar."); overlay?.mostrarProtegido(Protecao.aviso(this, it)); return }
     if (pausado) { falar("Estou pausada. Para continuar, diga continuar."); return }
     val tipo = tipoIA
     if (!modoIA) {
@@ -343,7 +343,7 @@ class LiaGuiaService : AccessibilityService() {
   // "O que é isso?": manda a tela (só a lista de textos, já limpa) para a Lia explicar em palavras simples.
   // Ensina a ENTENDER o celular, não só onde tocar.
   private fun explicarTela(pergunta: String) {
-    if (emProtegido != null) return falar("Este app é protegido, então eu não olho esta tela.")
+    emProtegido?.let { overlay?.mostrarProtegido(Protecao.aviso(this, it)); return falar(Protecao.aviso(this, it)) }
     val root = raizAtual() ?: return falar("Não consegui ver a tela agora. Pergunte de novo daqui a pouco.")
     val ctx = lerContexto(root)
     overlay?.mostrarMensagem("Deixa eu te explicar esta tela…")
@@ -457,7 +457,7 @@ class LiaGuiaService : AccessibilityService() {
         return
       }
       AJUDA.containsMatchIn(Matcher.normalize(texto)) && texto.trim().split(Regex("\\s+")).size <= 8 -> {
-        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true, "repetiu" to true))
         mostrarDeNovo()
         return
       }
@@ -730,9 +730,10 @@ class LiaGuiaService : AccessibilityService() {
     handler.removeCallbacks(lembrar)
     handler.removeCallbacks(revelar)
     if (modoIA) { limparInstrucaoIA(); telaEnviada++; ultimaAssinatura = "protegido|$pkg" }
-    val msg = "O ${Protecao.nome(this, pkg)} é um app protegido. Por segurança, eu não olho esta tela. Se precisar, peça ajuda a alguém de confiança."
-    overlay?.mostrarMensagem(msg)
-    falar(msg)
+    // Frase clara e calma, falada e mostrada num aviso com cadeado (no lugar do balão comum).
+    val msg = Protecao.aviso(this, pkg)
+    overlay?.mostrarProtegido(msg)
+    falar("$msg Se precisar de ajuda aqui, peça para alguém de confiança.")
     LiaGuiaBridge.emit("onStep", mapOf("type" to "protected", "app" to pkg))
     robo("protegido", "app" to pkg)
   }

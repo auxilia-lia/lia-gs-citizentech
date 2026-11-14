@@ -56,7 +56,7 @@ estado (`[ligado]`, `[desligado]`, `[selecionado]`) e o que está ao redor (`Ins
 ## Ensino e progresso
 - **"O que é isso?"** explica a tela em palavras simples (`/guia/explicar`).
 - **Palavras do celular** ("arrastar", "ícone", "aba"…) explicadas na primeira vez que aparecem; a aba "Você" mostra as que ela já sabe.
-- **Resumo no fim** ("Para lembrar: você tocou em Play Store, Pesquisar e Instalar.").
+- **Fim curto**: a Lia só comemora numa frase; o caminho feito fica guardado em "Meus caminhos" (sem repetir tudo em voz).
 - **Meus caminhos** (`src/lia/caminhos.ts`): cada coisa concluída vira um cartão com os passos, para rever, praticar ou mandar.
 - **Hora de praticar:** dias depois, a Início sugere fazer de novo sozinho (nível "só acompanha").
 - **Jornada** com o próximo marco, **certificado de autonomia** e **família comemorando** (a Lia pergunta antes de mandar no WhatsApp).

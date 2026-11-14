@@ -24,6 +24,23 @@ object Protecao {
 
   fun automatico(pkg: String) = SENSIVEL.containsMatchIn(pkg)
 
+  private val BANCO = Regex("bank|banco|banking|itau|bradesco|santander|nubank|com\\.nu\\.|caixa|intermedium|c6bank|sicoob|sicredi|" +
+    "br\\.com\\.bb|btgpactual|inter\\.|\\.xp\\.", RegexOption.IGNORE_CASE)
+  private val PAGAMENTO = Regex("wallet|carteira|pix|picpay|mercadopago|pagbank|pagseguro|paypal|spay|recargapay|ame\\.digital|binance",
+    RegexOption.IGNORE_CASE)
+  private val SENHAS = Regex("authenticator|password|bitwarden|lastpass|keepass|1password", RegexOption.IGNORE_CASE)
+
+  // "Aqui é o aplicativo do seu banco. Por segurança, eu não olho esta tela."
+  fun aviso(c: Context, pkg: String): String {
+    val onde = when {
+      BANCO.containsMatchIn(pkg) -> "o aplicativo do seu banco"
+      PAGAMENTO.containsMatchIn(pkg) -> "um aplicativo de pagamento"
+      SENHAS.containsMatchIn(pkg) -> "o aplicativo das suas senhas"
+      else -> "o ${nome(c, pkg)}, que está protegido"
+    }
+    return "Aqui é $onde. Por segurança, eu não olho esta tela."
+  }
+
   // Ajuste: ouvir alguns segundos depois de cada instrução (ligado por padrão).
   fun escutaAuto(c: Context) = prefs(c).getBoolean("escuta_auto", true)
   fun definirEscutaAuto(c: Context, ligado: Boolean) = prefs(c).edit().putBoolean("escuta_auto", ligado).apply()

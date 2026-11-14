@@ -108,6 +108,11 @@ Escolha um caminho DIFERENTE (outro botão, a pesquisa/lupa, ou abrir o app pela
 último gesto. Na tela inicial, NUNCA mande "voltar".
 """
 
+ENSINO = """MODO ENSINO: ela pediu para APRENDER. Ensine o caminho inteiro, um passo de cada vez, do jeito que ela faria
+sozinha da próxima vez (achar o ícone do app, abrir, procurar, escolher). Não pule passos nem use atalhos.
+Na tela inicial, se o app que ela precisa não está à vista, mande "rolar_baixo" (abre a lista de todos os apps).
+"""
+
 IMAGEM = """
 Você também recebeu a IMAGEM da tela (dados pessoais cobertos com tarja preta), porque o Guia travou.
 Use a imagem para entender a tela. Se o botão certo está na lista, use "tocar" com o número.
@@ -405,7 +410,7 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
                   textos: list[str] | None = None, rolavel: bool = False, motivo: str = "mudou", errou: str | None = None,
                   seguiu: str | None = None, escondidos: list[str] | None = None, titulo: str = "",
                   caminho: list[str] | None = None, plano: list[str] | None = None, com_imagem: bool = False,
-                  repetindo: bool = False) -> str:
+                  repetindo: bool = False, ensinar: bool = False) -> str:
     lista = "\n".join(f"{i}: {e}" for i, e in enumerate(elementos)) or "(nenhum)"
     return PROMPT_GUIA.format(
         objetivo=objetivo, onde=ONDE.get(tela, ONDE["app"]), app=app, elementos=lista,
@@ -415,7 +420,7 @@ def montar_prompt(objetivo: str, app: str, elementos: list[str], feitos: list[st
         escondidos=", ".join(escondidos or []) or "(nenhum)",
         titulo=titulo or "sem título", caminho=" > ".join(caminho or []) or "só esta",
         plano=" > ".join(plano or []) or "não sei",
-        repetindo=REPETINDO if repetindo else "",
+        repetindo=(REPETINDO if repetindo else "") + (ENSINO if ensinar else ""),
     ) + (IMAGEM if com_imagem else "")
 
 
@@ -498,7 +503,18 @@ def _interpretar(r: dict, elementos: list[str], objetivo: str = "", textos: list
 INSTALADO = ("abrir", "desinstalar")
 PEDE_INSTALAR = ("instalar", "baixar", "instala", "baixa")
 VAZIAS = {"o", "a", "um", "uma", "app", "aplicativo", "aplicativos", "do", "da", "de", "no", "na", "pra", "para", "me", "ajuda",
-          "quero", "preciso", "instalar", "baixar", "instala", "baixa", "como", "eu", "celular", "meu", "loja", "play", "store"}
+          "quero", "preciso", "instalar", "baixar", "instala", "baixa", "como", "eu", "celular", "meu", "loja", "play", "store",
+          "ensina", "ensinar", "ensine", "aprender", "mostra", "mostrar", "mostre", "sozinho", "sozinha", "instalo", "baixo",
+          "faco", "fazer", "se", "que", "voce", "pode"}
+
+# Pedido de ENSINAR ("me ensina a instalar", "quero aprender a...", "como eu faço para..."): o Guia começa do
+# começo (tela inicial) e a pessoa faz cada passo. Sem isso, a Lia abre o caminho já adiantado por ela.
+ENSINAR = re.compile(r"\b(ensin\w*|aprend\w*|como (eu |que eu |e que )?(faco|fasso|instalo|baixo|coloco|faz|se faz|instala|baixa)|"
+                     r"mostra como|mostre como|me mostra|quero saber fazer|sozinh[oa])\b")
+
+
+def quer_aprender(texto: str) -> bool:
+    return bool(ENSINAR.search(normalizar(texto or "")))
 
 
 def nome_do_app(objetivo: str) -> str | None:
@@ -541,7 +557,10 @@ def acao_loja(e: str) -> str | None:
     return n if n in ACOES_LOJA else None
 
 
-def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos: list[str], titulo: str = "") -> dict | None:
+def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos: list[str], titulo: str = "",
+                 ensinar: bool = False) -> dict | None:
+    """ensinar=True: a pessoa aprende o caminho inteiro (pesquisa, escreve o nome, escolhe o app, instala).
+    Nada de reabrir a loja já na busca: a Lia só mostra o próximo passo. A conferência do app pedido continua igual."""
     obj = normalizar(objetivo)
     if not any(p in obj for p in PEDE_INSTALAR):
         return None
@@ -563,7 +582,7 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
             return resposta("esperar", f"Pronto! O {bonito} foi instalado. Para usar, é só tocar em Abrir.", concluido=True)
     # Baixando: barra de progresso / "Cancelar". Só espera.
     juntos = " ".join(normalizar(t) for t in textos)
-    if "cancelar" in acoes and ("%" in " ".join(textos) or re.search(r"(baixando|instalando|pendente|verificando)", juntos)):
+    if "cancelar" in acoes and ("%" in " ".join(textos) or re.search(r"\b(baixando|instalando|pendente|verificando)\b", juntos)):
         return resposta("esperar", "Está baixando. Espere terminar, que eu te aviso.")
 
     # Página de UM app: no alto ficam o título e o desenvolvedor; só um botão principal.
@@ -586,12 +605,20 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
             if "atualizar" in acoes:
                 return tocar(elementos, acoes["atualizar"], f"O {bonito} já está instalado, mas precisa de atualização.")
 
+    # Ensinando: campo de pesquisa aberto = hora de escrever o nome (antes das sugestões, que repetem o que ela escreveu).
+    k = campo_aberto(elementos)
+    if ensinar and k is not None and not any(cobre(nome, fichas(e)) for j, e in validos if j != k and "[campo" not in e):
+        return resposta("esperar", f"Agora escreva {bonito} no campo e toque na lupa do teclado. "
+                                   "Se preferir, toque no microfone do teclado e fale o nome.")
+
     # Resultados da busca: o Instalar (ou o resultado) DO APP PEDIDO, conferindo o que está ao redor.
     for i, e in validos:
         if acao_loja(e) == "instalar" and cobre(nome, fichas(e)):
             return tocar(elementos, i, f"Esse é o {bonito}.")
     for i, e in validos:
         c = curto(e)
+        if "[campo" in e:  # o próprio campo, com o nome que ela escreveu: não é um resultado
+            continue
         # o NOME do resultado tem que ser o app (antes "Navegar para cima — spotify" passava pelo contexto)
         if not acao_loja(e) and not BUSCA.search(normalizar(c)) and not NAVEGA.search(normalizar(c)) and cobre(nome, fichas(c)) and len(c) > 2:
             if re.search(r"\binstalado\b", normalizar(c)):
@@ -599,8 +626,15 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
             return tocar(elementos, i, f"Esse é o {bonito}. Vamos abrir a página dele.")
 
     # Página ainda carregando (quase nada na tela): espera, não reabre a busca.
-    if len(validos) <= 3 and not titulo:
+    if len(validos) <= 3 and not titulo and not (ensinar and busca(elementos) is not None):
         return resposta("esperar", "Só um momento, a página está abrindo.")
+
+    # Ensinando: na tela inicial da loja (ou na página de outro app), o próximo passo é a pesquisa.
+    if ensinar:
+        j = busca(elementos)
+        if j is not None:
+            return tocar(elementos, j, f"Para achar o {bonito}, a gente usa a pesquisa da loja.")
+        return None  # a IA olha a tela e decide (sem atalho)
 
     # Página de outro app, tela inicial da loja ou qualquer outra: reabre a busca do app pedido (no máximo 2 vezes).
     if reabriu < 2:
@@ -610,7 +644,7 @@ def roteiro_loja(objetivo: str, elementos: list[str], textos: list[str], feitos:
 
 def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela: str,
                    textos: list[str] | None = None, app: str = "", titulo: str = "", teclado: bool = False,
-                   seguiu: str | None = None) -> dict | None:
+                   seguiu: str | None = None, ensinar: bool = False) -> dict | None:
     """Casos óbvios resolvidos na hora, sem esperar a IA (o Guia fica bem mais rápido)."""
     obj = normalizar(objetivo)
     feitos_n = {normalizar(curto(f)) for f in feitos}
@@ -620,9 +654,17 @@ def regra_certeira(objetivo: str, elementos: list[str], feitos: list[str], tela:
             nomes.setdefault(normalizar(curto(e)), i)
     # Play Store: roteiro fixo que confere o app em cada tela (sem IA).
     if (app or "") == LOJA:
-        r = roteiro_loja(objetivo, elementos, textos or [], feitos, titulo)
+        r = roteiro_loja(objetivo, elementos, textos or [], feitos, titulo, ensinar=ensinar)
         if r:
             return r
+    # Ensinando a instalar: fora da loja, o primeiro passo é achar e abrir a Play Store.
+    if ensinar and (app or "") != LOJA and any(p in obj for p in PEDE_INSTALAR):
+        loja = next((i for i, e in enumerate(elementos) if not anuncio(e) and normalizar(curto(e)) in ("play store", "google play", "play store app")), None)
+        if loja is not None:
+            return tocar(elementos, loja, "A Play Store é a loja de aplicativos do celular.")
+        if tela == "inicio" and len(feitos) == 0 and not seguiu:
+            return resposta("rolar_baixo", "Vamos achar a Play Store, a loja de aplicativos. Ela tem um triângulo colorido. "
+                                           + FALAS_GESTO["rolar_baixo"])
     # Painel rápido: o item já está na tela
     item = item_do_painel(objetivo)
     if item:

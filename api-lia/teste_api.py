@@ -77,7 +77,7 @@ def test_gov_fluxo_consulta_completo():
     for passo, url in zip(passos, paginas):
         html = c.get(url).text
         assert passo in html, (passo, url)
-        assert "SIMULAÇÃO" in html
+        assert "Simulação — ambiente de demonstração" in html
     r = c.post("/gov/saude/agendar/ubs-centro/h1", follow_redirects=True)
     assert "Consulta marcada" in r.text and "SIM-" in r.text
 
@@ -634,3 +634,59 @@ def test_fluxo_cortado_e_ia_fora_cai_nas_regras(monkeypatch):
 def test_fala_parcial_com_json_dentro():
     from ia import fala_parcial
     assert fala_parcial('{"fala": "{\\"fala\\": \\"Oi! Tudo') == "Oi! Tudo"
+
+
+def test_portal_simulado_identidade_propria_e_extrato_do_inss():
+    import gov_simulado
+    urls = ["/gov", "/gov/inicio", "/gov/saude", "/gov/saude/agendar", "/gov/saude/agendar/ubs-centro",
+            "/gov/saude/agendar/ubs-centro/h1", "/gov/saude/minhas", "/gov/inss", "/gov/inss/extrato", "/gov/veiculos", "/gov/veiculos/multas"]
+    for u in urls:
+        h = c.get(u).text
+        assert "Simulação — ambiente de demonstração" in h and "Portal do Cidadão" in h, u
+        assert "gov.br" not in h, u  # identidade própria
+    ex = c.get("/gov/inss/extrato").text
+    b = gov_simulado.BENEFICIO
+    assert b["valor"] in ex and "Próximo pagamento" in ex and b["data"] in ex
+    # o fluxo do INSS continua com os mesmos 3 toques
+    assert gov_simulado.FLUXOS["beneficio"]["passos"] == [gov_simulado.ENTRAR, "Meu INSS", "Extrato de pagamento"]
+    r = c.post("/gov/saude/agendar/ubs-centro/h1", follow_redirects=True)
+    assert "Protocolo" in r.text and "SIM-" in r.text
+
+
+def test_ensinar_comeca_do_comeco_sem_atalho():
+    import guia
+    from main import validar_acao
+    assert guia.quer_aprender("me ensina a instalar o Bradesco")
+    assert guia.quer_aprender("como eu instalo o WhatsApp?")
+    assert not guia.quer_aprender("quero instalar o facebook")
+    assert guia.nome_do_app("me ensina a instalar o Bradesco") == "bradesco"
+    # ensinar: sem busca já feita e começando da tela inicial
+    a = validar_acao({"tipo": "guiar_app", "app": "playstore", "objetivo": "me ensina a instalar o Bradesco"}, "app")
+    assert a["ensinar"] is True and a["app"] == "celular" and "nome_app" not in a
+    # fazer por ela: o atalho continua
+    a = validar_acao({"tipo": "guiar_app", "app": "playstore", "objetivo": "instalar o Bradesco"}, "app")
+    assert a["nome_app"] == "bradesco" and "ensinar" not in a
+    # a conversa marca ensinar pelo que a pessoa disse
+    r = falar("me ensina a instalar o facebook")
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"].get("ensinar") is True and "nome_app" not in r["acao"]
+    obj = "me ensina a instalar o Bradesco"
+    loja = guia.LOJA
+    # tela inicial do celular: aponta a Play Store
+    r = guia.regra_certeira(obj, ["Galeria", "Play Store", "Câmera"], [], "inicio", app="com.sec.android.app.launcher", ensinar=True)
+    assert r["tipo"] == "tocar" and r["indice"] == 1
+    # tela inicial da loja: a pesquisa (nunca reabre a busca já feita, nunca um Instalar de outro app)
+    home = ["Pesquisar apps e jogos", "Instalar — Kwai", "Instalar — Shopee [anúncio]"]
+    r = guia.roteiro_loja(obj, home, [], [], titulo="Para você", ensinar=True)
+    assert r["tipo"] == "tocar" and r["indice"] == 0
+    # campo aberto: escrever o nome
+    r = guia.roteiro_loja(obj, ["Voltar", "Pesquisar apps e jogos [campo aberto]"], [], ["Pesquisar apps e jogos"], titulo="", ensinar=True)
+    assert r["tipo"] == "esperar" and "Bradesco" in r["fala"]
+    # resultados: escolhe o app certo, e a proteção do Instalar continua
+    res = ["Bradesco [campo aberto]", "Instalar — Inter&Co [anúncio]", "Instalar — Bradesco: Conta, Cartão e Pix, Banco Bradesco SA"]
+    r = guia.roteiro_loja(obj, res, [], ["Pesquisar apps e jogos"], titulo="", ensinar=True)
+    assert r["tipo"] == "tocar" and r["indice"] == 2
+    # página de outro app: vai pela pesquisa, sem abrir_busca
+    r = guia.roteiro_loja(obj, ["Pesquisar", "Nubank", "Instalar"], [], [], titulo="Nubank: conta e cartão", ensinar=True)
+    assert r["tipo"] == "tocar" and r["alvo"] == "Pesquisar"
+    assert "MODO ENSINO" in guia.montar_prompt(obj, "app", [], [], ensinar=True)
+    assert "MODO ENSINO" not in guia.montar_prompt(obj, "app", [], [])

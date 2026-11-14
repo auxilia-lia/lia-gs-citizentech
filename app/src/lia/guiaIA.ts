@@ -1,7 +1,8 @@
 import LiaGuia, { TelaEvent, TipoPasso } from '../../modules/lia-guia';
 import { explicarTela, planoGuia, proximoPasso } from './api';
 import { aprenderPalavra, carregarPalavras } from './palavras';
-import { acharCaminho, fraseDoPasso, nomeCurto, PassoCaminho, salvarCaminho } from './caminhos';
+import { acharCaminho, nomeCurto, PassoCaminho, salvarCaminho } from './caminhos';
+import { anotarErro } from './autonomia';
 import { novoMapa, pseudonimizar, restaurar } from './pseudonimizar';
 import { modoRobo } from './robo';
 import { normalizar } from './texto';
@@ -11,7 +12,8 @@ import { normalizar } from './texto';
 //    quando o próximo passo do caminho está na tela: resolve aqui mesmo, na hora, sem internet;
 // 2. senão, da IA (/guia/proximo), que vê a tela e decide.
 // Antes de sair do celular, os textos da tela passam pela pseudonimização (#9).
-// Ao concluir, o caminho feito fica guardado, e a Lia fala um resumo para a pessoa fixar.
+// Ao concluir, o caminho feito fica guardado ("Meus caminhos") e a Lia só comemora, numa frase curta.
+// Pedido de ENSINAR: sem atalhos (a loja não abre já pesquisada, o app não abre sozinho); a pessoa faz cada passo.
 
 export const PACOTES: Record<string, string> = {
   whatsapp: 'com.whatsapp',
@@ -46,7 +48,7 @@ type Estado = {
   aprendido: boolean; // o plano é um caminho que a pessoa já fez (não da IA)
   posPlano: number;
   alertas: Set<string>;
-  resumoDito: boolean;
+  ensinar: boolean; // pedido de ensinar: sem atalhos
   palavras: string[];
   appAlvo: { nome: string; pkg: string } | null; // o app que a conversa já sabe que é o certo (ex.: Maps para GPS)
   reaberturas: number;
@@ -68,18 +70,6 @@ export function pararGuiaIA(pararNativo = true) {
   atual?.remover();
   atual = null;
   if (pararNativo) LiaGuia.stop();
-}
-
-// "Hoje você tocou em Play Store, Pesquisar e Instalar." (ajuda a lembrar da próxima vez)
-export function resumoDoCaminho(passos: PassoCaminho[]): string {
-  const frases = passos.slice(0, 6).map((p) => fraseDoPasso(p).replace(/^Toque em /, '').toLowerCase());
-  const toques = passos.filter((p) => p.tipo === 'tocar').map((p) => p.nome).slice(0, 5);
-  if (toques.length >= 2 && toques.length === passos.length) {
-    return `Para lembrar: você tocou em ${toques.slice(0, -1).join(', ')} e ${toques[toques.length - 1]}.`;
-  }
-  if (frases.length === 0) return '';
-  const lista = passos.slice(0, 6).map((p) => fraseDoPasso(p));
-  return `Para lembrar, o caminho foi: ${lista.join('; ')}.`;
 }
 
 // O próximo passo do plano está na tela? Devolve o número do botão (ou -1 para gesto) e qual passo do plano é.
@@ -109,13 +99,13 @@ function passoDoPlano(e: Estado, tela: TelaEvent): { passo: PassoCaminho; indice
 
 export function guiarComIA(
   objetivo: string, nivel: number, aoTerminar?: () => void, app = 'celular',
-  opcoes: { appAlvo?: { nome: string; pkg: string } } = {},
+  opcoes: { appAlvo?: { nome: string; pkg: string }; ensinar?: boolean } = {},
 ): boolean {
   pararGuiaIA();
   const mapa = novoMapa();
   const estado: Estado = {
     objetivo, app, nivel, feitos: [], caminho: [], trilha: [], instrucao: null, plano: [], aprendido: false, posPlano: 0,
-    alertas: new Set(), resumoDito: false, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '', ultimaInstrucao: '', vezes: {},
+    alertas: new Set(), ensinar: !!opcoes.ensinar, palavras: [], appAlvo: opcoes.appAlvo ?? null, reaberturas: 0, visitas: {}, ultimaTela: '', ultimaInstrucao: '', vezes: {},
     ocupado: false, pendente: null, remover: () => {},
   };
   const p = (t: string) => pseudonimizar(t, mapa);
@@ -183,8 +173,11 @@ export function guiarComIA(
         pararGuiaIA(false);
         return;
       }
+      // Ficou parada sem conseguir (o Guia já repetiu a instrução): conta como dificuldade para a autonomia.
+      if (tela.motivo === 'parado') anotarErro();
       // Caiu na tela inicial e a conversa já sabe o app certo: abre ele direto (nada de procurar ícone ou "voltar").
-      if (tela.tela === 'inicio' && estado.appAlvo && estado.reaberturas < 2) {
+      // Ensinando, não: achar o app faz parte do que ela está aprendendo.
+      if (tela.tela === 'inicio' && estado.appAlvo && !estado.ensinar && estado.reaberturas < 2) {
         estado.reaberturas++;
         LiaGuia.say(`Vou abrir o ${estado.appAlvo.nome} para você.`);
         LiaGuia.openApp(estado.appAlvo.pkg);
@@ -223,6 +216,7 @@ export function guiarComIA(
         repetindo: voltas >= 3,
         mesma_tela: mesmaTela,
         teclado: !!tela.teclado,
+        ensinar: estado.ensinar,
       });
       if (atual !== estado) return;
       // Chegou uma tela mais nova enquanto a IA pensava: esta resposta é de uma tela que já passou.
@@ -245,10 +239,10 @@ export function guiarComIA(
         return;
       }
       if (r.concluido) {
-        const resumo = resumoDoCaminho(estado.trilha);
-        estado.resumoDito = true;
-        LiaGuia.finishAI(resumo ? `${fala} ${resumo}` : fala);
+        LiaGuia.finishAI(fala); // só comemora: o caminho fica em "Meus caminhos", sem repetir tudo em voz
       } else {
+        // A Lia teve que corrigir o caminho (ela entrou em outro lugar sem ter seguido a instrução).
+        if (r.tipo === 'voltar' && !tela.seguiu && tela.motivo !== 'errou') anotarErro();
         instruir(tela, r.tipo, r.alvo ? restaurar(r.alvo, mapa) : null, fala, r.indice ?? -1);
       }
     } catch {
@@ -280,7 +274,7 @@ export function guiarComIA(
     if (atual !== estado) return;
     if (e.type === 'done_step' && e.step) {
       estado.feitos.push(e.step);
-      // O caminho guardado (e o resumo do fim) só tem os passos que levaram adiante:
+      // O caminho guardado só tem os passos que levaram adiante:
       // "voltar" desfaz o passo anterior, que era o lugar errado.
       if (estado.instrucao?.tipo === 'voltar') estado.trilha.pop();
       else if (estado.instrucao) estado.trilha.push(estado.instrucao);
@@ -289,9 +283,6 @@ export function guiarComIA(
     if (e.type === 'finished') {
       // Deu certo: o caminho fica guardado para a próxima vez (e para "Meus caminhos").
       if (!modoRobo()) salvarCaminho(objetivo, app, estado.trilha, nivel);
-      // Terminou pelo "já consegui": o resumo vem logo depois do "Que bom!".
-      const resumo = estado.resumoDito ? '' : resumoDoCaminho(estado.trilha);
-      if (resumo) setTimeout(() => LiaGuia.say(resumo), 2500);
       pararGuiaIA(false);
       aoTerminar?.();
     }

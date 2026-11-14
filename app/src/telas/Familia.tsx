@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { abrirWhatsApp, carregarFamilia, Familiar, salvarFamilia } from '../lia/familia';
-import { Aviso, Botao, Campo, Cartao, Texto, Titulo } from '../ui/componentes';
+import { Aviso, Botao, Campo, Cartao, Texto, Titulo, Tocavel } from '../ui/componentes';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 import { Aparecer } from '../ui/anim';
 import { apresentar } from '../lia/apresentar';
@@ -96,12 +96,14 @@ export function FamiliaEditar() {
               <Text style={st.nome}>{f.nome}</Text>
               <Text style={st.sub}>{f.parentesco} · {formatarTelefone(f.telefone) || 'sem número'}</Text>
             </View>
-            <Pressable onPress={() => remover(f)} accessibilityLabel={`Remover ${f.nome}`} style={st.lixo}>
+            <Tocavel onPress={() => remover(f)} accessibilityRole="button" accessibilityLabel={`Remover ${f.nome}`}
+              fala={`Tirar ${f.nome} da sua família. A Lia pergunta antes de tirar.`} style={st.lixo}>
               <Ionicons name="trash-outline" size={24} color={cores.perigo} />
-            </Pressable>
+            </Tocavel>
           </View>
           {f.telefone ? (
-            <Botao texto="Mandar mensagem" icone="chatbox-outline" tipo="secundario" onPress={() => abrirWhatsApp(f.telefone, '')} estilo={{ marginTop: espaco.md }} />
+            <Botao texto="Mandar mensagem" icone="chatbox-outline" tipo="secundario" onPress={() => abrirWhatsApp(f.telefone, '')} estilo={{ marginTop: espaco.md }}
+              fala={`Mandar mensagem para ${f.nome} no WhatsApp.`} />
           ) : null}
         </Cartao>
         </Aparecer>
@@ -114,9 +116,10 @@ export function FamiliaEditar() {
           <Text style={st.rotulo}>Quem é para você?</Text>
           <View style={st.chips}>
             {PARENTESCOS.map((p) => (
-              <Pressable key={p} onPress={() => setParentesco(p)} style={[st.chip, parentesco === p && st.chipAtivo]} accessibilityRole="button" accessibilityState={{ selected: parentesco === p }}>
+              <Tocavel key={p} onPress={() => setParentesco(p)} style={[st.chip, parentesco === p && st.chipAtivo]} accessibilityRole="button"
+                accessibilityState={{ selected: parentesco === p }} accessibilityLabel={p} fala={`Essa pessoa é ${/a$/.test(p) || p === 'irmã' ? 'sua' : 'seu'} ${p}.`}>
                 <Text style={[st.chipTexto, parentesco === p && { color: cores.branco }]}>{p}</Text>
-              </Pressable>
+              </Tocavel>
             ))}
           </View>
           <Campo rotulo="Ou escreva" placeholder="Ex.: cuidadora" value={PARENTESCOS.includes(parentesco) ? '' : parentesco} onChangeText={setParentesco} erro={erros.parentesco} />
@@ -124,11 +127,12 @@ export function FamiliaEditar() {
             rotulo="WhatsApp (com DDD)" placeholder="(11) 91234-5678" keyboardType="phone-pad"
             value={formatarTelefone(telefone)} onChangeText={setTelefone} erro={erros.telefone}
           />
-          <Botao texto="Salvar" icone="checkmark" onPress={adicionar} />
-          <Botao texto="Cancelar" tipo="claro" onPress={() => { setAdicionando(false); setErros({}); }} estilo={{ marginTop: espaco.sm }} />
+          <Botao texto="Salvar" icone="checkmark" onPress={adicionar} fala="Salvar essa pessoa na família." />
+          <Botao texto="Cancelar" tipo="claro" onPress={() => { setAdicionando(false); setErros({}); }} estilo={{ marginTop: espaco.sm }} fala="Cancelar, sem salvar ninguém." />
         </Cartao></Aparecer>
       ) : (
-        <Botao texto="Adicionar alguém" icone="person-add-outline" onPress={() => { setSalvo(''); setAdicionando(true); }} estilo={{ marginTop: espaco.sm }} />
+        <Botao texto="Adicionar alguém" icone="person-add-outline" onPress={() => { setSalvo(''); setAdicionando(true); }} estilo={{ marginTop: espaco.sm }}
+          fala="Adicionar alguém da família, com o número do WhatsApp." />
       )}
     </View>
   );

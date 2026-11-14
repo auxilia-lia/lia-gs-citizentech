@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { calar, falar } from '../lia/fala';
 import { useMargens } from '../ui/margens';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import LiaGuia from '../../modules/lia-guia';
-import { NomeIcone } from '../ui/componentes';
+import { NomeIcone, Tocavel } from '../ui/componentes';
 import { Aparecer, Flutuar } from '../ui/anim';
 import { Aba } from '../ui/BarraAbas';
 import { cores, espaco, raio, tamanho, TOQUE_MIN } from '../ui/tema';
@@ -48,13 +48,19 @@ export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) 
   };
 
   const textoAcao = { microfone: 'Permitir o microfone', guia: 'Ativar a Lia', familia: 'Cadastrar agora' } as const;
+  const falaAcao = {
+    microfone: 'Permitir o microfone, para a Lia ouvir o que você fala.',
+    guia: 'Ativar a Lia nos outros apps, para ela mostrar onde tocar.',
+    familia: 'Cadastrar agora as pessoas da família.',
+  } as const;
 
   return (
     <View style={[st.tela, { paddingTop: ins.top + espaco.xl, paddingBottom: ins.bottom + espaco.lg }]}>
       {!ultimo && (
-        <Pressable onPress={() => terminar()} style={st.pular} accessibilityRole="button">
+        <Tocavel onPress={() => terminar()} style={st.pular} accessibilityRole="button" accessibilityLabel="Pular"
+          fala="Pular a apresentação e começar a usar a Lia.">
           <Text style={st.pularTexto}>Pular</Text>
-        </Pressable>
+        </Tocavel>
       )}
 
       <Aparecer key={i} estilo={st.centro}>
@@ -71,19 +77,21 @@ export default function BoasVindas({ aoTerminar }: { aoTerminar: (irPara?: Aba) 
       </View>
 
       {passo.acao && !feito && (
-        <Pressable onPress={fazerAcao} style={[st.botao, st.botaoBranco]} accessibilityRole="button">
+        <Tocavel onPress={fazerAcao} style={[st.botao, st.botaoBranco]} accessibilityRole="button" accessibilityLabel={textoAcao[passo.acao]}
+          fala={falaAcao[passo.acao]}>
           <Text style={[st.botaoTexto, { color: cores.primaria }]}>{textoAcao[passo.acao]}</Text>
-        </Pressable>
+        </Tocavel>
       )}
-      <Pressable
+      <Tocavel
         onPress={() => (ultimo ? terminar() : setI(i + 1))}
         style={[st.botao, passo.acao && !feito ? st.botaoContorno : st.botaoBranco]}
         accessibilityRole="button"
+        fala={ultimo ? 'Começar a usar a Lia.' : passo.acao && !feito ? 'Agora não: deixar para depois e continuar.' : 'Continuar para a próxima parte.'}
       >
         <Text style={[st.botaoTexto, { color: passo.acao && !feito ? cores.branco : cores.primaria }]}>
           {ultimo ? 'Começar' : passo.acao && !feito ? 'Agora não' : 'Continuar'}
         </Text>
-      </Pressable>
+      </Tocavel>
     </View>
   );
 }

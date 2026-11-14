@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { conversar, Mensagem } from '../lia/api';
 import { montarContexto } from '../lia/contexto';
 import { novoMapa } from '../lia/pseudonimizar';
 import { useVoz } from '../lia/useVoz';
+import { Tocavel } from '../ui/componentes';
 
 // Canal por ligação (#11), simulado: para quem não tem smartphone nem internet.
 // Só voz, sem tela: a pessoa liga para a Lia e conversa. A central da Lia faz as ações.
@@ -91,9 +92,10 @@ export default function Ligacao() {
         </Text>
         <Text style={styles.numero}>0800 000 5420</Text>
         <Text style={styles.sub}>Lia · ligação gratuita (número fictício)</Text>
-        <Pressable style={[styles.botaoRedondo, { backgroundColor: '#2E7D32' }]} onPress={ligar}>
+        <Tocavel style={[styles.botaoRedondo, { backgroundColor: '#2E7D32' }]} onPress={ligar} accessibilityRole="button"
+          accessibilityLabel="Ligar" fala="Ligar para a Lia. É só conversar, sem tela.">
           <Text style={styles.icone}>📞</Text>
-        </Pressable>
+        </Tocavel>
         <Text style={styles.sub}>Ligar</Text>
       </View>
     );
@@ -107,15 +109,17 @@ export default function Ligacao() {
       <Text style={styles.estadoVoz}>{voz.ouvindo ? '🎙️ Ouvindo' : voz.falando ? '🔊 Lia falando' : ''}</Text>
       <View style={styles.botoes}>
         <View style={styles.centro}>
-          <Pressable style={[styles.botaoRedondo, { backgroundColor: '#455A64' }]} onPress={() => (voz.ouvindo ? voz.pararDeOuvir() : voz.ouvir())}>
+          <Tocavel style={[styles.botaoRedondo, { backgroundColor: '#455A64' }]} onPress={() => (voz.ouvindo ? voz.pararDeOuvir() : voz.ouvir())}
+            accessibilityRole="button" accessibilityLabel="Falar" fala="Falar: toque e fale com a Lia.">
             <Text style={styles.icone}>🎤</Text>
-          </Pressable>
+          </Tocavel>
           <Text style={styles.subClaro}>Falar</Text>
         </View>
         <View style={styles.centro}>
-          <Pressable style={[styles.botaoRedondo, { backgroundColor: '#C62828' }]} onPress={desligar}>
+          <Tocavel style={[styles.botaoRedondo, { backgroundColor: '#C62828' }]} onPress={desligar}
+            accessibilityRole="button" accessibilityLabel="Desligar" fala="Desligar a ligação.">
             <Text style={styles.icone}>📵</Text>
-          </Pressable>
+          </Tocavel>
           <Text style={styles.subClaro}>Desligar</Text>
         </View>
       </View>

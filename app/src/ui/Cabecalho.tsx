@@ -1,16 +1,17 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from './fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { cores, espaco, tamanho } from './tema';
+import { Tocavel } from './componentes';
 
 // Cabeçalho de tela secundária, com "Voltar" escrito (não só uma seta).
 export default function Cabecalho({ titulo, voltar }: { titulo: string; voltar: () => void }) {
   return (
     <View style={st.cab}>
-      <Pressable onPress={voltar} accessibilityRole="button" accessibilityLabel="Voltar" style={st.voltar}>
+      <Tocavel onPress={voltar} accessibilityRole="button" accessibilityLabel="Voltar" fala="Voltar para a tela anterior." style={st.voltar}>
         <Ionicons name="chevron-back" size={28} color={cores.primaria} />
         <Text style={st.voltarTexto}>Voltar</Text>
-      </Pressable>
+      </Tocavel>
       <Text style={st.titulo} numberOfLines={1}>{titulo}</Text>
     </View>
   );

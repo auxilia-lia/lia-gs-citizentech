@@ -7,7 +7,7 @@ export type Mensagem = { papel: 'pessoa' | 'lia'; texto: string };
 export type Canal = 'app' | 'ligacao';
 export type Acao =
   | { tipo: 'guiar'; servico: string }
-  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; nome_app?: string; abrir?: string }
+  | { tipo: 'guiar_app'; app: 'whatsapp' | 'configuracoes' | 'celular' | 'playstore'; objetivo: string; nome_app?: string; abrir?: string; ensinar?: boolean }
   | { tipo: 'avisar_familiar'; contato: string; mensagem: string }
   | { tipo: 'tirar_foto' }
   | { tipo: 'parar_guia'; conseguiu?: boolean }
@@ -256,6 +256,8 @@ export type PedidoGuia = {
   repetindo?: boolean;
   mesma_tela?: boolean;
   teclado?: boolean;
+  /** Pedido de ensinar: sem atalhos, a pessoa faz cada passo desde o começo. */
+  ensinar?: boolean;
 };
 
 // Guia genérico (#7): manda o contexto da tela (já pseudonimizado) e recebe o próximo passo.

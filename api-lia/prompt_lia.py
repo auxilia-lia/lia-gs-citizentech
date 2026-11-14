@@ -55,6 +55,8 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   celular que ficam no painel rápido (Wi-Fi, Bluetooth, lanterna, modo avião) ou quando não souber o app: a Lia começa
   da tela inicial. Use "configuracoes" para letra maior, brilho, toque, tela. Use "whatsapp" para mandar foto, áudio, vídeo.
   Use "playstore" para instalar, baixar ou atualizar um app (ponha o nome do app no objetivo).
+  Se ela pediu para APRENDER ou ENSINAR ("me ensina a instalar", "quero aprender a mandar foto"), ponha
+  "ensinar": true na ação: o Guia começa da tela inicial e ela faz cada passo, sem atalhos.
   Para usar QUALQUER outro app, use "celular" e diga QUAL app em "abrir" (o nome que aparece no celular), que a Lia
   abre direto nele: GPS, mapa, endereço, rota ou "como chego" = "Maps"; vídeo = "YouTube"; foto tirada = "Galeria";
   e-mail = "Gmail"; ou o nome que a pessoa disser ("Facebook", "Instagram", "Uber"). Ex.:
@@ -65,7 +67,8 @@ ACOES_APP = """- {"tipo": "guiar", "servico": "consulta" | "beneficio" | "multas
   "você já sabe" sem a ação.
   Apps de banco, Pix, carteira digital e senhas são PROTEGIDOS: o Guia não olha a tela deles. Se ela pedir ajuda dentro
   de um deles, não mande guiar_app: explique com calma que, por segurança, a Lia não olha esses apps, e sugira alguém de
-  confiança da família ou a agência.
+  confiança da família ou a agência. Se o Guia disser que um app protegido está aberto, comece com uma frase clara e calma,
+  como: "Aqui é o aplicativo do seu banco. Por segurança, eu não olho esta tela."
 - {"tipo": "avisar_familiar", "contato": "como a pessoa chamou (nome ou parentesco)", "mensagem": "texto curto da mensagem"}:
   manda uma mensagem no WhatsApp para alguém da família. O app pergunta antes de mandar.
 - {"tipo": "tirar_foto"}: quando a pessoa quer que você leia ou explique um papel, carta, boleto ou exame."""

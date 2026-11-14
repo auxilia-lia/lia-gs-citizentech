@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import LiaGuia, { AppDoCelular } from '../../modules/lia-guia';
-import { Botao, Campo, Cartao, IconeCirculo } from '../ui/componentes';
+import { Botao, Campo, Cartao, IconeCirculo, Tocavel } from '../ui/componentes';
 import { Aparecer } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 
@@ -51,26 +51,28 @@ export default function AppsProtegidos() {
             <Text style={st.nome} numberOfLines={1}>{a.nome}</Text>
             <Text style={st.mini}>{a.auto ? 'Protegido automaticamente' : 'Protegido por você'}</Text>
           </View>
-          <Pressable onPress={() => mudar(a.pkg, false)} style={st.acao} accessibilityRole="button" accessibilityLabel={`Liberar ${a.nome}`}>
+          <Tocavel onPress={() => mudar(a.pkg, false)} style={st.acao} accessibilityRole="button" accessibilityLabel={`Liberar ${a.nome}`}
+            fala={`Liberar o ${a.nome}: a Lia volta a poder olhar a tela dele.`}>
             <Text style={st.acaoTexto}>Liberar</Text>
-          </Pressable>
+          </Tocavel>
         </View>
       ))}
 
       {!adicionando ? (
-        <Botao texto="Proteger outro app" icone="add-circle" tipo="claro" onPress={() => setAdicionando(true)} />
+        <Botao texto="Proteger outro app" icone="add-circle" tipo="claro" onPress={() => setAdicionando(true)} fala="Escolher outro app em que a Lia não vai olhar a tela." />
       ) : (
         <Aparecer>
           <View style={{ gap: espaco.sm }}>
             <Campo rotulo="Qual app?" value={busca} onChangeText={setBusca} placeholder="Digite o nome" />
             {outros.map((a) => (
-              <Pressable key={a.pkg} onPress={() => mudar(a.pkg, true)} style={st.item} accessibilityRole="button" accessibilityLabel={`Proteger ${a.nome}`}>
+              <Tocavel key={a.pkg} onPress={() => mudar(a.pkg, true)} style={st.item} accessibilityRole="button" accessibilityLabel={`Proteger ${a.nome}`}
+                fala={`Proteger o ${a.nome}: a Lia não vai olhar a tela dele.`}>
                 <Ionicons name="lock-open-outline" size={22} color={cores.textoSuave} />
                 <Text style={[st.nome, { flex: 1 }]} numberOfLines={1}>{a.nome}</Text>
                 <Text style={st.acaoTexto}>Proteger</Text>
-              </Pressable>
+              </Tocavel>
             ))}
-            <Botao texto="Pronto" icone="checkmark" tipo="claro" onPress={() => { setAdicionando(false); setBusca(''); }} />
+            <Botao texto="Pronto" icone="checkmark" tipo="claro" onPress={() => { setAdicionando(false); setBusca(''); }} fala="Pronto: fechar a lista de apps." />
           </View>
         </Aparecer>
       )}

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import LiaGuia from '../../modules/lia-guia';
 import { api, definirEndereco } from '../lia/api';
-import { zerarProgresso } from '../lia/autonomia';
-import { Botao, Campo, Cartao, IconeCirculo, NomeIcone, Secao, Texto } from '../ui/componentes';
+import { carregarNivelDemo, definirNivelDemo, Nivel, NOMES_NIVEL, recomecarDoZero } from '../lia/autonomia';
+import { falar } from '../lia/fala';
+import { Botao, Campo, Cartao, IconeCirculo, NomeIcone, Secao, Texto, Tocavel } from '../ui/componentes';
 import { Aparecer } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 import type { Demo } from '../../App';
@@ -18,8 +19,15 @@ import { carregarPalavras, PALAVRAS } from '../lia/palavras';
 import { gravar, ler } from '../lia/armazenamento';
 
 // Ajustes: tudo que é configuração fica aqui, longe de quem usa a Lia no dia a dia.
-export default function Ajustes({ abrirDemo, reverBoasVindas, praticar, voltar }: {
+const DESCRICAO_NIVEL: Record<Nivel, string> = {
+  0: 'A Lia mostra e fala cada passo.',
+  1: 'A Lia mostra o botão e só confirma.',
+  2: 'A Lia só acompanha e aparece se a pessoa travar.',
+};
+
+export default function Ajustes({ abrirDemo, reverBoasVindas, praticar, voltar, recomecou }: {
   abrirDemo: (d: Demo) => void; reverBoasVindas: () => void; praticar: (c: Caminho) => void; voltar: () => void;
+  recomecou: () => void;
 }) {
   const [caminhos, setCaminhos] = useState<Caminho[]>([]);
   const [palavras, setPalavras] = useState<string[]>([]);
@@ -30,11 +38,14 @@ export default function Ajustes({ abrirDemo, reverBoasVindas, praticar, voltar }
   const [endereco, setEndereco] = useState(api());
   const [servidor, setServidor] = useState('');
   const [escuta, setEscuta] = useState(() => { try { return LiaGuia.autoListen(); } catch { return true; } });
+  const [nivelDemo, setNivelDemo] = useState<Nivel | null>(null);
+  const [apagado, setApagado] = useState(false);
 
   const atualizar = useCallback(async () => {
     setCaminhos(await carregarCaminhos());
     setPalavras(await carregarPalavras());
     setComemorar(await ler('lia:comemorar', true));
+    setNivelDemo(await carregarNivelDemo());
     setGuia(LiaGuia.isEnabled());
     setMicro((await ExpoSpeechRecognitionModule.getPermissionsAsync()).granted);
   }, []);
@@ -55,12 +66,40 @@ export default function Ajustes({ abrirDemo, reverBoasVindas, praticar, voltar }
     }
   };
 
+  const mudarNivelDemo = async (n: Nivel | null) => {
+    await definirNivelDemo(n);
+    setNivelDemo(n);
+  };
+
+  // Recomeçar do zero: apaga tudo o que a Lia guardou sobre o que a pessoa já fez. Pergunta antes.
+  const recomecar = () => {
+    falar('Recomeçar do zero apaga o progresso, o histórico, os caminhos aprendidos e as palavras aprendidas. Tem certeza?');
+    Alert.alert(
+      'Recomeçar do zero?',
+      'Apaga o progresso, o histórico, os caminhos aprendidos, as palavras aprendidas e o nível de demonstração. '
+        + 'A apresentação da Lia volta a aparecer na próxima vez que o app abrir. Família, apps protegidos e servidor continuam.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar tudo', style: 'destructive', onPress: async () => {
+          await recomecarDoZero();
+          setApagado(true);
+          recomecou();
+          atualizar();
+          falar('Pronto. A Lia recomeçou do zero.');
+        } },
+      ],
+    );
+  };
+
+  const alternarEscuta = () => { const n = !escuta; LiaGuia.setAutoListen(n); setEscuta(n); };
+  const alternarComemorar = () => { const n = !comemorar; gravar('lia:comemorar', n); setComemorar(n); };
+
   return (
     <View style={{ flex: 1 }}>
       <View style={st.topo}>
-        <Pressable onPress={voltar} style={st.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
+        <Tocavel onPress={voltar} style={st.voltar} accessibilityRole="button" accessibilityLabel="Voltar" fala="Voltar e fechar os ajustes.">
           <Ionicons name="chevron-back" size={26} color={cores.branco} />
-        </Pressable>
+        </Tocavel>
         <Text style={st.topoTitulo}>Ajustes</Text>
       </View>
     <ScrollView contentContainerStyle={st.tela} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -103,44 +142,87 @@ export default function Ajustes({ abrirDemo, reverBoasVindas, praticar, voltar }
 
       <Secao>Jeito da Lia</Secao>
       <Cartao>
-        <Pressable onPress={() => { const n = !escuta; LiaGuia.setAutoListen(n); setEscuta(n); }} style={st.linha}
-          accessibilityRole="switch" accessibilityState={{ checked: escuta }}>
+        <Tocavel onPress={alternarEscuta} style={st.linha} accessibilityRole="switch" accessibilityState={{ checked: escuta }}
+          fala={`Ouvir depois de falar, ${escuta ? 'ligado' : 'desligado'}. No Guia, depois de cada instrução, a Lia escuta alguns segundos. Toque para ${escuta ? 'desligar' : 'ligar'}.`}>
           <View style={{ flex: 1 }}>
             <Text style={st.nome}>Ouvir depois de falar</Text>
             <Text style={st.sub}>No Guia, depois de cada instrução, a Lia escuta alguns segundos. Dá para dizer "e agora?" sem tocar no microfone.</Text>
           </View>
-          <Switch value={escuta} onValueChange={() => { const n = !escuta; LiaGuia.setAutoListen(n); setEscuta(n); }} trackColor={{ true: cores.primaria, false: '#CDD3E1' }} thumbColor={cores.branco} />
-        </Pressable>
+          <Switch value={escuta} onValueChange={alternarEscuta} trackColor={{ true: cores.primaria, false: '#CDD3E1' }} thumbColor={cores.branco} />
+        </Tocavel>
         <View style={[st.divisor, { marginVertical: espaco.md }]} />
-        <Pressable onPress={() => { const n = !comemorar; gravar('lia:comemorar', n); setComemorar(n); }} style={st.linha}
-          accessibilityRole="switch" accessibilityState={{ checked: comemorar }}>
+        <Tocavel onPress={alternarComemorar} style={st.linha} accessibilityRole="switch" accessibilityState={{ checked: comemorar }}
+          fala={`Comemorar com a família, ${comemorar ? 'ligado' : 'desligado'}. Quando você aprender algo novo, a Lia pergunta se pode contar para alguém da família. Toque para ${comemorar ? 'desligar' : 'ligar'}.`}>
           <View style={{ flex: 1 }}>
             <Text style={st.nome}>Comemorar com a família</Text>
             <Text style={st.sub}>Quando você aprender algo novo, a Lia pergunta se pode contar para alguém da família pelo WhatsApp.</Text>
           </View>
-          <Switch value={comemorar} onValueChange={() => { const n = !comemorar; gravar('lia:comemorar', n); setComemorar(n); }} trackColor={{ true: cores.primaria, false: '#CDD3E1' }} thumbColor={cores.branco} />
-        </Pressable>
+          <Switch value={comemorar} onValueChange={alternarComemorar} trackColor={{ true: cores.primaria, false: '#CDD3E1' }} thumbColor={cores.branco} />
+        </Tocavel>
       </Cartao>
 
       <Secao>Ajuda</Secao>
-      <Botao texto="Ver a apresentação de novo" icone="play-circle" tipo="claro" onPress={reverBoasVindas} />
+      <Botao texto="Ver a apresentação de novo" icone="play-circle" tipo="claro" onPress={reverBoasVindas} fala="Ver de novo a apresentação da Lia." />
 
-      <Pressable onPress={() => setAvancado(!avancado)} style={st.avancado} accessibilityRole="button">
+      <Tocavel onPress={() => setAvancado(!avancado)} style={st.avancado} accessibilityRole="button" accessibilityLabel="Ajustes avançados"
+        fala={avancado ? 'Fechar os ajustes avançados.' : 'Abrir os ajustes avançados: servidor, demonstrações e recomeçar do zero.'}>
         <Text style={st.avancadoTexto}>Ajustes avançados</Text>
         <Ionicons name={avancado ? 'chevron-up' : 'chevron-down'} size={22} color={cores.textoSuave} />
-      </Pressable>
+      </Tocavel>
       {avancado && (
         <Aparecer>
           <Cartao estilo={{ gap: espaco.sm }}>
             <Text style={st.nome}>Servidor da Lia</Text>
             <Campo rotulo="Endereço" value={endereco} onChangeText={setEndereco} autoCapitalize="none" ajuda="O IP do computador onde a API está ligada." />
-            <Botao texto="Salvar e testar" icone="wifi" tipo="secundario" onPress={async () => { setEndereco(await definirEndereco(endereco)); testar(); }} />
+            <Botao texto="Salvar e testar" icone="wifi" tipo="secundario" onPress={async () => { setEndereco(await definirEndereco(endereco)); testar(); }}
+              fala="Salvar o endereço do servidor e testar se ele responde." />
             {servidor ? <Text style={st.sub}>{servidor}</Text> : null}
             <View style={st.divisor} />
             <Text style={st.nome}>Demonstrações</Text>
-            <Botao texto="Lia por ligação" icone="call" tipo="claro" onPress={() => abrirDemo('ligacao')} />
-            <Botao texto="Teste do Guia" icone="construct" tipo="claro" onPress={() => abrirDemo('teste')} />
-            <Botao texto="Zerar progresso" icone="refresh" tipo="claro" onPress={async () => { await zerarProgresso(); atualizar(); }} />
+            <Botao texto="Lia por ligação" icone="call" tipo="claro" onPress={() => abrirDemo('ligacao')} fala="Abrir a demonstração da Lia por ligação comum." />
+            <Botao texto="Teste do Guia" icone="construct" tipo="claro" onPress={() => abrirDemo('teste')} fala="Abrir o teste do Guia." />
+
+            {/* Nível de demonstração: força o mesmo nível em todos os serviços, sem mexer no progresso real. */}
+            <Tocavel onPress={() => mudarNivelDemo(nivelDemo === null ? 0 : null)} style={[st.linha, { marginTop: espaco.sm }]}
+              accessibilityRole="switch" accessibilityState={{ checked: nivelDemo !== null }}
+              fala={`Nível de demonstração, ${nivelDemo === null ? 'desligado' : 'ligado'}. Ligado, a Lia usa o mesmo nível de ajuda em tudo, sem mexer no progresso real. Toque para ${nivelDemo === null ? 'ligar' : 'desligar'}.`}>
+              <View style={{ flex: 1 }}>
+                <Text style={st.nome}>Nível de demonstração</Text>
+                <Text style={st.sub}>{nivelDemo === null
+                  ? 'Desligado: a Lia usa o progresso real de cada serviço.'
+                  : 'Ligado: o mesmo nível em todos os serviços. O progresso real fica guardado e não muda.'}</Text>
+              </View>
+              <Switch value={nivelDemo !== null} onValueChange={() => mudarNivelDemo(nivelDemo === null ? 0 : null)}
+                trackColor={{ true: cores.primaria, false: '#CDD3E1' }} thumbColor={cores.branco} />
+            </Tocavel>
+            {nivelDemo !== null && (
+              <View style={{ gap: espaco.sm }}>
+                {([0, 1, 2] as Nivel[]).map((n) => {
+                  const ativo = nivelDemo === n;
+                  return (
+                    <Tocavel key={n} onPress={() => mudarNivelDemo(n)} style={[st.opcao, ativo && st.opcaoAtiva]}
+                      accessibilityRole="radio" accessibilityState={{ selected: ativo }} accessibilityLabel={`${n}: ${NOMES_NIVEL[n]}`}
+                      fala={`Nível ${n}, ${NOMES_NIVEL[n].toLowerCase()}. ${DESCRICAO_NIVEL[n]}`}>
+                      <View style={[st.opcaoNumero, ativo && { backgroundColor: cores.primaria }]}>
+                        <Text style={[st.opcaoNumeroTexto, ativo && { color: cores.branco }]}>{n}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={st.nome}>{NOMES_NIVEL[n]}</Text>
+                        <Text style={st.sub}>{DESCRICAO_NIVEL[n]}</Text>
+                      </View>
+                      {ativo && <Ionicons name="checkmark-circle" size={24} color={cores.primaria} />}
+                    </Tocavel>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={st.divisor} />
+            <Text style={st.nome}>Recomeçar do zero</Text>
+            <Text style={st.sub}>Apaga o progresso, o histórico, os caminhos e as palavras aprendidas. Família e ajustes continuam.</Text>
+            <Botao texto="Recomeçar do zero" icone="refresh" tipo="perigo" onPress={recomecar}
+              fala="Recomeçar do zero: apaga tudo o que a Lia guardou sobre o que a pessoa já fez. A Lia pergunta antes." />
+            {apagado ? <Text style={[st.sub, { color: cores.sucesso, fontWeight: '600' }]}>Pronto: a Lia recomeçou do zero.</Text> : null}
           </Cartao>
         </Aparecer>
       )}
@@ -162,7 +244,7 @@ function Permissao({ icone, nome, ok, explica, acao, textoAcao }: {
         </View>
       </View>
       <Text style={st.sub}>{explica}</Text>
-      {!ok && <Botao texto={textoAcao} icone="arrow-forward" onPress={acao} />}
+      {!ok && <Botao texto={textoAcao} icone="arrow-forward" onPress={acao} fala={`${textoAcao}. ${explica}`} />}
     </View>
   );
 }
@@ -204,4 +286,8 @@ const st = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.sm },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: cores.sucessoSuave, borderRadius: raio.lg, paddingHorizontal: espaco.sm, paddingVertical: 6 },
   chipTexto: { fontSize: tamanho.mini, fontWeight: '500', color: cores.sucesso },
+  opcao: { flexDirection: 'row', alignItems: 'center', gap: espaco.md, borderWidth: 1, borderColor: cores.borda, borderRadius: raio.md, padding: espaco.sm, minHeight: 56 },
+  opcaoAtiva: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  opcaoNumero: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
+  opcaoNumeroTexto: { fontSize: tamanho.pequeno, fontWeight: '600', color: cores.primaria },
 });

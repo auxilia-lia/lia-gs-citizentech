@@ -8,7 +8,7 @@ import { carregarProgresso, Progresso } from '../lia/autonomia';
 import { Caminho, carregarCaminhos } from '../lia/caminhos';
 import { falar } from '../lia/fala';
 import { apresentar } from '../lia/apresentar';
-import { NomeIcone } from '../ui/componentes';
+import { NomeIcone, Tocavel } from '../ui/componentes';
 import { Aparecer, Toque } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 import type { Pedido } from './Conversa';
@@ -62,15 +62,16 @@ export default function Inicio({ pedir }: { pedir: (p: Omit<Pedido, 'id'>) => vo
   if (aprender) {
     return (
       <ScrollView contentContainerStyle={st.lista} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => setAprender(false)} style={st.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
+        <Tocavel onPress={() => setAprender(false)} style={st.voltar} accessibilityRole="button" accessibilityLabel="Voltar"
+          fala="Voltar para o início.">
           <Ionicons name="chevron-back" size={24} color={cores.primaria} />
           <Text style={st.voltarTexto}>Voltar</Text>
-        </Pressable>
+        </Tocavel>
         <Text style={st.listaTitulo}>Aprender</Text>
         <Text style={st.listaSub}>Escolha uma aula. Eu mostro cada passo.</Text>
         <View style={st.caixa}>
           {AULAS.map((a, i) => {
-            const feita = (progresso[`aula:${a.id}`] ?? 0) > 0;
+            const feita = (progresso[`aula:${a.id}`]?.vezes ?? 0) > 0;
             return (
               <Pressable key={a.id} onPress={() => pedir({ tipo: 'aula', aula: a })} onLongPress={() => falar(a.titulo)}
                 style={({ pressed }) => [st.aula, i === AULAS.length - 1 && { borderBottomWidth: 0 }, pressed && { backgroundColor: cores.fundo }]}
@@ -100,22 +101,24 @@ export default function Inicio({ pedir }: { pedir: (p: Omit<Pedido, 'id'>) => vo
 
       <View style={st.corpo}>
         {!guiaAtivo && (
-          <Pressable onPress={() => LiaGuia.openAccessibilitySettings()} style={st.alerta} accessibilityRole="button">
+          <Tocavel onPress={() => LiaGuia.openAccessibilitySettings()} style={st.alerta} accessibilityRole="button"
+            fala="Falta ativar o Guia, que mostra onde tocar nos outros apps. Peça para alguém da família tocar aqui.">
             <Ionicons name="hand-left-outline" size={24} color={cores.destaqueTexto} />
             <Text style={st.alertaTexto}>Falta ativar o Guia. Peça para alguém da família tocar aqui.</Text>
-          </Pressable>
+          </Tocavel>
         )}
 
         {praticar && (
           <Aparecer>
-            <Pressable onPress={() => pedir({ tipo: 'praticar', caminho: praticar })} style={st.praticar} accessibilityRole="button">
+            <Tocavel onPress={() => pedir({ tipo: 'praticar', caminho: praticar })} style={st.praticar} accessibilityRole="button"
+              fala={`Vamos praticar? Você tenta sozinho ${praticar.objetivo.toLowerCase().replace(/^(quero|eu quero|como) /, '')}, e eu só fico olhando.`}>
               <Ionicons name="refresh-outline" size={26} color={cores.primaria} />
               <View style={{ flex: 1 }}>
                 <Text style={st.praticarTitulo}>Vamos praticar?</Text>
                 <Text style={st.praticarTexto} numberOfLines={2}>Tente sozinho: {praticar.objetivo.toLowerCase().replace(/^(quero|eu quero|como) /, '')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#B5BCCD" />
-            </Pressable>
+            </Tocavel>
           </Aparecer>
         )}
 

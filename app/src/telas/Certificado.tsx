@@ -27,7 +27,7 @@ export default function Certificado({ tema, aberto, fechar }: { tema: string | n
           <View style={{ gap: espaco.md }}>
             <Text style={st.pergunta}>Qual nome vai no certificado?</Text>
             <Campo rotulo="Seu nome" value={nome} onChangeText={setNome} autoFocus />
-            <Botao texto="Pronto" icone="checkmark" onPress={salvar} />
+            <Botao texto="Pronto" icone="checkmark" onPress={salvar} fala="Pronto: guardar o nome que vai no certificado." />
           </View>
         ) : (
           <View style={st.papel}>
@@ -45,12 +45,12 @@ export default function Certificado({ tema, aberto, fechar }: { tema: string | n
         )}
         {!editando && (
           <View style={{ gap: espaco.sm, marginTop: espaco.lg }}>
-            <Botao texto="Mandar para a família" icone="share-social" onPress={() => Share.share({ message: texto })} />
+            <Botao texto="Mandar para a família" icone="share-social" onPress={() => Share.share({ message: texto })} fala="Mandar o certificado para alguém da família." />
             <Text style={st.dica}>Para imprimir, tire um print desta tela.</Text>
-            <Botao texto="Trocar o nome" icone="create" tipo="claro" onPress={() => setEditando(true)} />
+            <Botao texto="Trocar o nome" icone="create" tipo="claro" onPress={() => setEditando(true)} fala="Trocar o nome que aparece no certificado." />
           </View>
         )}
-        <Botao texto="Fechar" icone="close" tipo="claro" onPress={fechar} />
+        <Botao texto="Fechar" icone="close" tipo="claro" onPress={fechar} fala="Fechar o certificado." />
       </ScrollView>
     </Modal>
   );

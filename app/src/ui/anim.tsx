@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, PressableProps, StyleProp, View, ViewStyle } from 'react-native';
 import { cores } from './tema';
+import { falar } from '../lia/fala';
 
 // Animações da Lia: suaves e curtas (nada que distraia ou deixe lento).
 
@@ -19,14 +20,27 @@ export function Aparecer({ children, atraso = 0, estilo, distancia = 18 }: {
   );
 }
 
-// Área tocável que "afunda" um pouco ao tocar (dá a sensação de botão de verdade).
-export function Toque({ children, estilo, escala = 0.96, ...props }: PressableProps & {
-  children: ReactNode; estilo?: StyleProp<ViewStyle>; escala?: number;
+// Segurar qualquer coisa tocável faz a Lia dizer o que ela faz (para quem não lê).
+// Ordem: a fala própria > a dica de acessibilidade > o nome de acessibilidade.
+export function falaDoToque(p: { fala?: string; accessibilityHint?: string; accessibilityLabel?: string }): string {
+  return (p.fala ?? p.accessibilityHint ?? p.accessibilityLabel ?? '').trim();
+}
+
+export function aoSegurar(p: PressableProps & { fala?: string }): PressableProps['onLongPress'] {
+  if (p.onLongPress) return p.onLongPress;
+  const fala = falaDoToque(p);
+  return fala ? () => falar(fala) : undefined;
+}
+
+// Área tocável que "afunda" um pouco ao tocar (dá a sensação de botão de verdade). Segurar: a Lia fala o que ela faz.
+export function Toque({ children, estilo, escala = 0.96, fala, ...props }: PressableProps & {
+  children: ReactNode; estilo?: StyleProp<ViewStyle>; escala?: number; fala?: string;
 }) {
   const v = useRef(new Animated.Value(1)).current;
   const ir = (para: number) => Animated.spring(v, { toValue: para, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
   return (
-    <Pressable {...props} onPressIn={(e) => { ir(escala); props.onPressIn?.(e); }} onPressOut={(e) => { ir(1); props.onPressOut?.(e); }}>
+    <Pressable {...props} onLongPress={aoSegurar({ ...props, fala })}
+      onPressIn={(e) => { ir(escala); props.onPressIn?.(e); }} onPressOut={(e) => { ir(1); props.onPressOut?.(e); }}>
       <Animated.View style={[estilo, { transform: [{ scale: v }] }]}>{children}</Animated.View>
     </Pressable>
   );

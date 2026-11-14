@@ -57,7 +57,8 @@ type LiaGuiaEvents = {
   onStatus: (e: { enabled: boolean }) => void;
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
-  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean }) => void;
+  /** repetiu: pediu para repetir ("e agora?", "não entendi"); conta como dificuldade para a autonomia. */
+  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean; repetiu?: boolean }) => void;
   /** "O que é isso?": a tela atual (já limpa) para a Lia explicar. */
   onExplicar: (e: ExplicarEvent) => void;
 };

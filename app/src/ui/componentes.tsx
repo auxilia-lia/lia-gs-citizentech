@@ -1,18 +1,25 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { Pressable, PressableProps, StyleProp, StyleSheet, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import { Text } from './fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { cores, espaco, raio, tamanho, TOQUE_MIN } from './tema';
-import { Toque } from './anim';
+import { aoSegurar, Toque } from './anim';
 
 export type NomeIcone = keyof typeof Ionicons.glyphMap;
 
-// Botão grande, com ícone e texto (nunca só ícone, para quem não reconhece símbolos).
+// Pressable comum que fala ao ser segurado (fala > accessibilityHint > accessibilityLabel).
+// Use no lugar do Pressable em tudo que a pessoa pode tocar.
+export function Tocavel({ fala, ...props }: PressableProps & { fala?: string }) {
+  return <Pressable {...props} onLongPress={aoSegurar({ ...props, fala })} />;
+}
+
+// Botão grande, com ícone e texto (nunca só ícone, para quem não reconhece símbolos). Segurar: a Lia lê o "fala"
+// (ou o texto do botão).
 export function Botao({
-  texto, onPress, icone, tipo = 'primario', disabled, estilo,
+  texto, onPress, icone, tipo = 'primario', disabled, estilo, fala,
 }: {
   texto: string; onPress: () => void; icone?: NomeIcone;
-  tipo?: 'primario' | 'secundario' | 'claro' | 'perigo' | 'sucesso'; disabled?: boolean; estilo?: ViewStyle;
+  tipo?: 'primario' | 'secundario' | 'claro' | 'perigo' | 'sucesso'; disabled?: boolean; estilo?: ViewStyle; fala?: string;
 }) {
   const fundo = { primario: cores.primaria, secundario: cores.primariaSuave, claro: cores.superficie, perigo: cores.perigo, sucesso: cores.sucesso }[tipo];
   const cor = tipo === 'secundario' || tipo === 'claro' ? cores.primaria : cores.branco;
@@ -22,6 +29,7 @@ export function Botao({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={texto}
+      fala={fala ?? texto}
       estilo={[
         s.botao, { backgroundColor: fundo, opacity: disabled ? 0.45 : 1 },
         tipo === 'claro' && { borderWidth: 1, borderColor: cores.primariaBorda }, estilo,
@@ -33,10 +41,10 @@ export function Botao({
   );
 }
 
-export function Cartao({ children, estilo, onPress }: { children: ReactNode; estilo?: StyleProp<ViewStyle>; onPress?: () => void }) {
+export function Cartao({ children, estilo, onPress, fala }: { children: ReactNode; estilo?: StyleProp<ViewStyle>; onPress?: () => void; fala?: string }) {
   if (!onPress) return <View style={[s.cartao, estilo]}>{children}</View>;
   return (
-    <Toque onPress={onPress} accessibilityRole="button" estilo={[s.cartao, estilo]}>
+    <Toque onPress={onPress} accessibilityRole="button" fala={fala} estilo={[s.cartao, estilo]}>
       {children}
     </Toque>
   );

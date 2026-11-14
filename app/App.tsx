@@ -31,6 +31,7 @@ export default function App() {
   const [pronto, setPronto] = useState(false);
   const [primeiraVez, setPrimeiraVez] = useState(false);
   const [ajustes, setAjustes] = useState(false);
+  const [geracao, setGeracao] = useState(0); // "Recomeçar do zero" remonta a conversa (sem o histórico antigo)
   const [fontes] = useFonts({
     'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
     'Poppins-Medium': require('./assets/fonts/Poppins-Medium.ttf'),
@@ -87,6 +88,7 @@ export default function App() {
       <View style={[st.app, { paddingTop: margens.top }]}>
         {ajustes && !demo ? (
           <Ajustes voltar={() => setAjustes(false)} abrirDemo={setDemo} reverBoasVindas={() => { setAjustes(false); setPrimeiraVez(true); }}
+            recomecou={() => { pararGuiaIA(); setPedido(null); setGeracao((g) => g + 1); }}
             praticar={(c) => { setAjustes(false); pedir({ tipo: 'praticar', caminho: c }); }} />
         ) : demo ? (
           <View style={{ flex: 1 }}>
@@ -98,7 +100,7 @@ export default function App() {
             {aba === 'inicio' && <Aparecer key='inicio' distancia={10} estilo={{ flex: 1 }}><Inicio pedir={pedir} /></Aparecer>}
             {/* A conversa fica sempre montada para não perder o histórico ao trocar de aba. */}
             <View style={{ flex: 1, display: aba === 'conversa' ? 'flex' : 'none' }}>
-              <Conversa ativa={aba === 'conversa' && !demo} pedido={pedido} />
+              <Conversa key={geracao} ativa={aba === 'conversa' && !demo} pedido={pedido} />
             </View>
             {aba === 'familia' && <Aparecer key='familia' distancia={10} estilo={{ flex: 1 }}><Familia /></Aparecer>}
             {aba === 'eu' && <Aparecer key='eu' distancia={10} estilo={{ flex: 1 }}><Eu abrirAjustes={() => setAjustes(true)} /></Aparecer>}

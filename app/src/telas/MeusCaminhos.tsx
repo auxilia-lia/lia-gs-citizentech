@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { Caminho, fraseDoPasso, PassoCaminho } from '../lia/caminhos';
-import { Botao, Cartao, NomeIcone } from '../ui/componentes';
+import { Botao, Cartao, NomeIcone, Tocavel } from '../ui/componentes';
 import { Aparecer } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 
@@ -42,14 +42,15 @@ export default function MeusCaminhos({ caminhos, praticar }: { caminhos: Caminho
         return (
           <Aparecer key={c.chave} atraso={120 + i * 50}>
             <Cartao>
-              <Pressable onPress={() => setAberto(ab ? null : c.chave)} style={st.topo} accessibilityRole="button"
-                accessibilityState={{ expanded: ab }}>
+              <Tocavel onPress={() => setAberto(ab ? null : c.chave)} style={st.topo} accessibilityRole="button"
+                accessibilityState={{ expanded: ab }} accessibilityLabel={titulo(c.objetivo)}
+                fala={`${titulo(c.objetivo)}. ${ab ? 'Toque para fechar os passos.' : 'Toque para ver os passos.'}`}>
                 <View style={{ flex: 1 }}>
                   <Text style={st.nome}>{titulo(c.objetivo)}</Text>
                   <Text style={st.sub}>Feito {c.vezes} {c.vezes === 1 ? 'vez' : 'vezes'}{c.sozinho > 0 ? ` · ${c.sozinho} sozinho` : ''} · {c.passos.length} passos</Text>
                 </View>
                 <Ionicons name={ab ? 'chevron-up' : 'chevron-down'} size={24} color={cores.textoSuave} />
-              </Pressable>
+              </Tocavel>
               {ab && (
                 <View style={{ gap: espaco.sm, marginTop: espaco.md }}>
                   {c.passos.map((p: PassoCaminho, k) => (
@@ -60,9 +61,9 @@ export default function MeusCaminhos({ caminhos, praticar }: { caminhos: Caminho
                     </View>
                   ))}
                   <View style={st.botoes}>
-                    <View style={{ flex: 1 }}><Botao texto="Praticar" icone="fitness" onPress={() => praticar(c)} /></View>
+                    <View style={{ flex: 1 }}><Botao texto="Praticar" icone="fitness" onPress={() => praticar(c)} fala="Praticar: você faz sozinho, e a Lia só acompanha." /></View>
                     <View style={{ flex: 1 }}>
-                      <Botao texto="Enviar" icone="share-social" tipo="claro" onPress={() => Share.share({ message: textoDoCaminho(c) })} />
+                      <Botao texto="Enviar" icone="share-social" tipo="claro" onPress={() => Share.share({ message: textoDoCaminho(c) })} fala="Enviar esse caminho para alguém, por mensagem." />
                     </View>
                   </View>
                 </View>

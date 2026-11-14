@@ -99,8 +99,14 @@ def validar_acao(acao, canal: str) -> dict | None:
         else:
             acao.pop("abrir", None)
         # Play Store para instalar um app com nome: a loja já abre na busca dele (longe dos anúncios da página inicial).
-        acao = {k: v for k, v in acao.items() if k not in ("atalho", "nome_app")}
-        if acao.get("app") == "playstore":
+        # Pedido de ENSINAR: nada de atalho. O Guia começa da tela inicial e a pessoa faz cada passo.
+        ensinar = acao.get("ensinar") is True or guia.quer_aprender(acao["objetivo"])
+        acao = {k: v for k, v in acao.items() if k not in ("atalho", "nome_app", "ensinar")}
+        if ensinar:
+            acao["ensinar"] = True
+            if acao.get("app") == "playstore":
+                acao["app"] = "celular"
+        elif acao.get("app") == "playstore":
             nome = guia.nome_do_app(acao["objetivo"]) if any(p in guia.normalizar(acao["objetivo"]) for p in guia.PEDE_INSTALAR) else None
             if nome:
                 acao["nome_app"] = nome
@@ -137,7 +143,11 @@ def _sem_ia(msgs: list[dict], c: "Conversa", contexto: dict, analise: dict) -> d
 
 def _finalizar(r: dict, c: "Conversa", analise: dict, p: str) -> dict:
     fala = str(r.get("fala") or "").strip() or "Desculpa, não entendi. Pode repetir?"
-    acao = validar_acao(r.get("acao"), c.canal)
+    acao = r.get("acao")
+    # A IA às vezes resume o objetivo e perde o "me ensina": o pedido original da pessoa também vale.
+    if isinstance(acao, dict) and acao.get("tipo") == "guiar_app" and guia.quer_aprender(c.mensagens[-1].texto):
+        acao = {**acao, "ensinar": True}
+    acao = validar_acao(acao, c.canal)
     if acao and c.canal == "ligacao":
         extra = executar_na_ligacao(acao)
         if extra:
@@ -259,6 +269,7 @@ class TelaGuia(BaseModel):
     repetindo: bool = False  # ela já passou por esta tela várias vezes (andando em círculos)
     mesma_tela: bool = False  # a tela é a mesma da resposta anterior (o toque não levou a outro lugar)
     teclado: bool = False  # o teclado está aberto
+    ensinar: bool = False  # pedido de ensinar: sem atalhos, a pessoa faz cada passo desde o começo
 
 
 # Resposta da IA guardada por tela: a mesma tela (mesmo objetivo e mesmos passos) responde na hora.
@@ -338,10 +349,11 @@ async def _guia_proximo(t: TelaGuia) -> dict:
     args = dict(tela=t.tela, rolavel=t.rolavel, motivo=t.motivo, errou=t.errou, seguiu=t.seguiu)
     extra = dict(escondidos=[e.strip()[:80] for e in t.escondidos if e.strip()], titulo=t.titulo,
                  caminho=[c.strip()[:80] for c in t.caminho if c.strip()], plano=[x.strip()[:60] for x in t.plano if x.strip()],
-                 repetindo=t.repetindo)
+                 repetindo=t.repetindo, ensinar=t.ensinar or guia.quer_aprender(t.objetivo))
     if t.motivo != "errou" or t.app == guia.LOJA:  # na loja o roteiro vale sempre (ele confere o app)
         certeira = guia.regra_certeira(t.objetivo, elementos, t.feitos, t.tela, textos, app=t.app, titulo=t.titulo,
-                                       teclado=t.teclado, seguiu=t.seguiu)
+                                       teclado=t.teclado, seguiu=t.seguiu,
+                                       ensinar=t.ensinar or guia.quer_aprender(t.objetivo))
         if certeira:
             return {**certeira, "provedor": "regras (atalho)"}
     if provedor() not in ("gemini", "claude"):

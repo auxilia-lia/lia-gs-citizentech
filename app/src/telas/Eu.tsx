@@ -3,11 +3,11 @@ import { AppState, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import { AULAS } from '../lia/aulas';
-import { carregarProgresso, nivelDe, Progresso } from '../lia/autonomia';
+import { carregarProgresso, Progresso, Registro } from '../lia/autonomia';
 import { ler } from '../lia/armazenamento';
 import { falar } from '../lia/fala';
 import { apresentar } from '../lia/apresentar';
-import { Botao, Titulo } from '../ui/componentes';
+import { Botao, Titulo, Tocavel } from '../ui/componentes';
 import { Aparecer, BarraAnimada } from '../ui/anim';
 import { cores, espaco, raio, tamanho } from '../ui/tema';
 import Certificado from './Certificado';
@@ -31,6 +31,13 @@ const ETAPAS = [
   { texto: 'Sozinho', cor: cores.sucesso, fracao: 1 },
 ];
 
+// O que falta para a Lia ajudar menos (2 vezes seguidas sem erro sobem um nível).
+function proximoPasso(r: Registro): string {
+  if (r.nivel === 2) return 'Você já faz sozinho.';
+  const falta = Math.max(1, 2 - r.seguidas);
+  return falta === 1 ? 'Mais 1 vez sem errar e a Lia ajuda menos.' : 'Faça 2 vezes seguidas sem errar e a Lia ajuda menos.';
+}
+
 export default function Eu({ abrirAjustes }: { abrirAjustes: () => void }) {
   const [progresso, setProgresso] = useState<Progresso>({});
   const [nome, setNome] = useState('');
@@ -48,8 +55,8 @@ export default function Eu({ abrirAjustes }: { abrirAjustes: () => void }) {
     return () => s.remove();
   }, [atualizar]);
 
-  const lista = Object.entries(progresso).filter(([k, n]) => n > 0 && NOMES[k]).sort((a, b) => b[1] - a[1]);
-  const conquistado = lista.find(([, n]) => nivelDe(n) === 2);
+  const lista = Object.entries(progresso).filter(([k, r]) => r.vezes > 0 && NOMES[k]).sort((a, b) => b[1].vezes - a[1].vezes);
+  const conquistado = lista.find(([, r]) => r.nivel === 2);
 
   return (
     <ScrollView contentContainerStyle={st.tela} showsVerticalScrollIndicator={false}>
@@ -69,16 +76,19 @@ export default function Eu({ abrirAjustes }: { abrirAjustes: () => void }) {
           </View>
         ) : (
           <View style={st.caixa}>
-            {lista.map(([chave, vezes], i) => {
-              const e = ETAPAS[nivelDe(vezes)];
+            {lista.map(([chave, r], i) => {
+              const e = ETAPAS[r.nivel];
               return (
-                <View key={chave} style={[st.item, i === lista.length - 1 && { borderBottomWidth: 0 }]}>
+                <Tocavel key={chave} style={[st.item, i === lista.length - 1 && { borderBottomWidth: 0 }]}
+                  accessibilityLabel={`${NOMES[chave]}: ${e.texto}`} fala={`${NOMES[chave]}: ${e.texto}. ${proximoPasso(r)}`}
+                  onPress={() => falar(`${NOMES[chave]}: ${e.texto}. ${proximoPasso(r)}`)}>
                   <View style={st.itemTopo}>
                     <Text style={st.itemNome}>{NOMES[chave]}</Text>
                     <Text style={[st.itemEtapa, { color: e.cor }]}>{e.texto}</Text>
                   </View>
                   <BarraAnimada fracao={e.fracao} cor={e.cor} fundo={cores.borda} altura={10} />
-                </View>
+                  <Text style={st.itemDica}>{proximoPasso(r)}</Text>
+                </Tocavel>
               );
             })}
           </View>
@@ -87,7 +97,8 @@ export default function Eu({ abrirAjustes }: { abrirAjustes: () => void }) {
 
       {conquistado && (
         <Aparecer atraso={140}>
-          <Botao texto="Meu certificado" icone="ribbon-outline" onPress={() => setCertificado(NOMES[conquistado[0]])} estilo={{ marginTop: espaco.lg }} />
+          <Botao texto="Meu certificado" icone="ribbon-outline" onPress={() => setCertificado(NOMES[conquistado[0]])} estilo={{ marginTop: espaco.lg }}
+            fala="Ver o seu certificado: ele mostra o que você já faz sozinho no celular." />
         </Aparecer>
       )}
 
@@ -119,6 +130,7 @@ const st = StyleSheet.create({
   itemTopo: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: espaco.sm },
   itemNome: { flex: 1, fontSize: tamanho.pequeno, fontWeight: '600', color: cores.tinta },
   itemEtapa: { fontSize: tamanho.mini, fontWeight: '600' },
+  itemDica: { fontSize: 13, color: cores.textoSuave },
   ajustes: { marginTop: 'auto', paddingTop: espaco.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 56 },
   ajustesTexto: { fontSize: tamanho.mini, fontWeight: '500', color: cores.textoSuave },
 });
