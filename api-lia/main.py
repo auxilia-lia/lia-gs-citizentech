@@ -4,6 +4,7 @@ Rodar: uvicorn main:app --host 0.0.0.0 --port 8000
 """
 import json
 import os
+import re
 import logging
 import time
 
@@ -141,9 +142,43 @@ def _sem_ia(msgs: list[dict], c: "Conversa", contexto: dict, analise: dict) -> d
     return r
 
 
+BANCOS = re.compile(r"\b(bradesco|itau|santander|nubank|banco do brasil|bb|caixa(?! de)|caixa tem|inter|c6( bank)?|sicoob|"
+                    r"sicredi|picpay|mercado pago|pagbank|banrisul|btg|safra|neon)\b")
+INSTALAR_APP = re.compile(r"\b(instal\w*|baix\w*)\b")
+ABRIR_APP = re.compile(r"\b(abr\w*|entr\w* no)\b")
+ACHAR_APP = re.compile(r"\b(ach\w*|encontr\w*|procur\w*|cade)\b")
+DENTRO_DO_BANCO = re.compile(r"\b(pix|pag\w*|transfer\w*|saldo|extrato|senha|boleto|emprestimo)\b")
+
+
+def acao_app_de_banco(texto: str, contexto: dict) -> tuple[str, dict] | None:
+    """Instalar, achar ou abrir o app do banco (pela loja ou pela tela inicial) é permitido: a proteção do banco só vale
+    com o app ABERTO na tela, e quem cuida disso é o celular. Se a IA recusou esse pedido, a Lia guia assim mesmo."""
+    if "protegido" in (contexto.get("guia") or ""):
+        return None  # o app protegido está aberto: aí sim a Lia não olha
+    t = guia.normalizar(texto or "")
+    m = BANCOS.search(t)
+    if not m or DENTRO_DO_BANCO.search(t):
+        return None
+    nome = {"bb": "BB", "itau": "Itaú", "c6": "C6 Bank", "btg": "BTG"}.get(m.group(0)) or m.group(0).title().replace(" Do ", " do ")
+    if INSTALAR_APP.search(t):
+        return ("Vamos juntos na loja de apps. Vou te mostrar cada passo.",
+                {"tipo": "guiar_app", "app": "playstore", "objetivo": texto})
+    if ABRIR_APP.search(t):
+        return (f"Vou abrir o {nome} para você. Lá dentro, por segurança, eu não olho a tela.",
+                {"tipo": "guiar_app", "app": "celular", "abrir": nome, "objetivo": texto})
+    if ACHAR_APP.search(t):
+        return (f"Vamos achar o {nome} juntos. Vou para a tela inicial e te mostro onde está.",
+                {"tipo": "guiar_app", "app": "celular", "objetivo": texto})
+    return None
+
+
 def _finalizar(r: dict, c: "Conversa", analise: dict, p: str) -> dict:
     fala = str(r.get("fala") or "").strip() or "Desculpa, não entendi. Pode repetir?"
     acao = r.get("acao")
+    if not acao and c.canal == "app" and not analise.get("golpe"):
+        banco = acao_app_de_banco(c.mensagens[-1].texto, c.contexto.model_dump())
+        if banco:
+            fala, acao = banco
     # A IA às vezes resume o objetivo e perde o "me ensina": o pedido original da pessoa também vale.
     if isinstance(acao, dict) and acao.get("tipo") == "guiar_app" and guia.quer_aprender(c.mensagens[-1].texto):
         acao = {**acao, "ensinar": True}

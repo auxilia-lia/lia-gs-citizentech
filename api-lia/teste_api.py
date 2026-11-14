@@ -690,3 +690,39 @@ def test_ensinar_comeca_do_comeco_sem_atalho():
     assert r["tipo"] == "tocar" and r["alvo"] == "Pesquisar"
     assert "MODO ENSINO" in guia.montar_prompt(obj, "app", [], [], ensinar=True)
     assert "MODO ENSINO" not in guia.montar_prompt(obj, "app", [], [])
+
+
+def test_app_de_banco_so_protegido_quando_aberto(monkeypatch):
+    import main
+    from prompt_lia import montar_sistema
+    # o prompt deixa claro: instalar/abrir é permitido, a proteção vale só com o app aberto
+    s = montar_sistema("app", {}, None)
+    assert "SÓ quando o app está ABERTO" in s and "Nunca recuse esses pedidos" in s
+
+    # a IA recusou por engano: a Lia guia assim mesmo, sem a frase do banco
+    async def recusa(*a, **k):
+        return {"fala": "Aqui é o aplicativo do seu banco. Por segurança, eu não olho esta tela.", "acao": None}
+
+    monkeypatch.setattr(main, "provedor", lambda: "gemini")
+    monkeypatch.setattr(main, "gerar", recusa)
+    r = falar("me ensina a instalar o Bradesco")
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"].get("ensinar") is True and r["acao"]["app"] == "celular"
+    assert "não olho esta tela" not in r["fala"]
+    r = falar("quero instalar o app do Itaú")
+    assert r["acao"]["app"] == "playstore" and r["acao"]["nome_app"]
+    r = falar("abre o Nubank pra mim")
+    assert r["acao"]["app"] == "celular" and r["acao"]["abrir"] == "Nubank" and "não olho esta tela" not in r["fala"]
+    r = falar("onde acho o app do Bradesco?")
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"]["app"] == "celular"
+
+    # app do banco ABERTO na tela (o Guia avisa): aí sim, a frase do banco e nada de guiar
+    r = falar("abre o Bradesco", contexto={"guia": "um app protegido está aberto; o Guia não olha esta tela"})
+    assert r["acao"] is None and "Aqui é o aplicativo do seu banco" in r["fala"]
+    # pedido de fazer algo DENTRO do banco continua sem guiar
+    r = falar("faz um pix no Bradesco pra mim")
+    assert r["acao"] is None
+
+    # sem IA (modo teste), instalar o app do banco também é guiado
+    monkeypatch.setattr(main, "provedor", lambda: "teste")
+    r = falar("me ensina a instalar o Bradesco")
+    assert r["acao"]["tipo"] == "guiar_app" and r["acao"].get("ensinar") is True
