@@ -537,3 +537,100 @@ def test_frases_prontas_so_frase_completa():
     from ia import fala_parcial, frases_prontas
     assert frases_prontas(fala_parcial('{"fala": "Claro! Vou te mostrar. Prim'), 0)[0] == "Claro! Vou te mostrar."
     assert frases_prontas(fala_parcial('{"fala": "Custa R$ 1.5'), 0)[0] == ""
+
+
+# ---------- Fala nunca sai como JSON cru nem cortada (bug: balão mostrou '{"fala": "Para mexer na localização...') ----------
+
+def _fluxo_com(monkeypatch, pedacos, reserva=None):
+    """Roda /conversa/fluxo com o Gemini fingido mandando estes pedaços; reserva = o que gerar() devolve se chamado."""
+    import json as _json
+    import main
+
+    async def fluxo_fingido(*a, **k):
+        for p in pedacos:
+            yield p
+
+    chamadas = []
+
+    async def gerar_fingido(*a, **k):
+        chamadas.append(1)
+        if reserva is None:
+            raise main.httpx.ConnectError("sem rede")
+        return reserva
+
+    monkeypatch.setattr(main, "provedor", lambda: "gemini")
+    monkeypatch.setattr(main, "gerar_fluxo", fluxo_fingido)
+    monkeypatch.setattr(main, "gerar", gerar_fingido)
+    r = c.post("/conversa/fluxo", json={"mensagens": [{"papel": "pessoa", "texto": "como desligo a localização?"}]})
+    assert r.status_code == 200
+    linhas = [_json.loads(l) for l in r.text.splitlines() if l.strip()]
+    parciais = [l["parcial"] for l in linhas if "parcial" in l]
+    for p in parciais:
+        assert "{" not in p and '"fala"' not in p and "```" not in p
+    final = linhas[-1]["final"]
+    assert "{" not in final["fala"] and '"fala"' not in final["fala"] and "```" not in final["fala"]
+    return parciais, final, chamadas
+
+
+def test_extrair_json_puro_e_com_cerca():
+    from ia import _extrair_json
+    fala = "Para desligar a localização, puxe o alto da tela pelo lado direito."
+    assert _extrair_json('{"fala": "%s", "acao": null}' % fala)["fala"] == fala
+    assert _extrair_json('```json\n{"fala": "%s", "acao": null}\n```' % fala)["fala"] == fala
+    assert _extrair_json('```json\n{"fala": "%s"' % fala)["fala"] == fala  # cerca e JSON sem fechar
+    # JSON dentro da fala
+    assert _extrair_json('{"fala": "{\\"fala\\": \\"%s\\"}", "acao": null}' % fala)["fala"] == fala
+    assert _extrair_json("Oi, tudo bem?")["fala"] == "Oi, tudo bem?"  # texto puro continua valendo
+
+
+def test_extrair_json_cortado_nunca_repassa_cru():
+    import pytest
+    from ia import RespostaQuebrada, _extrair_json
+    # o caso do bug: cortou sem nenhuma frase inteira
+    with pytest.raises(RespostaQuebrada):
+        _extrair_json('{"fala": "Para mexer na localização, você puxa o alto da tela pelo')
+    # cortou depois de uma frase inteira: fica só ela
+    r = _extrair_json('{"fala": "Claro! Vou te mostrar. Puxe o alto da tela pelo')
+    assert r["fala"] == "Claro! Vou te mostrar."
+
+
+def test_fluxo_json_puro(monkeypatch):
+    fala = "Para desligar a localização, puxe o alto da tela pelo lado direito."
+    parciais, final, chamadas = _fluxo_com(monkeypatch, ['{"fala": "%s", "acao": null}' % fala])
+    assert final["fala"] == fala and not chamadas
+
+
+def test_fluxo_json_com_cerca_de_codigo(monkeypatch):
+    fala = "Claro! Para desligar a localização, puxe o alto da tela pelo lado direito."
+    parciais, final, chamadas = _fluxo_com(monkeypatch, ["```json\n", '{"fala": "Claro! Para desligar a ', 'localização, puxe o alto da tela pelo lado direito."', ', "acao": null}\n```'])
+    assert parciais[0] == "Claro!" and final["fala"] == fala and not chamadas
+
+
+def test_fluxo_json_quebrado_entre_pedacos(monkeypatch):
+    fala = "Claro! Vou te mostrar. Puxe o alto da tela pelo lado direito."
+    pedacos = ['{"fa', 'la": "Cla', 'ro! Vou te mos', 'trar. Puxe o alto da tela pe', 'lo lado direito."', ', "ac', 'ao": nu', 'll}']
+    parciais, final, chamadas = _fluxo_com(monkeypatch, pedacos)
+    # a última frase não vai como parcial (pode ser "R$ 1.5" ainda chegando): ela vem no final, inteira
+    assert parciais == ["Claro!", "Vou te mostrar."] and final["fala"] == fala and not chamadas
+
+
+def test_fluxo_cortado_sem_frase_inteira_cai_para_resposta_normal(monkeypatch):
+    # o bug: o Gemini parou no meio e o JSON cru virou a fala
+    inteira = {"fala": "Para desligar a localização, puxe o alto da tela pelo lado direito.", "acao": None}
+    parciais, final, chamadas = _fluxo_com(monkeypatch, ['{"fala": "Para mexer na localização, você puxa o alto da tela pelo'], reserva=inteira)
+    assert not parciais and chamadas and final["fala"] == inteira["fala"]
+
+
+def test_fluxo_cortado_depois_de_frases_fica_com_o_que_foi_dito(monkeypatch):
+    parciais, final, chamadas = _fluxo_com(monkeypatch, ['{"fala": "Claro! Vou te mostrar. Puxe o alto da tela pe'])
+    assert parciais == ["Claro! Vou te mostrar."] and final["fala"] == "Claro! Vou te mostrar." and not chamadas
+
+
+def test_fluxo_cortado_e_ia_fora_cai_nas_regras(monkeypatch):
+    parciais, final, chamadas = _fluxo_com(monkeypatch, ['```json\n{"fala": "Para mexer na'])
+    assert chamadas and final["provedor"].startswith("regras") and final["fala"]
+
+
+def test_fala_parcial_com_json_dentro():
+    from ia import fala_parcial
+    assert fala_parcial('{"fala": "{\\"fala\\": \\"Oi! Tudo') == "Oi! Tudo"

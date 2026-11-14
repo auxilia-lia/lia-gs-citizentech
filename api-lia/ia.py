@@ -11,15 +11,51 @@ def provedor() -> str:
     return os.getenv("LIA_PROVEDOR", "teste").lower()
 
 
+class RespostaQuebrada(RuntimeError):
+    """A IA mandou um JSON cortado do qual não dá para tirar nem uma frase inteira: quem chamou cai para outro caminho."""
+
+
+_CERCA = re.compile(r"^```[a-zA-Z]*\s*|\s*```$")
+
+
+def tirar_cerca(texto: str) -> str:
+    """Tira a cerca de código (```json ... ```) que às vezes vem em volta do JSON. Funciona com a cerca sem fechar."""
+    return _CERCA.sub("", texto.strip()).strip()
+
+
+def parece_json(texto: str) -> bool:
+    t = tirar_cerca(texto)
+    return t.startswith("{") or t.startswith("```") or bool(_FALA.search(t))
+
+
+def _fala_limpa(r: dict) -> dict:
+    """Às vezes a fala vem com outro JSON dentro ({"fala": "{\\"fala\\": ...}"}): desembrulha."""
+    fala = r.get("fala")
+    if isinstance(fala, str) and parece_json(fala):
+        de_dentro = _extrair_json(fala)
+        r = {**r, "fala": de_dentro.get("fala", ""), "acao": r.get("acao") or de_dentro.get("acao")}
+    return r
+
+
 def _extrair_json(texto: str) -> dict:
-    texto = texto.strip()
+    texto = tirar_cerca(texto)
     m = re.search(r"\{.*\}", texto, re.S)
     if m:
         try:
-            return json.loads(m.group(0))
+            r = json.loads(m.group(0))
+            if isinstance(r, dict):
+                return _fala_limpa(r)
         except json.JSONDecodeError:
             pass
-    return {"fala": texto, "acao": None}  # a IA respondeu texto puro
+    if not parece_json(texto):
+        return {"fala": texto, "acao": None}  # a IA respondeu texto puro
+    # JSON cortado no meio (a IA parou antes de fechar): nunca repassa o texto cru.
+    if re.search(r'"fala"\s*:\s*"(?:[^"\\]|\\.)*"', texto):
+        return {"fala": fala_parcial(texto), "acao": None}  # a fala em si chegou inteira (fechou as aspas)
+    frases, _ = frases_prontas(fala_parcial(texto), 0)  # senão, só as frases inteiras
+    if frases:
+        return {"fala": frases, "acao": None}
+    raise RespostaQuebrada("JSON da IA veio cortado")
 
 
 async def gerar(sistema: str, mensagens: list[dict], imagem: dict | None = None, max_tokens: int = 600,
@@ -161,9 +197,12 @@ def fala_parcial(json_incompleto: str) -> str:
     if bruto.endswith("\\") and not bruto.endswith("\\\\"):
         bruto = bruto[:-1]
     try:
-        return json.loads(f'"{bruto}"')
+        fala = json.loads(f'"{bruto}"')
     except json.JSONDecodeError:
-        return bruto.replace('\\"', '"').replace("\\n", " ")
+        fala = bruto.replace('\\"', '"').replace("\\n", " ")
+    if _FALA.search(fala):
+        return fala_parcial(fala)  # a fala trouxe outro JSON dentro: pega a fala de dentro
+    return fala
 
 
 def frases_prontas(texto: str, ja_enviado: int) -> tuple[str, int]:

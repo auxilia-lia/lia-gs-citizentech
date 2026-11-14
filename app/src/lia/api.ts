@@ -95,6 +95,43 @@ async function post<T>(caminho: string, corpo: unknown, tempoMs = 40000): Promis
   }
 }
 
+const FALA = /"fala"\s*:\s*"((?:[^"\\]|\\.)*)/;
+
+// A fala às vezes chega como JSON (cru, dentro de ```json ou cortado no meio). Nunca mostra nem fala isso:
+// tira a "fala" de dentro quando dá; se o JSON veio cortado, fica só com as frases inteiras; senão, ''.
+export function limparFala(texto: string): string {
+  const t = (texto ?? '').trim().replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim();
+  if (!t.startsWith('{') && !FALA.test(t)) return t;
+  try {
+    const j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+    if (typeof j?.fala === 'string') return limparFala(j.fala);
+  } catch {
+    // JSON cortado: segue abaixo
+  }
+  const m = FALA.exec(t);
+  if (!m) return '';
+  let dentro: string;
+  try {
+    dentro = JSON.parse(`"${m[1]}"`);
+  } catch {
+    dentro = m[1].replace(/\\"/g, '"').replace(/\\n/g, ' ');
+  }
+  if (FALA.test(dentro)) return limparFala(dentro);
+  return (/^[\s\S]*[.!?…](?=\s|$)/.exec(dentro)?.[0] ?? '').trim();
+}
+
+// O que falta falar da fala final depois das frases que já chegaram em partes (ignora diferenças de espaço).
+export function restoDaFala(fala: string, partes: string[]): string {
+  if (!partes.length) return fala;
+  const norm = (s: string) => s.split(/\s+/).filter(Boolean).join(' ');
+  const f = norm(fala);
+  const dito = norm(partes.join(' '));
+  if (f.startsWith(dito)) return f.slice(dito.length).trim();
+  const ultima = norm(partes[partes.length - 1]);
+  const i = f.lastIndexOf(ultima);
+  return i >= 0 ? f.slice(i + ultima.length).trim() : '';
+}
+
 // Manda a conversa já pseudonimizada e devolve a resposta com os dados reais restaurados.
 export async function conversar(
   historico: Mensagem[],
@@ -105,7 +142,8 @@ export async function conversar(
   const mensagens = historico.slice(-20).map((m) => ({ ...m, texto: pseudonimizar(m.texto, mapa) }));
   const r = await post<RespostaLia>('/conversa', { mensagens, canal, contexto }, 20000);
   const acao = r.acao && 'mensagem' in r.acao ? { ...r.acao, mensagem: restaurar(r.acao.mensagem, mapa) } : r.acao;
-  return { ...r, fala: restaurar(r.fala, mapa), acao };
+  const fala = limparFala(r.fala) || 'Desculpa, não entendi. Pode repetir?';
+  return { ...r, fala: restaurar(fala, mapa), acao };
 }
 
 // Igual a conversar(), mas a resposta chega em partes: aoParcial recebe cada frase pronta da fala, para a Lia
@@ -132,6 +170,7 @@ export async function conversarEmPartes(
     const decodificar = new TextDecoder();
     let resto = '';
     let final: RespostaLia | null = null;
+    const ditas: string[] = [];
     for (;;) {
       const { done, value } = await leitor.read();
       if (done) break;
@@ -142,13 +181,21 @@ export async function conversarEmPartes(
         resto = resto.slice(i + 1);
         if (!linha) continue;
         const j = JSON.parse(linha) as { parcial?: string; final?: RespostaLia };
-        if (j.parcial) aoParcial(restaurar(j.parcial, mapa));
+        const frase = j.parcial ? limparFala(j.parcial) : '';
+        if (frase) {
+          ditas.push(frase);
+          aoParcial(restaurar(frase, mapa));
+        }
         if (j.final) final = j.final;
       }
     }
-    if (!final) throw new Error('resposta sem final');
-    const acao = final.acao && 'mensagem' in final.acao ? { ...final.acao, mensagem: restaurar(final.acao.mensagem, mapa) } : final.acao;
-    return { ...final, fala: restaurar(final.fala, mapa), acao };
+    // Sem final ou com fala que não presta: fica com o que já foi dito; se nada foi dito, quem chamou usa conversar().
+    if (!final && !ditas.length) throw new Error('resposta sem final');
+    const resposta: RespostaLia = final ?? { fala: '', acao: null, golpe: null };
+    const fala = limparFala(resposta.fala) || ditas.join(' ');
+    if (!fala) throw new Error('resposta sem fala');
+    const acao = resposta.acao && 'mensagem' in resposta.acao ? { ...resposta.acao, mensagem: restaurar(resposta.acao.mensagem, mapa) } : resposta.acao;
+    return { ...resposta, fala: restaurar(fala, mapa), acao };
   } finally {
     clearTimeout(t);
   }

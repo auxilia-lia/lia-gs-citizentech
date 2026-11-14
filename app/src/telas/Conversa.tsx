@@ -4,7 +4,7 @@ import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
-import { Acao, AnaliseGolpe, buscarFluxos, conversar, conversarEmPartes, entenderFoto, Mensagem, urlGov } from '../lia/api';
+import { Acao, AnaliseGolpe, buscarFluxos, conversar, conversarEmPartes, entenderFoto, Mensagem, restoDaFala, urlGov } from '../lia/api';
 import { registrar } from '../lia/registro';
 import { respostaRapida } from '../lia/rapido';
 import { carregarProgresso, nivelDe, NOMES_NIVEL, registrarConclusao } from '../lia/autonomia';
@@ -243,8 +243,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       registrar('app_resposta', { ms: Date.now() - t0, partes: partes.length, acao: r.acao?.tipo ?? null });
       setEscondidos(quantosEscondidos(mapa.current));
       setGolpe(r.golpe);
-      const dito = partes.join(' ');
-      const resto = !partes.length ? r.fala : r.fala.startsWith(dito) ? r.fala.slice(dito.length).trim() : '';
+      const resto = restoDaFala(r.fala, partes);
       if (partes.length) setMensagens((m) => [...m.slice(0, -1), { papel: 'lia', texto: r.fala }]);
       else setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
       const depois = () => { if (r.acao) executar(r.acao); };

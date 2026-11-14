@@ -19,7 +19,7 @@ import antigolpe  # noqa: E402
 import cerebro_teste  # noqa: E402
 import gov_simulado  # noqa: E402
 import guia  # noqa: E402
-from ia import _extrair_json, fala_parcial, frases_prontas, gerar, gerar_fluxo, provedor  # noqa: E402
+from ia import RespostaQuebrada, _extrair_json, fala_parcial, frases_prontas, gerar, gerar_fluxo, provedor  # noqa: E402
 from prompt_lia import PROMPT_ENTENDE, montar_sistema  # noqa: E402
 
 log = logging.getLogger("lia")
@@ -163,6 +163,24 @@ async def conversa(c: Conversa):
     return _finalizar(r, c, analise, p)
 
 
+def _final_do_fluxo(bruto: str, ditas: list[str]) -> dict | None:
+    """Monta a resposta final do fluxo a partir do texto que a IA mandou aos pedaços.
+    None = não deu para aproveitar nada (quem chamou pede a resposta inteira, sem fluxo).
+    Se a IA parou no meio (JSON sem fechar), a fala final é só o que já foi dito: nunca o JSON cru, nunca meia frase."""
+    r = None
+    if bruto.strip():
+        try:
+            r = _extrair_json(bruto)
+        except RespostaQuebrada:
+            log.warning("fluxo da IA veio cortado: %r", bruto[-120:])
+    if not ditas:
+        return r
+    dito = " ".join(ditas)
+    if not r or not " ".join(str(r.get("fala", "")).split()).startswith(" ".join(dito.split())):
+        return {"fala": dito, "acao": None}
+    return r
+
+
 @app.post("/conversa/fluxo")
 async def conversa_fluxo(c: Conversa):
     """Igual a /conversa, mas em partes (uma linha JSON por vez): {"parcial": "frase"} assim que cada frase
@@ -175,18 +193,17 @@ async def conversa_fluxo(c: Conversa):
         p = provedor()
         r = None
         if p == "gemini":
-            bruto, enviado = "", 0
+            bruto, enviado, ditas = "", 0, []
             try:
                 async for pedaco in gerar_fluxo(montar_sistema(c.canal, contexto, analise), msgs, max_tokens=300, prazo=14):
                     bruto += pedaco
                     frase, enviado = frases_prontas(fala_parcial(bruto), enviado)
                     if frase:
+                        ditas.append(frase)
                         yield json.dumps({"parcial": frase}, ensure_ascii=False) + "\n"
-                r = _extrair_json(bruto)
             except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
                 log.exception("fluxo da IA falhou")
-                if enviado:
-                    r = _extrair_json(bruto) if bruto.strip().endswith("}") else {"fala": fala_parcial(bruto), "acao": None}
+            r = _final_do_fluxo(bruto, ditas)
         if r is None:
             if p in ("gemini", "claude"):
                 try:
