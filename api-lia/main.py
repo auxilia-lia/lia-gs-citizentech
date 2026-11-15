@@ -19,6 +19,7 @@ load_dotenv()
 import antigolpe  # noqa: E402
 import cerebro_teste  # noqa: E402
 import gov_simulado  # noqa: E402
+import golpe_simulado  # noqa: E402
 import guia  # noqa: E402
 from ia import RespostaQuebrada, _extrair_json, fala_parcial, frases_prontas, gerar, gerar_fluxo, provedor  # noqa: E402
 from prompt_lia import PROMPT_ENTENDE, montar_sistema  # noqa: E402
@@ -39,6 +40,7 @@ async def exigir_token(request, call_next):
     return await call_next(request)
 
 app.include_router(gov_simulado.router)
+app.include_router(golpe_simulado.router)  # site de golpe simulado (demo do antigolpe)
 
 ACOES_POR_CANAL = {
     "app": {"guiar", "guiar_app", "avisar_familiar", "tirar_foto", "parar_guia"},
@@ -282,6 +284,38 @@ async def entende(f: Foto):
 def verificar_golpe(t: Texto):
     a = antigolpe.analisar(t.texto)
     return {**a, "fala": antigolpe.fala_golpe(a)}
+
+
+class TelaGolpe(BaseModel):
+    textos: list[str] = Field(default=[], max_length=120)  # já pseudonimizados no celular
+    app: str = Field(default="", max_length=120)
+    endereco: str = Field(default="", max_length=300)  # barra de endereço do navegador, se houver
+
+
+PROMPT_FALA_GOLPE = """Você é a Lia, assistente de voz para pessoas idosas. Reescreva o aviso abaixo para ser falado em voz alta,
+de forma calma e natural, em no máximo 3 frases curtas. NÃO mude a conclusão, os motivos nem os conselhos.
+Comece com "Cuidado, isso é golpe." Responda só com JSON: {"fala": "..."}"""
+
+
+@app.post("/antigolpe/tela")
+async def golpe_na_tela(t: TelaGolpe):
+    """"Lia, isso aqui é golpe?" em outro app: o celular manda os textos da tela (e o endereço do site).
+    Quem decide são as regras do antigolpe; a IA, se houver, só deixa a fala mais natural."""
+    textos = [x.strip()[:200] for x in t.textos if x.strip()]
+    texto = "\n".join(([t.endereco.strip()] if t.endereco.strip() else []) + textos)
+    a = antigolpe.analisar(texto)
+    fala = antigolpe.fala_tela(a, texto, t.app)
+    p = "regras"
+    if a["nivel"] == "alto" and provedor() in ("gemini", "claude"):
+        try:
+            r = await gerar(PROMPT_FALA_GOLPE, [{"papel": "pessoa", "texto": fala}], max_tokens=150, prazo=5)
+            nova = " ".join(str(r.get("fala") or "").split())
+            # A IA não pode mudar o veredito nem esticar a fala.
+            if "golpe" in nova.lower() and len(nova) <= 260:
+                fala, p = nova, provedor()
+        except (httpx.HTTPError, KeyError, IndexError, RuntimeError):
+            log.warning("IA indisponível para a fala do antigolpe; usando as regras")
+    return {**a, "fala": fala, "provedor": p}
 
 
 class TelaGuia(BaseModel):

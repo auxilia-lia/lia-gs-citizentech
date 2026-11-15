@@ -90,3 +90,40 @@ def fala_golpe(a: dict) -> str:
     if a["nivel"] == "medio":
         return "Fique atenta: " + "; ".join(a["motivos"][:2]) + ". Antes de fazer qualquer coisa, confirme com alguém de confiança."
     return "Não vi sinais de golpe nessa mensagem. Mesmo assim, nunca passe senha nem código."
+
+
+# "Lia, isso aqui é golpe?" sobre a tela de outro app: frases curtas, ditas em voz, a partir dos mesmos sinais.
+NAVEGADORES = ("chrome", "browser", "firefox", "opera", "edge", "brave", "sbrowser", "duckduckgo", "navegador")
+
+
+def _motivos_falados(a: dict, t: str) -> list[str]:
+    """Os sinais que a pessoa entende na hora, do mais forte para o mais fraco."""
+    sinais = {s for s in SINAIS if any(p in t for p in SINAIS[s])}
+    frases = [m for m in a["motivos"] if m.startswith("o endereço")]
+    if "premio" in sinais:
+        frases.append("promete dinheiro esquecido" if "dinheiro esquecido" in t else "promete prêmio ou dinheiro")
+    if "pagamento" in sinais:
+        frases.append("pede uma taxa por Pix" if "taxa" in t and "pix" in t else
+                      "pede pagamento por Pix" if "pix" in t else "pede um pagamento")
+    if "dados" in sinais:
+        frases.append("pede senha ou código")
+    if "ameaca" in sinais:
+        frases.append("ameaça bloquear ou cancelar algo")
+    if "pressa" in sinais:
+        frases.append("diz que é urgente")
+    return frases
+
+
+def fala_tela(a: dict, texto: str, app: str = "") -> str:
+    t = normalizar(texto)
+    quem = "O site" if any(n in app.lower() for n in NAVEGADORES) else "Esta tela"
+    motivos = _motivos_falados(a, t)[:2]
+    dominio = [m[0].upper() + m[1:] + "." for m in motivos if m.startswith("o endereço")]
+    resto = [m for m in motivos if not m.startswith("o endereço")]
+    porque = "".join(" " + d for d in dominio) + (f" {quem} " + " e ".join(resto) + "." if resto else "")
+    if a["nivel"] == "alto":
+        conselho = "Não digite seu CPF e não pague nada." if "cpf" in t else "Não clique em nada, não pague e não passe nenhum código."
+        return f"Cuidado, isso é golpe.{porque} {conselho}"
+    if a["nivel"] == "medio":
+        return f"Tenha cuidado.{porque} Antes de fazer qualquer coisa, confirme com alguém de confiança."
+    return "Não vi sinais de golpe nesta tela. Mesmo assim, nunca passe senha nem código para ninguém."

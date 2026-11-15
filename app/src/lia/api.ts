@@ -270,3 +270,8 @@ export const explicarTela = (pedido: { pergunta: string; app: string; titulo: st
 // Caminho provável, pedido uma vez no começo do Guia.
 export const planoGuia = (objetivo: string, app: string) =>
   post<{ passos: { tipo: Exclude<PassoGuia['tipo'], 'abrir_busca'>; nome: string }[] }>('/guia/plano', { objetivo, app }, 8000);
+
+// "Isso aqui é golpe?" sobre a tela de outro app: textos da tela (já pseudonimizados) e o endereço do site.
+export type RespostaGolpeTela = AnaliseGolpe & { fala: string };
+export const golpeNaTela = (pedido: { textos: string[]; app: string; endereco: string }) =>
+  post<RespostaGolpeTela>('/antigolpe/tela', pedido, 12000);

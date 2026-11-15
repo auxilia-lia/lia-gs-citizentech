@@ -76,6 +76,14 @@ class LiaGuiaService : AccessibilityService() {
     private val PERGUNTA = Regex("\\b(ja (baixou|instalou|terminou|ligou|desligou|abriu|mandou|enviou)|terminou|acabou|esta (baixando|ligado|desligado))\\b")
     private val PAUSAR = Regex("^(espera|espere|pera|peraí|perai|pausa|pausar|pausa ai|um minuto|um momento|calma ai)\\b")
     private val CONTINUAR = Regex("\\b(continua|continuar|continue|pode continuar|pode seguir|voltei|vamos continuar|vamos la)\\b")
+    // "isso aqui é golpe?", "esse site é seguro?", "posso confiar nisso?" (sem acento)
+    private val GOLPE = Regex("\\b(golpe|golpista|fraude|e seguro|seguro mesmo|posso confiar|da (pra|para) confiar|confiavel|confiar nisso|e verdade|e de verdade|e falso|e mentira|enganacao)\\b")
+    // Botões de sair de um site ou app (no próprio app ou na barra de navegação do sistema).
+    private val SAIR = Regex("^(voltar|navegar para cima|back|navigate up|fechar|fechar guia|fechar aba|close|close tab)$")
+    private val INICIO_NAVEGADOR = Regex("^(pagina inicial|home)$")
+    private val BARRA_ENDERECO = Regex("url_bar|url_field|location_bar|address_bar|omnibox|toolbar_url|url_text", RegexOption.IGNORE_CASE)
+    private val NAVEGADOR = Regex("chrome|browser|firefox|opera|edge|brave|sbrowser|duckduckgo", RegexOption.IGNORE_CASE)
+    private const val SAIDA_MAX_MS = 180000L
     private val PARAR = Regex("^(para|pare|parar|chega|sair|tchau|deixa|nao precisa)\\b|\\b(pode parar|para de|parar de|cancela|cancelar|desisto|deixa (pra|para) la|nao quero mais|esquece)\\b")
   }
 
@@ -223,6 +231,7 @@ class LiaGuiaService : AccessibilityService() {
       }
     }
     LiaGuiaBridge.emit("onStatus", mapOf("enabled" to true))
+    handler.postDelayed({ revisarBolinha() }, 800)
   }
 
   override fun onDestroy() {
@@ -413,6 +422,7 @@ class LiaGuiaService : AccessibilityService() {
 
   private fun aoOuvir(texto: String) {
     botao?.ouvindo = false
+    if (!ativo) return aoOuvirLivre(texto)
     when {
       texto.isBlank() -> falar("Não ouvi. Toque no microfone e fale de novo.")
       PROTEGER.containsMatchIn(Matcher.normalize(texto)) -> {
@@ -433,6 +443,13 @@ class LiaGuiaService : AccessibilityService() {
         falar("Tudo bem, parei. Se precisar, é só me chamar.")
         pararAgora()
         voltarParaLia()
+        return
+      }
+      GOLPE.containsMatchIn(Matcher.normalize(texto)) -> {
+        // No meio do Guia: só responde em voz (quem cuida da tela continua sendo o Guia).
+        LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "tratado" to true))
+        verificarGolpe(texto, guiarSaida = false)
+        if (ativo) handler.postDelayed(lembrar, LEMBRETE_MS * 2)
         return
       }
       EXPLICAR.containsMatchIn(Matcher.normalize(texto)) -> {
@@ -528,6 +545,7 @@ class LiaGuiaService : AccessibilityService() {
   // ================= estado =================
 
   private fun reiniciar(nivelPedido: Int) {
+    pararSaida()
     handler.removeCallbacks(avaliar)
     handler.removeCallbacks(revelar)
     handler.removeCallbacks(lembrar)
@@ -603,7 +621,8 @@ class LiaGuiaService : AccessibilityService() {
   override fun onAccessibilityEvent(event: AccessibilityEvent?) = seguro("evento") { aoEvento(event) }
 
   private fun aoEvento(event: AccessibilityEvent?) {
-    if (event == null || !ativo) return
+    if (event == null) return
+    if (!ativo) return aoEventoLivre(event)
     if (event.packageName?.toString() == packageName) return // ignora a própria Lia
     if (emProtegido != null && event.packageName?.toString() == emProtegido) return agendar(450) // não lê nada do app protegido
     if (event.eventType in ACOES_DA_PESSOA) adiarLembrete()
@@ -1080,7 +1099,11 @@ class LiaGuiaService : AccessibilityService() {
 
   // A janela de cima que ocupa boa parte da tela (o painel rápido, um app, a tela inicial).
   // Sem isso, com o painel aberto a Lia continuava lendo a tela de baixo.
-  private fun raizAtual(): AccessibilityNodeInfo? {
+  private fun raizAtual(): AccessibilityNodeInfo? =
+    janelaDeCima()?.takeUnless { it.packageName?.toString() == packageName }
+
+  // Igual a raizAtual, mas devolve também a própria Lia (para saber se ela está na frente).
+  private fun janelaDeCima(): AccessibilityNodeInfo? {
     val dm = resources.displayMetrics
     val areaTela = dm.widthPixels.toLong() * dm.heightPixels
     val janelas = try { windows } catch (_: Exception) { emptyList<AccessibilityWindowInfo>() }
@@ -1091,10 +1114,9 @@ class LiaGuiaService : AccessibilityService() {
       val r = w.root ?: continue
       val doSistema = r.packageName?.toString() == "com.android.systemui"
       if (area < areaTela * (if (doSistema) 0.15 else 0.4)) continue
-      return if (r.packageName?.toString() == packageName) null else r
+      return r
     }
-    val r = rootInActiveWindow ?: return null
-    return if (r.packageName?.toString() == packageName) null else r
+    return rootInActiveWindow
   }
 
   private val ANUNCIO = Regex("^(patrocinad[oa]|an[uú]ncio|sponsored|ad|promovid[oa]|publicidade)\\b", RegexOption.IGNORE_CASE)
@@ -1467,9 +1489,9 @@ class LiaGuiaService : AccessibilityService() {
     } catch (_: Exception) {}
   }
 
-  private fun mostrarOverlay() {
-    if (overlay != null) return
+  private fun mostrarOverlay(grande: Boolean = true) {
     val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    if (overlay != null) return mostrarBotao(wm, pequeno = !grande)
     val view = GuiaOverlayView(this)
     val lp = WindowManager.LayoutParams(
       WindowManager.LayoutParams.MATCH_PARENT,
@@ -1490,15 +1512,22 @@ class LiaGuiaService : AccessibilityService() {
     }
     wm.addView(view, lp)
     overlay = view
-    mostrarBotao(wm)
+    mostrarBotao(wm, pequeno = !grande)
   }
 
   // Botão de falar: no lado direito, um pouco acima do meio (longe dos botões que os apps põem embaixo).
-  private fun mostrarBotao(wm: WindowManager) {
-    if (botao != null) return
+  private var botaoPequeno = false
+  private fun mostrarBotao(wm: WindowManager, pequeno: Boolean = false) {
+    if (botao != null && botaoPequeno == pequeno) return
+    botao?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+    botao = null
     val d = resources.displayMetrics.density
-    val b = BotaoFalar(this).apply { aoTocar = { ouvir() } }
-    val lado = (88 * d).toInt()
+    val b = BotaoFalar(this).apply {
+      aoTocar = { ouvir() }
+      if (pequeno) contentDescription = "Falar com a Lia. Pergunte, por exemplo: isso aqui é golpe?"
+    }
+    botaoPequeno = pequeno
+    val lado = ((if (pequeno) 62 else 88) * d).toInt()
     val lp = WindowManager.LayoutParams(
       lado, lado,
       WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -1518,11 +1547,201 @@ class LiaGuiaService : AccessibilityService() {
     val wm = getSystemService(WINDOW_SERVICE) as WindowManager
     reconhecedor?.destroy()
     reconhecedor = null
-    botao?.let { wm.removeView(it) }
+    botao?.let { try { wm.removeView(it) } catch (_: Exception) {} }
     botao = null
     tecladoTopo = null
+    handler.postDelayed({ revisarBolinha() }, 600) // fora do Guia, a bolinha volta
     val v = overlay ?: return
-    wm.removeView(v)
+    try { wm.removeView(v) } catch (_: Exception) {}
     overlay = null
+  }
+
+  // Só o balão e os anéis (a bolinha fica).
+  private fun esconderSoOverlay() {
+    val v = overlay ?: return
+    try { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(v) } catch (_: Exception) {}
+    overlay = null
+  }
+
+  // ================= bolinha da Lia fora do Guia =================
+  // Enquanto o serviço está ligado, uma bolinha pequena da Lia fica por cima dos outros apps (some dentro da própria Lia).
+  // Tocar nela = a Lia escuta. Ela só olha a tela quando a pessoa pede ("isso aqui é golpe?"): nunca sozinha.
+  private val revisarBolinhaR = Runnable { seguro("bolinha") { revisarBolinha() } }
+
+  private fun revisarBolinha() {
+    if (instance !== this || ativo) return
+    val pkg = janelaDeCima()?.packageName?.toString() ?: return // tela em transição: deixa como está
+    val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    if (pkg != packageName) return mostrarBotao(wm, pequeno = true)
+    if (overlay != null) return
+    botao?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+    botao = null
+  }
+
+  private fun aoEventoLivre(event: AccessibilityEvent) {
+    val tipo = event.eventType
+    if (tipo == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || tipo == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+      handler.removeCallbacks(revisarBolinhaR)
+      handler.postDelayed(revisarBolinhaR, 300)
+    }
+    if (saida != null && event.packageName?.toString() != packageName) agendarConferirSaida(600)
+  }
+
+  private fun aoOuvirLivre(texto: String) {
+    val t = Matcher.normalize(texto)
+    when {
+      t.isBlank() -> falar("Não ouvi. Toque na bolinha e fale de novo.")
+      GOLPE.containsMatchIn(t) -> verificarGolpe(texto, guiarSaida = true)
+      saida != null && PARAR.containsMatchIn(t) -> { pararSaida(); falar("Tudo bem.") }
+      LiaGuiaBridge.listener == null -> falar("Para isso, abra o app da Lia.")
+      // Outros pedidos vão para a conversa da Lia (que responde por cima deste app).
+      else -> LiaGuiaBridge.emit("onVoz", mapOf("texto" to texto, "parou" to false, "livre" to true))
+    }
+  }
+
+  // ================= "isso aqui é golpe?" =================
+  private data class Golpe(val app: String, val guiarSaida: Boolean, val endereco: String, val marcas: Set<String>)
+  private var golpePedido: Golpe? = null
+  private val golpeSemResposta = Runnable {
+    if (golpePedido == null) return@Runnable
+    golpePedido = null
+    falar("Não consegui verificar agora, a internet está lenta. Na dúvida, não digite nada e não pague nada.")
+  }
+
+  // Lê os textos da tela atual (já limpos: sem senha, números longos, valores, e-mails) e a barra de endereço,
+  // e manda para o app da Lia, que pseudonimiza e pergunta à API. Só acontece quando a pessoa pede.
+  private fun verificarGolpe(pergunta: String, guiarSaida: Boolean) {
+    val root = raizAtual() ?: return falar("Não consegui ver a tela agora. Pergunte de novo daqui a pouco.")
+    val pkg = root.packageName?.toString() ?: ""
+    if (Protecao.bloqueado(this, pkg)) return falar(Protecao.aviso(this, pkg))
+    if (LiaGuiaBridge.listener == null) return falar("Para eu verificar, abra o app da Lia uma vez e depois pergunte de novo.")
+    val ctx = lerContexto(root)
+    val endereco = enderecoDoNavegador(root)
+    val textos = (ctx.textos + ctx.elementos.map { curto(it) }).filter { it.isNotBlank() && it != endereco }.distinct().take(100)
+    pararSaida()
+    golpePedido = Golpe(pkg, guiarSaida, endereco, marcasDe(ctx.textos))
+    robo("golpe_pedido", "app" to pkg, "textos" to textos.size, "endereco" to endereco.isNotEmpty())
+    falar("Deixa eu ver.")
+    handler.removeCallbacks(golpeSemResposta)
+    handler.postDelayed(golpeSemResposta, 15000)
+    LiaGuiaBridge.emit("onGolpe", mapOf("pergunta" to pergunta, "app" to pkg, "appNome" to Protecao.nome(this, pkg),
+      "textos" to textos, "endereco" to endereco))
+  }
+
+  // A resposta da API (as regras do antigolpe decidem). Se for golpe, a Lia mostra como sair.
+  fun respostaGolpe(fala: String, golpe: Boolean) = naPrincipal {
+    handler.removeCallbacks(golpeSemResposta)
+    val p = golpePedido ?: return@naPrincipal
+    golpePedido = null
+    robo("golpe_resposta", "golpe" to golpe, "fala" to fala)
+    dizerEmSeguida(fala)
+    if (golpe && p.guiarSaida && !ativo) mostrarSaida(p)
+  }
+
+  private fun marcasDe(textos: List<String>) = textos.map { Matcher.normalize(it) }.filter { it.length >= 6 }.toSet()
+
+  private fun enderecoDoNavegador(root: AccessibilityNodeInfo): String {
+    var achado = ""
+    fun andar(n: AccessibilityNodeInfo, prof: Int) {
+      if (achado.isNotEmpty() || prof > MAX_PROFUNDIDADE) return
+      val id = n.viewIdResourceName
+      if (id != null && BARRA_ENDERECO.containsMatchIn(id) && !n.isPassword) {
+        val t = n.text?.toString()?.trim()
+        if (!t.isNullOrEmpty()) { achado = Protecao.limpar(t).take(200); return }
+      }
+      for (i in 0 until n.childCount) n.getChild(i)?.let { andar(it, prof + 1) }
+    }
+    andar(root, 0)
+    return achado
+  }
+
+  // "https://www.site.com/resgate/liberar" -> "site.com/resgate"
+  private fun baseDoEndereco(e: String): String {
+    val s = e.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore("?").substringBefore("#")
+    return s.split("/").filter { it.isNotEmpty() }.take(2).joinToString("/")
+  }
+
+  // ================= guiar a saída do site de golpe =================
+  private var saida: Golpe? = null
+  private var saidaDesde = 0L
+  private val conferirSaidaR = Runnable { seguro("saida") { conferirSaida() } }
+  private fun agendarConferirSaida(ms: Long) { handler.removeCallbacks(conferirSaidaR); handler.postDelayed(conferirSaidaR, ms) }
+
+  private fun mostrarSaida(p: Golpe) {
+    saida = p
+    saidaDesde = SystemClock.uptimeMillis()
+    mostrarOverlay(grande = false)
+    val site = NAVEGADOR.containsMatchIn(p.app)
+    val alvo = raizAtual()?.let { botaoDeSair(it) }
+    val msg = if (alvo != null) {
+      val m = if (site) "Toque aqui para sair deste site." else "Toque aqui para sair."
+      overlay?.mostrarAlvo(alvo, m); m
+    } else {
+      val m = "Arraste da beirada da tela para dentro, para voltar e sair ${if (site) "deste site" else "daqui"}."
+      overlay?.mostrarGesto("voltar", m); m
+    }
+    robo("golpe_saida", "alvo" to (alvo != null), "fala" to msg)
+    dizerEmSeguida(msg)
+    agendarConferirSaida(2000)
+  }
+
+  // O botão de sair: voltar/fechar do próprio app; senão o "voltar" da barra do sistema; senão a página inicial do navegador.
+  private fun botaoDeSair(root: AccessibilityNodeInfo): Rect? {
+    val util = areaUtil()
+    fun buscar(r: AccessibilityNodeInfo, padrao: Regex, dentro: Boolean): Rect? {
+      var achado: Rect? = null
+      fun andar(n: AccessibilityNodeInfo, prof: Int) {
+        if (achado != null || prof > MAX_PROFUNDIDADE) return
+        if (n.isVisibleToUser) {
+          val nome = (n.contentDescription ?: n.text)?.toString()?.let { Matcher.normalize(it) }
+          if (nome != null && padrao.matches(nome)) {
+            val c = acharClicavel(n) ?: n
+            val b = Rect().also { c.getBoundsInScreen(it) }
+            if (!b.isEmpty && (!dentro || bemVisivel(b, util))) { achado = b; return }
+          }
+        }
+        for (i in 0 until n.childCount) n.getChild(i)?.let { andar(it, prof + 1) }
+      }
+      andar(r, 0)
+      return achado
+    }
+    buscar(root, SAIR, true)?.let { return it }
+    val janelas = try { windows } catch (_: Exception) { emptyList<AccessibilityWindowInfo>() }
+    for (w in janelas) {
+      val r = w.root ?: continue
+      if (r.packageName?.toString() != "com.android.systemui") continue
+      buscar(r, SAIR, false)?.let { return it }
+    }
+    return buscar(root, INICIO_NAVEGADOR, true)
+  }
+
+  private fun conferirSaida() {
+    val p = saida ?: return
+    if (ativo || SystemClock.uptimeMillis() - saidaDesde > SAIDA_MAX_MS) return pararSaida()
+    val topo = janelaDeCima()
+    val pkg = topo?.packageName?.toString()
+    val saiu = when {
+      topo == null || pkg == null || pkg == "com.android.systemui" -> false
+      pkg != p.app -> true // foi para outro app, para a tela inicial ou para a Lia
+      else -> {
+        val end = enderecoDoNavegador(topo)
+        val mudouEndereco = p.endereco.isNotEmpty() && end.isNotEmpty() && !baseDoEndereco(end).startsWith(baseDoEndereco(p.endereco))
+        val agora = marcasDe(lerContexto(topo).textos)
+        val restam = agora.count { it in p.marcas }
+        val outraTela = agora.size >= 3 && p.marcas.size >= 3 && restam <= p.marcas.size * 0.2
+        mudouEndereco || outraTela
+      }
+    }
+    if (!saiu) return agendarConferirSaida(1500)
+    pararSaida()
+    robo("golpe_saiu", "app" to pkg)
+    falar("Pronto, você saiu. Fez bem em perguntar.")
+  }
+
+  private fun pararSaida() {
+    handler.removeCallbacks(conferirSaidaR)
+    if (saida == null) return
+    saida = null
+    if (!ativo) { esconderSoOverlay(); handler.postDelayed(revisarBolinhaR, 300) }
   }
 }

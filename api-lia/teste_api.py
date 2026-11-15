@@ -726,3 +726,77 @@ def test_app_de_banco_so_protegido_quando_aberto(monkeypatch):
     monkeypatch.setattr(main, "provedor", lambda: "teste")
     r = falar("me ensina a instalar o Bradesco")
     assert r["acao"]["tipo"] == "guiar_app" and r["acao"].get("ensinar") is True
+
+
+# ---------- "Lia, isso aqui é golpe?" em outro app (textos da tela pelo serviço de acessibilidade) ----------
+TELA_RESGATE = ["lia-api-br.onrender.com/resgate", "ÚLTIMAS HORAS PARA RESGATAR SEU DINHEIRO", "R$", "Resgata Já",
+                "Você tem dinheiro esquecido para receber!", "R$ [valor]", "valor encontrado em seu nome",
+                "⏰ Urgente: o resgate vence hoje às 23h59", "Digite seu CPF para liberar", "[CPF_1]", "Resgatar agora",
+                "Pague só a taxa de liberação de R$ [valor] por Pix", "O dinheiro cai na sua conta em 5 minutos"]
+TELA_GOV = ["lia-api-br.onrender.com/gov", "Portal do Cidadão", "Entrar", "Saúde", "Marcar consulta",
+            "Meu benefício do INSS", "Consultar multas", "Página de demonstração de um projeto acadêmico"]
+
+
+def tela(textos, app="com.android.chrome", endereco=""):
+    r = c.post("/antigolpe/tela", json={"textos": textos, "app": app, "endereco": endereco})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_tela_de_golpe_no_navegador():
+    r = tela(TELA_RESGATE[1:], endereco=TELA_RESGATE[0])
+    assert r["golpe"] and r["nivel"] == "alto" and r["provedor"] == "regras"
+    assert r["fala"] == ("Cuidado, isso é golpe. O site promete dinheiro esquecido e pede uma taxa por Pix. "
+                         "Não digite seu CPF e não pague nada.")
+
+
+def test_tela_normal_sem_sinais_de_golpe():
+    r = tela(TELA_GOV)
+    assert not r["golpe"] and r["nivel"] == "baixo"
+    assert r["fala"].startswith("Não vi sinais de golpe")
+
+
+def test_tela_fora_do_navegador_e_dominio_falso():
+    r = tela(["Seu benefício será bloqueado hoje", "Regularize em inss-gov.com"], app="com.whatsapp")
+    assert r["golpe"] and r["fala"].startswith("Cuidado, isso é golpe. O endereço inss-gov.com é quase igual a inss.gov.br")
+    assert "Esta tela ameaça bloquear ou cancelar algo." in r["fala"]
+
+
+def test_tela_paginas_reais_do_site_simulado():
+    """As páginas de verdade do /resgate e do /gov, lidas como o celular leria (só os textos)."""
+    import re
+
+    def textos(caminho):
+        h = re.sub(r"(?s)<style.*?</style>", "", c.get(caminho).text)
+        return [x.strip() for x in re.sub(r"<[^>]+>", "\n", h).split("\n") if x.strip()]
+    assert tela(textos("/resgate"))["golpe"]
+    assert tela(textos("/resgate/liberar"))["golpe"]
+    for p in ("/gov", "/gov/inicio", "/gov/saude"):
+        assert not tela(textos(p))["golpe"], p
+
+
+def test_tela_ia_so_deixa_a_fala_natural(monkeypatch):
+    import main
+
+    async def natural(*a, **k):
+        return {"fala": "Cuidado, isso é golpe. Esse site promete dinheiro esquecido e cobra taxa no Pix. Não digite o CPF."}
+
+    async def muda_veredito(*a, **k):
+        return {"fala": "Parece tudo certo, pode seguir."}
+
+    monkeypatch.setattr(main, "provedor", lambda: "gemini")
+    monkeypatch.setattr(main, "gerar", natural)
+    r = tela(TELA_RESGATE)
+    assert r["golpe"] and r["provedor"] == "gemini" and "cobra taxa" in r["fala"]
+    monkeypatch.setattr(main, "gerar", muda_veredito)
+    r = tela(TELA_RESGATE)
+    assert r["golpe"] and r["provedor"] == "regras" and r["fala"].startswith("Cuidado, isso é golpe.")
+    # tela normal: a IA nem é chamada
+    monkeypatch.setattr(main, "gerar", muda_veredito)
+    assert tela(TELA_GOV)["provedor"] == "regras"
+
+
+def test_ligacao_recado_para_a_nora():
+    r = falar("Lia, avisa a minha nora que eu já cheguei em casa", canal="ligacao", contexto={"familia": ["nora"]})
+    assert r["acao"]["tipo"] == "avisar_familiar" and r["acao"]["contato"] == "nora"
+    assert "cheguei em casa" in r["acao"]["mensagem"]

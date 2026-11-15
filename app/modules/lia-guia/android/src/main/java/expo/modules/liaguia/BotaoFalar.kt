@@ -88,7 +88,9 @@ class BotaoFalar(context: Context) : View(context) {
   override fun onDraw(canvas: Canvas) {
     val cx = width / 2f
     val cy = height / 2f
-    val r = 30 * d
+    // O tamanho acompanha a janela: 88dp no Guia, menor como bolinha fixa nos outros apps.
+    val r = minOf(width, height) / 2f * 0.68f
+    val k = r / (30 * d)
     val cor = if (ouvindo) Color.parseColor("#C2362B") else Color.parseColor("#1B3A9E")
     if (ouvindo) {
       // Duas ondas saindo do botão enquanto ouve.
@@ -107,11 +109,12 @@ class BotaoFalar(context: Context) : View(context) {
     canvas.drawCircle(cx, cy - r * 0.35f, r * 0.62f, halo)
     canvas.drawCircle(cx, cy, r, anel)
     // microfone: cápsula + arco + haste
-    val w = 8 * d
-    val h = 13 * d
-    canvas.drawRoundRect(RectF(cx - w, cy - h - 3 * d, cx + w, cy + 3 * d), w, w, branco)
-    canvas.drawArc(RectF(cx - 13 * d, cy - 10 * d, cx + 13 * d, cy + 10 * d), 20f, 140f, false, traco)
-    canvas.drawLine(cx, cy + 10 * d, cx, cy + 16 * d, traco)
+    val w = 8 * d * k
+    val h = 13 * d * k
+    traco.strokeWidth = 4 * d * k
+    canvas.drawRoundRect(RectF(cx - w, cy - h - 3 * d * k, cx + w, cy + 3 * d * k), w, w, branco)
+    canvas.drawArc(RectF(cx - 13 * d * k, cy - 10 * d * k, cx + 13 * d * k, cy + 10 * d * k), 20f, 140f, false, traco)
+    canvas.drawLine(cx, cy + 10 * d * k, cx, cy + 16 * d * k, traco)
     if (atento && !ouvindo) {
       // ponto verde no canto: "estou ouvindo, pode falar"
       val px = cx + r * 0.72f; val py = cy - r * 0.72f

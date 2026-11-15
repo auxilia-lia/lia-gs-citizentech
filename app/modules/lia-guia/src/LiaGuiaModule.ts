@@ -38,6 +38,8 @@ export type TelaEvent = {
 /** tocar_ponto: a IA viu o botão só na imagem da tela; alvo = "x,y|nome" (x e y em milésimos da tela). */
 export type ExplicarEvent = { pergunta: string; app: string; appNome: string; titulo: string; elementos: string[]; textos: string[] };
 
+export type GolpeEvent = { pergunta: string; app: string; appNome: string; textos: string[]; endereco: string };
+
 export type TipoPasso = 'tocar' | 'tocar_ponto' | 'painel' | 'rolar_baixo' | 'rolar_cima' | 'voltar' | 'inicio' | 'esperar';
 
 export type ScreenNode = {
@@ -58,9 +60,11 @@ type LiaGuiaEvents = {
   onScreen: (e: TelaEvent) => void;
   /** A pessoa falou pelo botão de microfone durante o Guia. */
   /** repetiu: pediu para repetir ("e agora?", "não entendi"); conta como dificuldade para a autonomia. */
-  onVoz: (e: { texto: string; parou: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean; repetiu?: boolean }) => void;
+  onVoz: (e: { texto: string; parou: boolean; livre?: boolean; conseguiu?: boolean; protegeu?: string; tratado?: boolean; repetiu?: boolean }) => void;
   /** "O que é isso?": a tela atual (já limpa) para a Lia explicar. */
   onExplicar: (e: ExplicarEvent) => void;
+  /** "Isso aqui é golpe?" pela bolinha: os textos da tela atual (já limpos) e a barra de endereço do navegador. */
+  onGolpe: (e: GolpeEvent) => void;
 };
 
 declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
@@ -97,6 +101,8 @@ declare class LiaGuiaModule extends NativeModule<LiaGuiaEvents> {
   say(texto: string): void;
   sayNext(texto: string): void;
   shutUp(): void;
+  /** Resposta do antigolpe para a tela: a Lia fala e, se for golpe, mostra como sair. */
+  golpeResposta(fala: string, golpe: boolean): void;
   log(evento: string, json: string): void;
   readScreen(): ScreenNode[];
 }

@@ -4,6 +4,8 @@ import { Text } from '../ui/fonte';
 import { conversar, Mensagem } from '../lia/api';
 import { montarContexto } from '../lia/contexto';
 import { novoMapa } from '../lia/pseudonimizar';
+import { respostaSimNao } from '../lia/risco';
+import { registrar } from '../lia/registro';
 import { useVoz } from '../lia/useVoz';
 import { Tocavel } from '../ui/componentes';
 
@@ -13,6 +15,20 @@ const ALO = 'Alô! Aqui é a Lia. Pode falar, que eu estou ouvindo.';
 
 type Estado = 'desligada' | 'chamando' | 'em_ligacao';
 
+// Contatos de demonstração da central da Lia (quem liga não tem a aba Família no celular).
+const CONTATOS_DEMO = ['nora', 'filha', 'filho', 'neta', 'neto'];
+const FEMININOS = new Set(['nora', 'filha', 'neta', 'irma', 'irmã', 'sobrinha', 'esposa', 'mae', 'mãe', 'tia', 'prima', 'vizinha']);
+const MASCULINOS = new Set(['filho', 'neto', 'genro', 'irmao', 'irmão', 'sobrinho', 'marido', 'pai', 'tio', 'primo', 'vizinho']);
+
+// "nora" -> "a sua nora"; "Ana" -> "Ana"
+function paraQuem(contato: string): string {
+  const c = contato.trim().replace(/^(a|o|minha|meu|sua|seu)\s+/i, '').replace(/^(minha|meu|sua|seu)\s+/i, '');
+  const k = c.toLowerCase();
+  if (FEMININOS.has(k)) return `a sua ${k}`;
+  if (MASCULINOS.has(k)) return `o seu ${k}`;
+  return c;
+}
+
 export default function Ligacao() {
   const [estado, setEstado] = useState<Estado>('desligada');
   const [segundos, setSegundos] = useState(0);
@@ -21,6 +37,8 @@ export default function Ligacao() {
   const mapa = useRef(novoMapa());
   const silencios = useRef(0);
   const ativa = useRef(false);
+  // Recado esperando o "pode" da pessoa (na ligação a central envia; antes, sempre pergunta).
+  const recado = useRef<{ contato: string; mensagem: string } | null>(null);
 
   const voz = useVoz((texto) => {
     if (!ativa.current) return;
@@ -48,6 +66,7 @@ export default function Ligacao() {
   const ligar = () => {
     ativa.current = true;
     historico.current = [];
+    recado.current = null;
     mapa.current = novoMapa();
     silencios.current = 0;
     setSegundos(0);
@@ -70,12 +89,27 @@ export default function Ligacao() {
 
   const responder = async (texto: string) => {
     historico.current.push({ papel: 'pessoa', texto });
+    const pendente = recado.current;
+    if (pendente) {
+      const sim = respostaSimNao(texto);
+      if (sim === null) return falar('Não entendi. Posso enviar o recado? Pode falar sim ou não.', () => ativa.current && voz.ouvir());
+      recado.current = null;
+      registrar('ligacao_recado', { enviado: sim });
+      return falar(sim ? 'Recado enviado.' : 'Tudo bem, não enviei.', () => ativa.current && voz.ouvir());
+    }
     setLegenda('…');
     try {
       // A saudação é só do telefone; a IA recebe a conversa a partir da pessoa.
       const conversa = historico.current.filter((m, i) => !(i === 0 && m.texto === ALO));
-      const r = await conversar(conversa, mapa.current, 'ligacao', await montarContexto());
+      const contexto = await montarContexto();
+      contexto.familia = [...new Set([...contexto.familia, ...CONTATOS_DEMO])];
+      const r = await conversar(conversa, mapa.current, 'ligacao', contexto);
       if (!ativa.current) return;
+      if (r.acao?.tipo === 'avisar_familiar') {
+        // Mandar recado fala em nome da pessoa: a Lia confirma antes (RF05).
+        recado.current = { contato: r.acao.contato, mensagem: r.acao.mensagem };
+        return falar(`Posso enviar o recado para ${paraQuem(r.acao.contato)}?`, () => ativa.current && voz.ouvir());
+      }
       falar(r.fala, () => ativa.current && voz.ouvir());
     } catch {
       if (ativa.current) falar('A ligação está ruim, não consegui te ouvir direito. Pode repetir?', () => voz.ouvir());

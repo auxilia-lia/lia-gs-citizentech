@@ -14,7 +14,7 @@ class LiaGuiaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LiaGuia")
 
-    Events("onStep", "onStatus", "onScreen", "onVoz", "onExplicar")
+    Events("onStep", "onStatus", "onScreen", "onVoz", "onExplicar", "onGolpe")
 
     OnCreate {
       LiaGuiaBridge.listener = { name, body -> sendEvent(name, body) }
@@ -134,6 +134,11 @@ class LiaGuiaModule : Module() {
     // Para o Guia sem contar como conquista (a pessoa desistiu) e volta para a Lia.
     Function("cancel") { fala: String ->
       LiaGuiaService.instance?.cancelar(fala)
+    }
+
+    // "Isso aqui é golpe?": a resposta da API volta para o serviço, que fala e, se for golpe, mostra como sair.
+    Function("golpeResposta") { fala: String, golpe: Boolean ->
+      LiaGuiaService.instance?.respostaGolpe(fala, golpe)
     }
 
     // Voz que o Guia está usando (o app usa a mesma).

@@ -18,6 +18,7 @@ import BarraAbas, { Aba } from './src/ui/BarraAbas';
 import Cabecalho from './src/ui/Cabecalho';
 import { acordarServidor, carregarEnderecoSalvo } from './src/lia/api';
 import { prepararVoz } from './src/lia/fala';
+import { ligarAntigolpeDaTela } from './src/lia/golpeTela';
 import { gravar, ler } from './src/lia/armazenamento';
 import { cores } from './src/ui/tema';
 import { Aparecer } from './src/ui/anim';
@@ -40,6 +41,7 @@ export default function App() {
   const margens = useMargens();
 
   useEffect(() => {
+    ligarAntigolpeDaTela(); // "isso aqui é golpe?" pela bolinha da Lia, em qualquer app
     Promise.all([carregarEnderecoSalvo().then((b) => { acordarServidor(); return b; }), ler('lia:boas-vindas', false), prepararVoz()]).then(([, viu]) => {
       setPrimeiraVez(!viu);
       setPronto(true);
