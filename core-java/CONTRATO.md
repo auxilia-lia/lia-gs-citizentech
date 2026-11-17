@@ -1,86 +1,52 @@
-# Núcleo da Lia em Java — contrato com o app
+# Contrato do núcleo Java com a API da Lia
 
-Este documento diz como o núcleo em Java (DDD Java, item 14 do backlog) se encaixa no que já roda hoje: o app Android e a API em Python (`api-lia/`). Quem for programar o Java começa por aqui.
+Este arquivo descreve como a API da Lia (Python) conversa com o núcleo em Java: os endereços, o JSON de entrada e de saída e os erros.
 
-## 1. Onde o Java entra
-
-Hoje o caminho é este:
+## Onde o núcleo entra
 
 ```
-App (celular) ──> API Python (api-lia, FastAPI, porta 8000) ──> IA (Gemini)
+App (celular) ──> API da Lia (Python, FastAPI, porta 8000) ──> IA (Gemini)
+                          │
+                          └──> Núcleo Java (Spring Boot, porta 8080)
 ```
 
-A IA lê o que a pessoa disse e devolve uma **fala** e, às vezes, uma **ação** (ex.: mandar mensagem para o filho). O núcleo em Java entra **entre a IA e o app**: recebe a ação e decide o **risco** e a **confirmação** que ela exige, antes de o app executar.
+- O app fala só com a API em Python. O app nunca chama o núcleo.
+- Quando a IA devolve uma ação, a API consulta o núcleo antes de responder ao app. O núcleo diz o risco da ação, a confirmação exigida, o nível de autonomia da pessoa e a frase que a Lia fala para confirmar.
+- O núcleo não usa IA, não guarda dados e não tem chave nenhuma.
+- Se o núcleo estiver fora do ar, a Lia continua funcionando: a API segue sem o risco e a confirmação.
 
-```
-App ──> API Python ──> IA
-              │
-              └──> Núcleo Java (porta 8080)  →  risco + confirmação + nível de autonomia
-```
+## Endereços
 
-O app não muda: continua chamando só a API Python. Quem chama o Java é a API Python.
+O núcleo sobe em `http://localhost:8080`.
 
-A entrega tem duas partes, e **as duas devem ser feitas**:
+| Método | Endereço | Para quê |
+|---|---|---|
+| `GET` | `/nucleo/saude` | Saber se o núcleo está no ar |
+| `POST` | `/nucleo/decidir` | Decidir o risco e a confirmação de uma ação |
+| `POST` | `/nucleo/pseudonimizar` | Esconder CPF, telefone e e-mail de um texto |
 
-1. **Main sozinho (exigido pela matéria):** o `Main` roda os 4 casos sem servidor nenhum (seção 5).
-2. **Integrado à Lia (decisão da equipe):** o mesmo domínio exposto por REST com Spring Boot (seção 4) e chamado pela API Python. Conta direto em "funcionamento e integração" (3 dos 10 pontos).
+Os pedidos `POST` levam o cabeçalho `Content-Type: application/json`.
 
-**O que o Java faz na Lia:** quando a IA devolve uma ação, ele classifica o risco (consulta, comum ou dinheiro), diz que confirmação ela exige, informa o nível de autonomia da pessoa naquele serviço e tira CPF e telefone de textos. Ele **não** muda o app, a voz nem o Guia, e se estiver fora do ar a Lia segue funcionando como antes.
-
-## 2. O domínio (classes)
-
-Nomes iguais aos do banco (Database Design). Pacote sugerido: `br.com.fiap.lia`.
-
-| Classe | O que é |
-|---|---|
-| `Pedido` | O que a pessoa pediu: texto, canal (`app` ou `ligacao`), data e a `Acao` resultante (ou nenhuma). |
-| `Acao` (abstrata) | Algo que a Lia pode fazer. Método abstrato `exigeConfirmacao()` e `getNivelDeRisco()`. |
-| `AcaoConsulta` | Só mostra ou informa (risco baixo). Não pede confirmação. |
-| `AcaoComum` | Muda algo, mas sem dinheiro (risco médio). Pede um "sim". |
-| `AcaoFinanceira` | Envolve dinheiro (risco alto). Pede confirmação dupla e repete o valor. |
-| `NivelDeRisco` (enum) | `BAIXO`, `MEDIO`, `ALTO`. |
-| `PoliticaDeConfirmacao` | Recebe uma `Acao` e devolve o que fazer: `NENHUMA`, `SIM_OU_NAO`, `DUPLA`. |
-| `Pseudonimizador` | Troca CPF, telefone e e-mail por marcas (`[CPF]`, `[TELEFONE]`) antes de qualquer texto ir para a IA. |
-| `GestorDeAutonomia` | Guarda o nível por serviço (0, 1 ou 2) e sobe o nível quando a pessoa conclui sozinha. |
-| `Usuario`, `Familiar`, `Progresso`, `Consentimento` | Entidades do banco (mesmo glossário). |
-
-O polimorfismo pedido pela matéria está em `exigeConfirmacao()`: cada filha de `Acao` responde do seu jeito, e o resto do código não precisa saber qual é.
-
-## 3. As ações que existem de verdade
-
-A IA só pode devolver estas ações (estão em `api-lia/prompt_lia.py`). O Java precisa reconhecer exatamente estes `tipo`:
-
-| `tipo` | Campos | Canal | Classe Java | Risco |
-|---|---|---|---|---|
-| `guiar` | `servico`: `consulta`, `beneficio` ou `multas` | app | `AcaoConsulta` | BAIXO |
-| `guiar_app` | `app`: `whatsapp`, `configuracoes`, `celular` ou `playstore`; `objetivo`; `abrir` (opcional) | app | `AcaoConsulta` | BAIXO |
-| `parar_guia` | `conseguiu`: true ou false | app | `AcaoConsulta` | BAIXO |
-| `tirar_foto` | — | app | `AcaoConsulta` | BAIXO |
-| `consultar_beneficio` | — | ligação | `AcaoConsulta` | BAIXO |
-| `avisar_familiar` | `contato`, `mensagem` | app e ligação | `AcaoComum` | MEDIO |
-| `agendar_por_voz` | `ubs`, `horario` | ligação | `AcaoComum` | MEDIO |
-| `pagar_boleto` *(novo, só para o caso de dinheiro)* | `valor`, `beneficiario` | app | `AcaoFinanceira` | ALTO |
-
-Observações:
-- `pagar_boleto` ainda não existe no app. Ele entra no Java para demonstrar o caso "dinheiro". Mesmo integrado, a Lia **nunca paga sozinha**: a resposta é sempre orientar a pessoa e pedir confirmação dupla.
-- Apps de banco, Pix e carteiras são **protegidos** no app: o Guia não lê a tela deles.
-
-## 4. Contrato REST (integração — obrigatório)
-
-### `POST /nucleo/decidir`
-
-A API Python chama logo depois de receber a ação da IA.
+## POST /nucleo/decidir
 
 Entrada:
+
 ```json
 {
   "canal": "app",
-  "acao": { "tipo": "avisar_familiar", "contato": "filho", "mensagem": "Cheguei bem" },
-  "autonomia": { "avisar_familiar": 1, "consulta": 0 }
+  "acao": {"tipo": "avisar_familiar", "contato": "filho", "mensagem": "Cheguei bem"},
+  "autonomia": {"avisar_familiar": 1}
 }
 ```
 
-Saída:
+| Campo | Obrigatório | O que é |
+|---|---|---|
+| `canal` | Sim | Por onde o pedido chegou: `"app"` ou `"ligacao"` |
+| `acao` | Sim | A ação que a IA devolveu: o `tipo` e os campos dele (tabela abaixo) |
+| `autonomia` | Não | O nível da pessoa em cada serviço. A chave é o `tipo` da ação e o valor é 0, 1 ou 2 |
+
+Saída (status 200):
+
 ```json
 {
   "risco": "MEDIO",
@@ -90,59 +56,100 @@ Saída:
 }
 ```
 
+| Campo | Valores | O que é |
+|---|---|---|
+| `risco` | `BAIXO`, `MEDIO`, `ALTO` | O risco da ação |
+| `confirmacao` | `NENHUMA`, `SIM_OU_NAO`, `DUPLA` | A confirmação que a Lia pede antes de executar |
+| `nivel` | 0, 1, 2 | O nível de autonomia da pessoa nesse tipo de ação |
+| `fala_confirmacao` | texto ou `null` | A frase que a Lia fala para confirmar. É `null` quando não precisa confirmar |
+
 Regras:
-- `confirmacao`: `NENHUMA` (consulta), `SIM_OU_NAO` (comum) ou `DUPLA` (financeira).
-- `nivel` vem de `autonomia[tipo]` (0 se não existir): 0 = faz junto, 1 = só confirma, 2 = só acompanha. O nível **nunca** dispensa a confirmação de uma ação comum ou financeira.
-- `tipo` desconhecido: HTTP 422 com `{"erro": "acao desconhecida"}`. A API Python então ignora a ação, como já faz hoje.
 
-### `POST /nucleo/pseudonimizar`
+- O risco e a confirmação vêm da classe da ação: consulta é `BAIXO` e `NENHUMA`; ação comum é `MEDIO` e `SIM_OU_NAO`; ação financeira é `ALTO` e `DUPLA`.
+- O `nivel` é `autonomia[tipo]`. Se o tipo não estiver em `autonomia`, ou se `autonomia` não vier, o nível é 0.
+- Os níveis são: 0, a Lia faz junto; 1, a Lia só confirma; 2, a Lia só acompanha.
+- O nível nunca dispensa a confirmação de uma ação comum ou financeira.
+- A Lia nunca paga sozinha. No caso de dinheiro, ela orienta e pede a confirmação dupla.
 
-Entrada: `{"texto": "Meu CPF é 123.456.789-00"}`
-Saída: `{"texto": "Meu CPF é [CPF]"}`
+## Ações reconhecidas
 
-### `GET /nucleo/saude`
+| `tipo` | Campos obrigatórios | Classe | Risco | Confirmação |
+|---|---|---|---|---|
+| `consultar_beneficio` | nenhum | `AcaoConsulta` | `BAIXO` | `NENHUMA` |
+| `guiar` | `servico` | `AcaoConsulta` | `BAIXO` | `NENHUMA` |
+| `guiar_app` | `app` | `AcaoConsulta` | `BAIXO` | `NENHUMA` |
+| `parar_guia` | nenhum | `AcaoConsulta` | `BAIXO` | `NENHUMA` |
+| `tirar_foto` | nenhum | `AcaoConsulta` | `BAIXO` | `NENHUMA` |
+| `avisar_familiar` | `contato`, `mensagem` | `AcaoComum` | `MEDIO` | `SIM_OU_NAO` |
+| `agendar_por_voz` | `ubs`, `horario` | `AcaoComum` | `MEDIO` | `SIM_OU_NAO` |
+| `pagar_boleto` | `valor`, `beneficiario` | `AcaoFinanceira` | `ALTO` | `DUPLA` |
 
-Saída: `{"ok": true}`. A API Python usa para saber se o Java está no ar; se não estiver, segue sem ele (a Lia não pode parar por causa do núcleo).
+- Campos a mais, como `objetivo` e `abrir` em `guiar_app` ou `conseguiu` em `parar_guia`, são aceitos e ignorados pelo núcleo.
+- Em `pagar_boleto`, o `valor` vai como número (`150`) ou como texto com ponto (`"150.50"`), e precisa ser maior que zero.
 
-### Do lado do Python (feito por quem cuida da API)
+Frases de confirmação:
 
-Em `api-lia/main.py`, depois de `validar_acao(...)`, chamar `POST http://localhost:8080/nucleo/decidir` com prazo de 2 s e juntar `risco` e `confirmacao` à resposta de `/conversa`. Se o Java não responder, a resposta segue como hoje.
+| Ação | `fala_confirmacao` |
+|---|---|
+| `avisar_familiar` | `Posso mandar para o seu filho: "Cheguei bem"?` |
+| `agendar_por_voz` | `Posso agendar na UBS Planalto às 14h?` |
+| `pagar_boleto` | `Isso envolve dinheiro. Você quer pagar R$ 150,00 para Energisa? Vou te perguntar duas vezes antes de seguir.` |
 
-## 5. Os 4 casos do `Main` (obrigatório)
+## POST /nucleo/pseudonimizar
 
-O `Main` roda sozinho, sem rede e sem IA, e imprime o resultado de cada caso:
+Troca os dados pessoais de um texto por marcas, antes de o texto ir para a IA.
 
-1. **Consulta** — "quero ver meu dinheiro do INSS" → `AcaoConsulta` (`consultar_beneficio`), risco BAIXO, sem confirmação.
-2. **Ação comum** — "avisa meu filho que cheguei" → `AcaoComum` (`avisar_familiar`), risco MEDIO, pede "sim".
-3. **Dinheiro** — "paga esse boleto de 150 reais" → `AcaoFinanceira` (`pagar_boleto`), risco ALTO, confirmação dupla repetindo o valor.
-4. **Pedido ambíguo** — "manda aquilo pra ela" → nenhuma ação; a Lia pergunta o que e para quem.
+Entrada:
 
-Bom extra: no caso 2, mostrar o `GestorDeAutonomia` subindo o nível de 0 para 1 depois de a pessoa concluir sozinha, e o `Pseudonimizador` limpando um CPF digitado no pedido.
-
-## 6. Chaves e segredos
-
-- **O Java não precisa de chave de IA.** Quem fala com o Gemini é a API Python.
-- A chave do Gemini fica só no arquivo `api-lia/.env` de cada um (`GEMINI_API_KEY=...`), que **nunca vai para o GitHub** (o repositório vai ficar público). Modelo em `api-lia/.env.example`.
-- Para testar a API completa, peça a chave ao João por mensagem privada. Sem chave, a API roda em modo teste (`LIA_PROVEDOR=teste`), que responde com regras fixas e basta para testar a integração com o Java.
-
-## 7. Como rodar a API Python para testar a integração
-
-```
-cd api-lia
-py -m pip install -r requirements.txt
-copy .env.example .env
-py -m uvicorn main:app --port 8000
+```json
+{"texto": "Meu CPF é 123.456.789-00"}
 ```
 
-Teste rápido: abrir `http://localhost:8000/docs` e chamar `/conversa` com `{"mensagens":[{"papel":"pessoa","texto":"avisa meu filho que cheguei"}]}`.
+Saída (status 200):
 
-## 8. Checklist da entrega Java
+```json
+{"texto": "Meu CPF é [CPF]"}
+```
 
-- [ ] Projeto com classes em pacotes (domínio, aplicação, e web se for integrar)
-- [ ] `Acao` abstrata e as 3 filhas, com `exigeConfirmacao()` polimórfico
-- [ ] `Main` rodando os 4 casos da seção 5
-- [ ] Javadoc em todas as classes públicas
-- [ ] Documento com desafio, objetivos e ODS (10, 4, 3 e 11), citando abstração, encapsulamento, herança e polimorfismo
-- [ ] Tudo num ZIP
-- [ ] Spring Boot com `/nucleo/decidir`, `/nucleo/pseudonimizar` e `/nucleo/saude`, rodando na porta 8080
-- [ ] Testado junto com a API Python (`/conversa` devolvendo `risco` e `confirmacao`)
+As marcas são `[CPF]`, `[TELEFONE]` e `[EMAIL]`.
+
+## GET /nucleo/saude
+
+Saída (status 200):
+
+```json
+{"ok": true}
+```
+
+## Erros
+
+| Status | Quando acontece | Corpo |
+|---|---|---|
+| 422 | O `tipo` da ação não está na tabela de ações reconhecidas | `{"erro": "acao desconhecida"}` |
+| 400 | Faltou um campo obrigatório, o canal não existe ou um nível não é 0, 1 nem 2 | `{"erro": "<o motivo>"}` |
+
+Exemplos de motivo no erro 400: `Falta o campo obrigatório: mensagem` e `Canal desconhecido: whatsapp`.
+
+## Como a API da Lia chama o núcleo
+
+Em `api-lia/main.py`, depois de `validar_acao(...)`:
+
+1. Chamar `POST http://localhost:8080/nucleo/decidir` com prazo de 2 segundos.
+2. Juntar `risco`, `confirmacao` e `fala_confirmacao` à resposta de `/conversa`.
+3. Se o núcleo não responder ou devolver erro, seguir sem esses campos.
+
+## Testar com curl
+
+Com o núcleo no ar, no Git Bash:
+
+```
+curl http://localhost:8080/nucleo/saude
+
+curl -X POST http://localhost:8080/nucleo/decidir -H "Content-Type: application/json" -d '{"canal":"app","acao":{"tipo":"avisar_familiar","contato":"filho","mensagem":"Cheguei bem"},"autonomia":{"avisar_familiar":1}}'
+
+curl -X POST http://localhost:8080/nucleo/pseudonimizar -H "Content-Type: application/json" -d '{"texto":"Meu CPF: 123.456.789-00"}'
+
+curl -i -X POST http://localhost:8080/nucleo/decidir -H "Content-Type: application/json" -d '{"canal":"app","acao":{"tipo":"dancar"}}'
+```
+
+O último mostra o erro 422.
