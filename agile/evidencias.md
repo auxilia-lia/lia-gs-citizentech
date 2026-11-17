@@ -1,14 +1,11 @@
-# Evidências para o PDF de Agile
+# Evidências
 
-Checklist do que vai no PDF ou no Teams. Marcar na revisão de 18/11.
-
-- [ ] Print do README com a ficha preenchida
-- [ ] Print da lista de issues com labels de épico e prioridade
-- [ ] Print do milestone da Sprint 1 no começo (05/11) e no fim (09/11)
-- [ ] Print do histórico de commits
-- [ ] Registro das entrevistas: data, duração e frases principais (sem dados pessoais)
-- [ ] Resultado do teste do Guia (`app/TESTE-GUIA.md` + o registro compartilhado pelo app)
-- [ ] `checkins.md` com pelo menos 3 check-ins
-- [ ] `decisoes.md` com a decisão do teste do Guia e a da entrevista
-- [ ] Retrospectiva preenchida
-- [ ] Link do repositório e do vídeo do pitch no Teams
+- Repositório: https://github.com/JoaoVictorMelo10/lia-gs-citizentech
+- Vídeo pitch (não listado): https://youtu.be/Lb78aDGaQFA
+- Vídeo de AR/VR: https://youtu.be/BPEwRDY87NE
+- Issues e milestones (Sprint 1, 2 e 3): aba Issues do repositório
+- Histórico de commits: cada funcionalidade com data, desde 05/11
+- Entrevista com a Rosária (13/11): trechos no vídeo pitch e em `iteracao.md`
+- Teste do Guia: robô de testes com 14 de 14 cenários (`rodada-robo.bat`, `testes-robo/`)
+- Decisões com data e motivo: `decisoes.md`
+- Charter da equipe: `charter-backlog.md` e `Charter-e-Backlog-Lia.pdf`

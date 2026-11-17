@@ -7,22 +7,29 @@
 | Campo | Conteúdo |
 | --- | --- |
 | **Nome da CitizenTech** | Lia |
-| **Cidade e bairro** | _[a definir: cidade do interior e bairro do CRAS]_ |
+| **Cidade e bairro** | Taiobeiras (MG), bairro Centro. Ponto de atendimento: CRAS Centro (Rua Santos Dumont, 336) |
 | **Cidadão beneficiado** | Pessoas com pouca prática com celular ou leitura, principalmente idosos, que hoje dependem de filhos e netos para usar serviços digitais |
 | **Problema, em uma frase** | Quem não consegue usar o celular, o gov.br ou o INSS sozinho perde autonomia e fica exposto a golpes, porque os serviços digitais exigem ler e preencher formulários |
 | **Como funciona** | A pessoa fala ou mostra uma foto. A Lia **entende** (explica em áudio e avisa se é golpe), **guia** na tela (mostra onde tocar) e **age** (avisa a família no WhatsApp, com confirmação). Com o tempo, devolve a autonomia: primeiro faz junto, depois só confirma, depois só acompanha |
-| **O que cada parte faz** | **App (React Native):** voz, câmera, guia na tela e WhatsApp. **Núcleo (Java):** pedidos, nível de risco e confirmação. **Serviço (Python):** busca tolerante a erro (Levenshtein) e antigolpe. **Banco:** usuários, pedidos, progresso e consentimento. **Rede:** o ponto de atendimento no CRAS. **Dados:** análise de alfabetismo e uso digital. **Maya:** cena explicativa |
+| **O que cada parte faz** | **App (React Native):** voz, câmera, guia na tela e WhatsApp. **Núcleo (Java):** pedidos, nível de risco e confirmação. **Serviço (Python):** busca tolerante a erro (Levenshtein) e antigolpe. **Banco:** usuários, pedidos, progresso e consentimento. **Rede:** o ponto de atendimento no CRAS Centro. **Dados:** análise de alfabetismo e uso digital. **Maya:** cena explicativa |
 | **Link do repositório** | https://github.com/JoaoVictorMelo10/lia-gs-citizentech |
 | **Indicador de impacto** | % de tarefas concluídas sem ajuda de outra pessoa |
 | **ODS conectados** | **10** (reduz a exclusão digital) · **4** (ensina a usar o celular aos poucos) · **3** (acesso à saúde) · **11** (acesso a serviços públicos da cidade) |
 
 ## Equipe
 
+**Grupo Auxilia**
+
 | Nome | RM |
 | --- | --- |
-| _[a definir]_ | |
+| João Victor Melo Santos | 566640 |
+| Murilo Jeronimo Ferreira Nunes | 560641 |
+| Vinicius Kozonoe Guaglini | 567264 |
+| Yan Lucas Gonçalves da Silva | 567046 |
 
-**Equipe:** _[nome e número a definir]_
+## Vídeos
+- **Pitch (Agile):** https://youtu.be/Lb78aDGaQFA
+- **AR/VR:** https://youtu.be/BPEwRDY87NE
 
 ## Estrutura do repositório
 
@@ -37,7 +44,7 @@
 | `ar-vr/` | Link do vídeo e PDF | AR-VR Modelling And Simulation |
 | `agile/` | Backlog, evidências das sprints e retrospectiva | Agile Methodology With Squad Framework |
 | `api-lia/` | Servidor da Lia: conversa, IA, antigolpe, Guia e gov.br simulado (FastAPI) | Além das matérias |
-| `pitch/` | Roteiro do vídeo de 3 minutos | Pitch |
+| `pitch/` | Link e estrutura do vídeo pitch | Pitch |
 | `prompts.md` | Todos os prompts de IA usados no desenvolvimento | Regra da GS |
 
 ## Dados

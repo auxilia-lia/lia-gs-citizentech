@@ -2,7 +2,7 @@
 
 Registro dos prompts usados no desenvolvimento (regra da GS, RNF06). Cada integrante registra os seus e sabe explicar o que entregou.
 
-Ferramenta: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação).
+Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API.
 
 **Como ler:** os prompts estão em ordem de montagem do projeto, da ideia ao crescimento. Pedidos repetidos durante os testes foram juntados num só, e o texto foi revisado (português e clareza) sem mudar o que foi pedido.
 
@@ -78,6 +78,47 @@ Ferramenta: Claude (Anthropic), em conversas contínuas com o contexto do projet
 | --- | --- | --- |
 | 9.1 | "Como a entrega de Java se conecta ao que estou desenvolvendo? Escreva um contrato para o colega construir o núcleo integrado à Lia, sem piorar o tempo de resposta, e atualize o charter para bater com ele." | `core-java/CONTRATO.md` (e PDF) e charter atualizado |
 | 9.2 | "Reescreva este registro de prompts em ordem de montagem, por tópicos, juntando os repetidos e com o português corrigido." | Este arquivo |
+
+## 10. Nuvem e velocidade (07 a 08/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 10.1 | "Deixe a Lia funcionando sem o notebook: a API num serviço grátis na nuvem, com um token entre o app e a API, e o APK de release apontando para ela." | API no Render, `render.yaml`, token, UptimeRobot e APK de release |
+| 10.2 | "A Lia demora para responder. Faça ela começar a falar antes, resolver no celular os pedidos comuns e avisar quando for demorar." | Resposta em partes (`/conversa/fluxo`), pedidos comuns sem IA e "Só um instante." |
+| 10.3 | "O microfone às vezes ouve a conversa da sala. Antes de mexer, crie um jeito de registrar o uso real para analisar." | Registro de uso real (`ferramentas/uso-real/`) |
+
+## 11. Visual e quem não lê (07 a 08/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 11.1 | "Refaça o visual: chapado, fonte Poppins, sem emojis, abas Início, Família e Eu, e os ajustes da família separados de quem usa." | Novo visual e Ajustes para a família |
+| 11.2 | "O público inclui quem não lê. Faça cada botão falar o que faz ao segurar e as telas se apresentarem em voz na primeira vez." | Botões e telas que falam; tocar no balão repete |
+
+## 12. Correções depois da entrevista e da gravação da demo (13 a 14/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 12.1 | "Às vezes a Lia fala o texto em formato de código (JSON). Ache a causa e corrija." | Correção na resposta em partes |
+| 12.2 | "Na gravação, o 'me ensina' pegou atalhos e a autonomia avançou com erro. Ensine sempre desde o começo, só avance de nível sem erro, faça todos os botões falarem e crie um nível de demonstração nos Ajustes." | Ensino do começo, autonomia sem erro, nível de demonstração, Portal do Cidadão e privacidade visível |
+| 12.3 | "A Lia não pode olhar a tela do banco. Quando a pessoa abrir o banco, ela avisa e sugere alguém de confiança; instalar e abrir o app do banco continuam guiados." | Banco protegido |
+| 12.4 | "Quero perguntar 'Lia, isso aqui é golpe?' em qualquer tela. Ela lê a tela só quando eu pedir, avisa e mostra como sair. Na ligação, troque a consulta sem dados por um recado para a família, com confirmação." | Antigolpe em qualquer tela e recado pela ligação |
+| 12.5 | "Crie um site de golpe simulado para a demo, com marca inventada, sem imitar órgão ou empresa real e sem enviar dado nenhum." | `api-lia/golpe_simulado.py` (site "Resgata Já" em `/resgate`) |
+
+## 13. Vídeo pitch (08 a 15/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 13.1 | "Faça poucas perguntas para a entrevista, para entender a dependência da família, o golpe e o que a pessoa queria fazer sozinha." | Roteiro da entrevista (feita pelo Vinicius em 13/11) |
+| 13.2 | "Monte o roteiro e o guia de gravação do vídeo, com as falas e o que gravar em cada cena." | Roteiro e checklist de gravação |
+| 13.3 | "Crie animações com cara de desenho feito à mão, quadro a quadro, nas cores da Lia, sem cara de edição de IA." | Animações do vídeo e da logo |
+| 13.4 | "Edite o vídeo com os meus brutos: corte os erros da Lia, alinhe a câmera com a gravação de tela, coloque legendas, música e aberturas explicando cada cena." | Vídeo pitch de 4:38 |
+
+## 14. Agile e organização (17/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 14.1 | "Confira o pedido de Agile e organize a entrega: personas, backlog em MoSCoW, evidências da iteração, retrospectiva e o PDF com o link do vídeo." | `agile/` atualizada e `Agile-Lia-Auxilia.pdf` |
+| 14.2 | "Atualize este registro de prompts e organize o repositório." | Este arquivo, README e `pitch/` |
 
 ## Prompts que a Lia usa (dentro do produto)
 
