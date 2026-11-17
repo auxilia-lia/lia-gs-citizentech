@@ -1,16 +1,31 @@
+# Segredos
+.env
+.env.*
+!.env.example
+
+# App (Expo / React Native)
 node_modules/
 .expo/
 *.apk
-.env
-__pycache__/
-.ipynb_checkpoints/
-target/
-*.class
-.idea/
-.vscode/
-
-# build gerado pelo Gradle
 app/modules/*/android/build/
 
-# saídas do robô de testes (prints e registros do celular)
+# Java
+target/
+*.class
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# IDEs e sistema
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Saídas do robô de testes (prints e registros do celular)
 testes-robo/
