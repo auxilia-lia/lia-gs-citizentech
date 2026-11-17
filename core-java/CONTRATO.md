@@ -92,7 +92,7 @@ Frases de confirmação:
 | Ação | `fala_confirmacao` |
 |---|---|
 | `avisar_familiar` | `Posso mandar para o seu filho: "Cheguei bem"?` |
-| `agendar_por_voz` | `Posso agendar na UBS Planalto às 14h?` |
+| `agendar_por_voz` | `Posso agendar na UBS Centro para Terça, 10/11 às 9h?` |
 | `pagar_boleto` | `Isso envolve dinheiro. Você quer pagar R$ 150,00 para Energisa? Vou te perguntar duas vezes antes de seguir.` |
 
 ## POST /nucleo/pseudonimizar

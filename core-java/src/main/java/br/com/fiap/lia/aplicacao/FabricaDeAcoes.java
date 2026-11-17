@@ -40,7 +40,7 @@ public class FabricaDeAcoes {
             case "parar_guia" -> new AcaoConsulta(tipo, "parar guia");
             case "tirar_foto" -> new AcaoConsulta(tipo, "abrir a câmera para ler o papel");
             case "avisar_familiar" -> new AcaoComum(tipo, "mandar para " + comArtigo(campo(dados, "contato")) + ": \"" + campo(dados, "mensagem") + "\"");
-            case "agendar_por_voz" -> new AcaoComum(tipo, "agendar na " + campo(dados, "ubs") + " às " + campo(dados, "horario"));
+            case "agendar_por_voz" -> new AcaoComum(tipo, "agendar na " + campo(dados, "ubs") + " para " + campo(dados, "horario"));
             case "pagar_boleto" -> new AcaoFinanceira(tipo, new BigDecimal(campo(dados, "valor")), campo(dados, "beneficiario"));
             default -> throw new AcaoDesconhecidaException(tipo);
         };
