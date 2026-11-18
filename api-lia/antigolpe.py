@@ -9,6 +9,7 @@ OFICIAIS = [
     "gov.br", "inss.gov.br", "caixa.gov.br", "receita.fazenda.gov.br", "correios.com.br",
     "bb.com.br", "itau.com.br", "bradesco.com.br", "santander.com.br", "nubank.com.br",
     "caixa.com.br", "whatsapp.com", "mercadolivre.com.br", "detran.sp.gov.br",
+    "bv.com.br", "c6bank.com.br",
 ]
 
 SINAIS = {
@@ -53,7 +54,9 @@ def avaliar_dominio(dominio: str) -> str | None:
         if trocado == o or trocado.endswith("." + o):
             return f"o endereço {d} troca letras por números para imitar {o}"
         dist = levenshtein(d.replace("-", "."), o)
-        if dist <= 3:
+        # 1 letra de diferença a cada 5 do endereço oficial (no mínimo 1): endereços curtos e verdadeiros,
+        # como oi.com.br e tim.com.br, não caem como imitação de bb.com.br. Mesma regra do notebook de DP.
+        if dist <= max(1, len(o) // 5):
             return f"o endereço {d} é quase igual a {o}, mas não é o site oficial"
     base = d.split(".")[0]
     if any(p in base for p in ("gov", "inss", "caixa", "receita", "beneficio")):

@@ -25,7 +25,7 @@ Status em 17/11/2026. **Feito** = funcionando no APK e mostrado no vídeo. **Sim
 | S3 | Progresso na aba Eu e conquista compartilhada com a família, se a pessoa quiser | Motivação sem pressão; a família acompanha | Feito |
 | S4 | Avisar um familiar no WhatsApp | Pilar Age | Feito |
 | S5 | Resposta rápida: fala em partes e pedidos comuns resolvidos no celular | Esperar desanima o público | Feito |
-| S6 | Núcleo em Java decidindo risco e confirmação (contrato em `core-java/CONTRATO.md`) | Regras de segurança fora do app | Feito (Yan) |
+| S6 | Núcleo em Java decidindo risco e confirmação (contrato em `core-java/CONTRATO.md`) | Regras de segurança fora do app | Feito (núcleo: Yan; ligação com a API: João) |
 | S7 | Banco de dados de usuários, progresso e consentimento | Guardar o que a pessoa já aprendeu | Feito (Yan e Vinicius) |
 
 ## Could have (se sobrar tempo)
@@ -50,9 +50,9 @@ Status em 17/11/2026. **Feito** = funcionando no APK e mostrado no vídeo. **Sim
 | Integrante | Responsabilidades |
 | --- | --- |
 | João Victor | Agile, app da Lia e API, vídeo pitch, vídeo e slide de AR/VR |
-| Murilo | Redes (CRAS no Packet Tracer) e cena de AR/VR no Maya |
+| Murilo | Cena de AR/VR no Maya |
 | Vinicius | Data Science, banco de dados (com o Yan) e entrevista com a Rosária |
-| Yan | Núcleo em Java (DDD), Dynamic Programming e banco de dados (com o Vinicius) |
+| Yan | Núcleo em Java (DDD), Dynamic Programming, Redes (CRAS no Packet Tracer) e banco de dados (com o Vinicius) |
 
 ## Backlog de trabalho da equipe (sprints)
 Os 20 itens do charter, usados como issues e milestones no GitHub.
@@ -72,9 +72,9 @@ Os 20 itens do charter, usados como issues e milestones no GitHub.
 | 11 | Canal por ligação (simulado) | 3 | Concluído |
 | 12 | Data Science: CSV público e notebook | 2 | Concluído (Vinicius) |
 | 13 | Database: modelo conceitual e lógico | 2 | Concluído (Yan e Vinicius) |
-| 14 | DDD Java: núcleo integrado | 2 | Concluído (Yan) |
-| 15 | Dynamic Programming: Levenshtein e relatório | 2 | Com o Yan |
-| 16 | Redes: CRAS no Packet Tracer | 2 | Com o Murilo |
+| 14 | DDD Java: núcleo integrado | 2 | Concluído (núcleo: Yan; ligação com a API: João) |
+| 15 | Dynamic Programming: Levenshtein e relatório | 2 | Concluído (Yan) |
+| 16 | Redes: CRAS no Packet Tracer | 2 | Concluído (Yan) |
 | 17 | Maya: cena e vídeo | 3 | Concluído (cena: Murilo; vídeo e slide: João) |
 | 18 | Validar com 3 a 5 pessoas | 3 | Adiado para o piloto |
 | 19 | Vídeo pitch (até 5 min) | 3 | Concluído (https://youtu.be/Lb78aDGaQFA) |

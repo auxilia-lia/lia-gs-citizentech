@@ -7,7 +7,7 @@ João Victor Melo Santos - RM566640
 [demais integrantes] - RM[...]
 
 Link dos CSVs:
-https://github.com/JoaoVictorMelo10/lia-gs-citizentech/tree/main/data-science/dados
+https://github.com/auxilia-lia/lia-gs-citizentech/tree/main/data-science/dados
 
 Fontes:
 IBGE, Censo Demográfico 2022: Alfabetização - https://biblioteca.ibge.gov.br/visualizacao/periodicos/3108/cd_2022_alfabetizacao.pdf

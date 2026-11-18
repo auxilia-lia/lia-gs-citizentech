@@ -12,7 +12,7 @@
 | **Problema, em uma frase** | Quem não consegue usar o celular, o gov.br ou o INSS sozinho perde autonomia e fica exposto a golpes, porque os serviços digitais exigem ler e preencher formulários |
 | **Como funciona** | A pessoa fala ou mostra uma foto. A Lia **entende** (explica em áudio e avisa se é golpe), **guia** na tela (mostra onde tocar) e **age** (avisa a família no WhatsApp, com confirmação). Com o tempo, devolve a autonomia: primeiro faz junto, depois só confirma, depois só acompanha |
 | **O que cada parte faz** | **App (React Native):** voz, câmera, guia na tela e WhatsApp. **Núcleo (Java):** pedidos, nível de risco e confirmação. **Serviço (Python):** busca tolerante a erro (Levenshtein) e antigolpe. **Banco:** usuários, pedidos, progresso e consentimento. **Rede:** o ponto de atendimento no CRAS Centro. **Dados:** análise de alfabetismo e uso digital. **Maya:** cena explicativa |
-| **Link do repositório** | https://github.com/JoaoVictorMelo10/lia-gs-citizentech |
+| **Link do repositório** | https://github.com/auxilia-lia/lia-gs-citizentech |
 | **Indicador de impacto** | % de tarefas concluídas sem ajuda de outra pessoa |
 | **ODS conectados** | **10** (reduz a exclusão digital) · **4** (ensina a usar o celular aos poucos) · **3** (acesso à saúde) · **11** (acesso a serviços públicos da cidade) |
 

@@ -30,6 +30,13 @@ def test_golpe_dominio_parecido():
     assert not antigolpe.analisar("Oi mãe, chego às 7")["golpe"]
 
 
+def test_dominio_verdadeiro_curto_nao_e_golpe():
+    for d in ("oi.com.br", "tim.com.br", "uol.com.br", "ig.com.br", "pan.com.br", "bmg.com.br", "bv.com.br", "c6bank.com.br"):
+        assert antigolpe.avaliar_dominio(d) is None, d
+    for d in ("g0v.br", "caixa-gov.br", "bradesc0.com.br", "bradeesco.com.br", "whatsap.com", "correio.com.br"):
+        assert antigolpe.avaliar_dominio(d), d
+
+
 def test_conversa_guiar_consulta_e_autonomia():
     r = falar("quero marcar uma consulta no posto")
     assert r["acao"] == {"tipo": "guiar", "servico": "consulta"}
@@ -758,7 +765,7 @@ def test_tela_normal_sem_sinais_de_golpe():
 
 def test_tela_fora_do_navegador_e_dominio_falso():
     r = tela(["Seu benefício será bloqueado hoje", "Regularize em inss-gov.com"], app="com.whatsapp")
-    assert r["golpe"] and r["fala"].startswith("Cuidado, isso é golpe. O endereço inss-gov.com é quase igual a inss.gov.br")
+    assert r["golpe"] and r["fala"].startswith("Cuidado, isso é golpe. O endereço inss-gov.com usa um nome de órgão público")
     assert "Esta tela ameaça bloquear ou cancelar algo." in r["fala"]
 
 
