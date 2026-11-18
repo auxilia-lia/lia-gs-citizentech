@@ -2,7 +2,7 @@
 
 Registro dos prompts usados no desenvolvimento (regra da GS, RNF06). Cada integrante registra os seus e sabe explicar o que entregou.
 
-Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API.
+Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API. Em Data Science e Database Design, o Vinicius usou o ChatGPT (OpenAI). Os prompts de cada matéria estão na parte **Prompts das matérias**, no fim deste arquivo.
 
 **Como ler:** os prompts estão em ordem de montagem do projeto, da ideia ao crescimento. Pedidos repetidos durante os testes foram juntados num só, e o texto foi revisado (português e clareza) sem mudar o que foi pedido.
 
@@ -120,6 +120,13 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | 14.1 | "Confira o pedido de Agile e organize a entrega: personas, backlog em MoSCoW, evidências da iteração, retrospectiva e o PDF com o link do vídeo." | `agile/` atualizada e `Agile-Lia-Auxilia.pdf` |
 | 14.2 | "Atualize este registro de prompts e organize o repositório." | Este arquivo, README e `pitch/` |
 
+## 15. Integração com o núcleo Java (17/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 15.1 | "O Yan terminou o núcleo em Java. Ligue o núcleo na API seguindo o contrato: risco, confirmação e nível nas duas rotas de conversa, e a Lia tem que continuar funcionando se o Java cair." | `consultar_nucleo` em `api-lia/main.py`, tradução da autonomia por serviço, testes com o núcleo no ar e fora do ar |
+| 15.2 | "Me explique como testar com o Java rodando e o que tirar de print para o documento." | Teste em `localhost:8000/docs` com e sem o núcleo (prints no documento de Java) |
+
 ## Prompts que a Lia usa (dentro do produto)
 
 Estes prompts rodam no servidor quando a Lia conversa. Ficam no código para qualquer um conferir.
@@ -133,3 +140,62 @@ Estes prompts rodam no servidor quando a Lia conversa. Ficam no código para qua
 | `api-lia/guia.py` | `IMAGEM` | Complemento do Guia quando ele travou e mandou a imagem da tela (com tarjas) |
 | `api-lia/guia.py` | `PROMPT_PLANO` | Caminho provável no começo do Guia |
 | `api-lia/guia.py` | `PROMPT_EXPLICAR` | "O que é isso?": explicar a tela em palavras simples |
+
+---
+
+# Prompts das matérias
+
+Cada integrante mandou os prompts essenciais da sua parte. Como no resto do arquivo, são versões resumidas das conversas, não a transcrição de todas as mensagens.
+
+## Data Science & Statistical Computing
+
+Vinicius, com o ChatGPT. Fontes: TIC Domicílios, INAF 2024 e Censo Demográfico 2022 (Taiobeiras, Minas Gerais e Brasil).
+
+| # | Prompt | Para quê |
+| --- | --- | --- |
+| DS.1 | "Como posso utilizar os dados da TIC Domicílios, do INAF e do Censo Demográfico 2022 para investigar o problema da exclusão digital relacionado ao projeto Lia?" | Entender os datasets |
+| DS.2 | "Qual é a diferença entre os indicadores de alfabetismo funcional do INAF e os dados de alfabetização apresentados pelo Censo Demográfico?" | Entender os datasets |
+| DS.3 | "Como organizar a análise de três datasets diferentes no Google Colab? É melhor realizar as análises separadamente?" | Organizar a análise |
+| DS.4 | "Quais análises estatísticas descritivas são mais adequadas para estudar o acesso à internet, o alfabetismo funcional e o envelhecimento populacional?" | Análise exploratória |
+| DS.5 | "Como interpretar os resultados e gráficos obtidos com Pandas e Matplotlib e relacioná-los ao problema de inclusão digital investigado?" | Interpretar os resultados |
+| DS.6 | "Como selecionar os dados do SIDRA/IBGE para comparar a população idosa e o analfabetismo entre Taiobeiras, Minas Gerais e Brasil?" | Censo 2022 |
+| DS.7 | "Quais opções devo selecionar nas tabelas do Censo 2022 para obter os dados de população por idade e alfabetização por faixa etária?" | Censo 2022 |
+| DS.8 | "Apenas no Censo 2022 utilizei a cidade de Taiobeiras. Nos outros datasets utilizei dados nacionais. Essa metodologia está correta?" | Validar o método |
+| DS.9 | "Como organizar os arquivos CSV no Google Drive para realizar a leitura dos dados nos notebooks do Google Colab?" | Programação |
+| DS.10 | "O código apresenta um erro `FileNotFoundError` ao tentar localizar os arquivos CSV. Como identificar a causa e corrigir os caminhos de leitura?" | Correção de erro |
+| DS.11 | "Como ajustar a leitura dos arquivos e corrigir o notebook em Python, mantendo as análises e visualizações desenvolvidas?" | Correção de erro |
+| DS.12 | "Como organizar os notebooks e os arquivos CSV para a entrega da disciplina de Data Science?" | Organizar a entrega |
+| DS.13 | "Como modificar os códigos para que o professor consiga executar os notebooks em outro computador, sem depender da minha conta do Google Drive?" | Reprodutibilidade |
+| DS.14 | "Como documentar as fontes dos datasets, as instruções de execução e as informações necessárias para reproduzir as análises?" | Documentação |
+
+A IA apoiou a compreensão das bases, a análise exploratória, o código Python e a correção de erros. As fontes, os resultados e as conclusões foram conferidos pela equipe.
+
+## Database Design
+
+Vinicius, com o ChatGPT, no Oracle SQL Developer Data Modeler.
+
+| # | Prompt | Para quê |
+| --- | --- | --- |
+| DB.1 | "Analise os requisitos da disciplina de Database Design da Global Solution e explique quais são os entregáveis obrigatórios, os critérios de avaliação e as etapas necessárias para desenvolver a modelagem de dados do projeto Lia." | Entender o escopo |
+| DB.2 | "Com base na documentação do projeto Lia, auxilie na estruturação inicial do modelo de banco de dados para o Oracle Data Modeler, considerando as entidades, atributos, chaves primárias, chaves estrangeiras e relacionamentos." | Proposta inicial e SQL para importar |
+| DB.3 | "Como importar um arquivo SQL no Oracle SQL Developer Data Modeler e visualizar as tabelas e os relacionamentos do modelo relacional?" | Usar o software |
+| DB.4 | "Após criar o modelo relacional no Oracle Data Modeler, como posso gerar e acessar o modelo lógico a partir das tabelas e dos relacionamentos existentes?" | Engenharia reversa entre os modelos |
+| DB.5 | "Analise a tela do Oracle Data Modeler e explique quais opções devo selecionar para visualizar e gerar corretamente os modelos necessários para a entrega." | Dúvidas da interface |
+| DB.6 | "Auxilie na elaboração e organização de um relatório técnico de Database Design, incluindo apresentação do projeto, descrição das entidades, atributos, identificadores, relacionamentos, cardinalidades e diagramas." | Estruturar o relatório |
+| DB.7 | "Revise os relacionamentos e as cardinalidades do modelo da Lia, considerando as regras de negócio do sistema e a necessidade de justificar as cardinalidades mínimas e máximas de cada entidade." | Revisar relacionamentos |
+| DB.8 | "Analise as diferenças entre os nomes dos atributos definidos no banco de dados e os utilizados nas classes Java do projeto, considerando a padronização das entidades entre as disciplinas." | Mesmos nomes no banco e no Java |
+| DB.9 | "Considere a possibilidade de um pedido não possuir um serviço identificado. Como representar essa situação no modelo de dados utilizando um relacionamento opcional e uma chave estrangeira que aceite valores nulos?" | Pedido ambíguo |
+| DB.10 | "Como exportar os diagramas do Oracle Data Modeler preservando a resolução e a legibilidade dos atributos, identificadores e relacionamentos para inserção em um relatório PDF?" | Qualidade dos diagramas |
+| DB.11 | "Revise a apresentação do relatório de Database Design, mantendo uma linguagem acadêmica, títulos padronizados, identidade visual da equipe e diagramas completos, sem dividir o modelo em várias imagens." | Padronizar o relatório |
+| DB.12 | "Liste os requisitos obrigatórios para a entrega de Database Design e apresente os principais pontos que devem ser conferidos antes do envio do trabalho." | Conferir a entrega |
+
+A modelagem, os ajustes e os diagramas foram feitos no Oracle Data Modeler; a IA ajudou a estruturar, explicar o software e revisar.
+
+## AR-VR Modelling And Simulation
+
+| Quem | Uso da IA | O que saiu |
+| --- | --- | --- |
+| Murilo | Gerar por IA os objetos que podiam ser baixados prontos, sem ser o foco da modelagem: o robô da Lia, o totem de saúde e as plantas. | Objetos de apoio da cena. Os 3 objetos exigidos foram modelados no Maya |
+| João | "Edite o vídeo da cena: roteiro no ritmo da música, captura dos planos por script no Maya, textos animados, montagem, som e exportação em 24 fps." (Claude) | Vídeo de AR/VR e PDF da entrega |
+
+A idosa da cena não foi gerada por IA: é um modelo livre (CC0) do OpenGameArt, recolorido e posado no Maya.
