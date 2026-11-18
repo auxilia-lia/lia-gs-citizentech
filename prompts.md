@@ -36,7 +36,7 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | # | Prompt | O que saiu |
 | --- | --- | --- |
 | 4.1 | "Implemente o gov.br simulado, o Entende (foto de papel explicada em áudio, com antigolpe), avisar a família no WhatsApp com confirmação, a pseudonimização de CPF e telefone, a autonomia progressiva e o canal por ligação, com testes." | Itens 5, 6, 8, 9, 10 e 11 do backlog |
-| 4.2 | "Faça o Guia genérico com IA, o APK para a banca, a identidade visual (ícone, splash e primeira vez), o notebook de Data Science, a pasta de Agile e o roteiro do pitch." | Item 7, identidade azul e âmbar, `data-science/`, `agile/`, `pitch/` |
+| 4.2 | "Faça o Guia genérico com IA, o APK para a banca, a identidade visual (ícone, splash e primeira vez), a pasta de Agile e o roteiro do pitch." | Item 7, identidade azul e âmbar, `agile/`, `pitch/` |
 
 ## 5. Guia na tela: precisão e segurança (06 a 07/11)
 
