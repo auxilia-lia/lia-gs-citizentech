@@ -36,14 +36,15 @@
 | Pasta | Conteúdo | Matéria |
 | --- | --- | --- |
 | `app/` | App da Lia (React Native + Expo) | Além das matérias |
-| `core-java/` | Núcleo da Lia em Java | Domain Driven Design – Java |
-| `dynamic-programming/` | Notebook e README do algoritmo | Dynamic Programming |
-| `data-science/` | CSV, notebook e README | Data Science & Statistical Computing |
+| `core-java/` | Núcleo da Lia em Java (Spring Boot), contrato com a API e documento em PDF | Domain Driven Design – Java |
+| `dynamic-programming/` | Notebook do Levenshtein, dados, README e relatório em PDF | Dynamic Programming |
+| `data-science/` | Três notebooks (TIC Domicílios 2025, Censo 2022 e INAF 2024), bases com as fontes, gráficos e README | Data Science & Statistical Computing |
 | `database/` | PDF com os modelos conceitual e lógico e o .sql | Database Design |
-| `network/` | Arquivo .pkt e PDF | Network Architect Solutions |
+| `network/` | Arquivo .pkt, PDF e planta do CRAS Centro | Network Architect Solutions |
 | `ar-vr/` | Link do vídeo e PDF | AR-VR Modelling And Simulation |
-| `agile/` | Backlog, evidências das sprints e retrospectiva | Agile Methodology With Squad Framework |
+| `agile/` | Backlog, evidências das sprints, retrospectiva e PDF da entrega | Agile Methodology With Squad Framework |
 | `api-lia/` | Servidor da Lia: conversa, IA, antigolpe, Guia e gov.br simulado (FastAPI) | Além das matérias |
+| `ferramentas/` | Robô de testes do Guia e registro do uso real no celular | Além das matérias |
 | `pitch/` | Link e estrutura do vídeo pitch | Pitch |
 | `prompts.md` | Todos os prompts de IA usados no desenvolvimento | Regra da GS |
 
