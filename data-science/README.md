@@ -2,6 +2,15 @@
 
 Quem a Lia deve atender primeiro: barreiras ao uso da internet (TIC Domicílios 2025), alfabetização e idosos em Taiobeiras (Censo 2022) e alfabetismo funcional (INAF 2024). Análise do Vinicius.
 
+## Integrantes
+
+| Nome | RM |
+| --- | --- |
+| João Victor Melo Santos | 566640 |
+| Murilo Jeronimo Ferreira Nunes | 560641 |
+| Vinicius Kozonoe Guaglini | 567264 |
+| Yan Lucas Gonçalves da Silva | 567046 |
+
 ## Arquivos
 - `01_tic_domicilios_LIA.ipynb`, `02_censo_taiobeiras_LIA.ipynb` e `03_INAF_2024_LIA.ipynb`: notebooks já executados, com gráficos e conclusões.
 - `datasets/raw/`: bases originais. `datasets/processed/` e `outputs/`: o que os notebooks geram.
