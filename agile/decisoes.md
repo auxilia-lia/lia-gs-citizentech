@@ -26,3 +26,4 @@ Cada decisão com o motivo. Mostra o processo se adaptando ("ir além" de Agile)
 | 14/11 | Ligação faz recado para a família, com confirmação | Ligação consultava o benefício sem pedir dados | A consulta exigiria provar quem liga |
 | 14/11 | Vídeo pitch de até 5 min, com uma entrevista | 3 min com duas entrevistas | Enunciado atualizado; uma entrevista real |
 | 15/11 | Plano de escala: integração oficial com governo, estados e bancos, começando por um piloto no CRAS | Só governo | Os bancos são onde o público mais precisa de ajuda |
+| 17/11 | Um repositório só para a equipe, na organização auxilia-lia | Dois repositórios: o do app e da API (lia-gs-citizentech) e o das matérias (lia-citizentech) | Um link só em todas as entregas, sem risco de mandar o errado; o lia-citizentech entrou com o histórico e foi arquivado |
