@@ -1,0 +1,46 @@
+GLOBAL SOLUTION 2026 — PROJETO AuxiLia
+Grupo: AuxiLia
+
+INTEGRANTES
+Vinicius Kozonoe Guaglini — RM 567264
+João Victor Melo Santos — RM 566640
+Yan Lucas Gonçalves da Silva — RM 567046
+Murilo Jeronimo Ferreira Nunes — RM 560641
+
+FONTES, ARQUIVOS E LINKS
+
+1. TIC Domicílios 2025 — Cetic.br / NIC.br
+   Microdados de indivíduos (CSV original):
+   https://cetic.br/media/microdados/988/tic_domicilios_2025_individuos_base_de_microdados_v1.0.csv
+   Dicionário de variáveis (XLSX original):
+   https://cetic.br/media/microdados/984/tic_domicilios_2025_individuos_dicionario_de_variaveis_v1.0.xlsx
+   Página oficial dos microdados e documentação:
+   https://cetic.br/pt/arquivos/domicilios/2025/individuos/
+   Arquivos nesta entrega: datasets/raw/tic_domicilios/
+
+2. Censo Demográfico 2022 — IBGE/SIDRA
+   Tabela 9514 — População residente por idade:
+   https://sidra.ibge.gov.br/tabela/9514
+   Tabela 9542 — Alfabetização por idade:
+   https://sidra.ibge.gov.br/tabela/9542
+   Arquivos CSV exportados incluídos:
+     datasets/raw/censo_2022/censo_2022_populacao_por_idade.csv (9514: Taiobeiras)
+     datasets/raw/censo_2022/censo_2022_alfabetizacao_por_idade.csv (9542: Brasil/MG/Taiobeiras)
+   Percentuais publicados da população com 60 anos ou mais (Brasil e MG):
+   https://www.ibge.gov.br/biblioteca/visualizacao/livros/liv102038.pdf
+   Arquivo complementar com esses percentuais, não exportação SIDRA:
+     datasets/raw/censo_2022/ibge_2022_percentual_60_mais_publicado.csv
+
+3. INAF Brasil 2024 — Ação Educativa
+   Relatório 'Alfabetismo: do analógico ao digital':
+   https://acaoeducativa.org.br/publicacoes/relatorio-inaf-brasil-2024-alfabetismo-do-analogico-ao-digital/
+   Portal oficial de resultados:
+   https://alfabetismofuncional.org.br/
+   Arquivos: datasets/raw/inaf/ (6 arquivos CSV)
+   IMPORTANTE: esses 6 CSVs são tabelas consolidadas reconstruídas a partir
+   dos resultados publicados do INAF; não são microdados individuais nem
+   arquivos CSV originais fornecidos pelo INAF.
+
+Os arquivos necessários estão incluídos no ZIP e podem ser lidos sem acesso
+à conta de Google Drive dos integrantes.
+Para instruções de execução, consulte LEIA-ME.txt.

@@ -1,0 +1,101 @@
+GLOBAL SOLUTION — PROJETO AuxiLia | DATA SCIENCE
+===========================================
+
+Nesta entrega há três notebooks, os arquivos de dados que eles utilizam e
+os resultados gerados. A professora não precisa entrar no Drive do grupo.
+
+GRUPO E INTEGRANTES
+-------------------
+Grupo: AuxiLia
+Vinicius Kozonoe Guaglini — RM 567264
+João Victor Melo Santos — RM 566640
+Yan Lucas Gonçalves da Silva — RM 567046
+Murilo Jeronimo Ferreira Nunes — RM 560641
+
+ARQUIVOS DA ANÁLISE
+-------------------
+01_tic_domicilios_LIA.ipynb: barreiras ao uso da internet (TIC 2025)
+02_censo_taiobeiras_LIA.ipynb: alfabetização e idosos (Censo 2022)
+03_INAF_2024_LIA.ipynb: alfabetismo funcional (INAF 2024)
+
+Onde ficam as bases originais:
+  datasets/raw/tic_domicilios/  (CSV + dicionário XLSX)
+  datasets/raw/censo_2022/     (2 CSVs)
+  datasets/raw/inaf/           (6 CSVs)
+
+Os notebooks geram arquivos em datasets/processed e em outputs/.
+
+OPÇÃO 1 — ABRIR NO GOOGLE COLAB
+------------------------------
+1. Baixe GS_LIA_DataScience.zip no computador.
+2. Abra https://colab.research.google.com/.
+3. Escolha "Upload" ou "Fazer upload" e abra um dos arquivos .ipynb
+   desta entrega (pode extrair o ZIP antes para encontrá-lo).
+4. Execute a PRIMEIRA célula de código (logo depois do texto de abertura).
+5. Aparecerá uma janela para selecionar arquivos. Envie o ZIP completo
+   GS_LIA_DataScience.zip, e não os CSVs isolados.
+6. O notebook extrairá o ZIP para /content/GS_LIA_DataScience/ e encontrará
+   os dados automaticamente. Continue executando as células em ordem.
+7. Em outro notebook aberto no MESMO ambiente, os dados já extraídos
+   normalmente estarão disponíveis; se abrir um ambiente separado ou
+   reiniciar o Colab, faça o upload do ZIP novamente.
+
+Importante: quando o Colab faz upload do .ipynb, ele recebe o CÓDIGO.
+Os CSVs não ficam "dentro" do .ipynb. Por isso o ZIP completo é necessário.
+
+OPÇÃO 2 — ABRIR NO COMPUTADOR COM JUPYTER
+-----------------------------------------
+1. Extraia o ZIP completo. Surgirá a pasta GS_LIA_DataScience.
+2. Mantenha os arquivos .ipynb e a pasta datasets no mesmo local.
+3. Abra o terminal dentro da pasta GS_LIA_DataScience.
+4. Se necessário, instale o Python e execute:
+      pip install -r requirements.txt
+5. Inicie o Jupyter:
+      jupyter lab
+6. Abra qualquer um dos três .ipynb e execute as células na ordem.
+
+OBSERVAÇÕES SOBRE OS DADOS
+-------------------------
+- TIC Domicílios: microdados de indivíduos + dicionário da pesquisa.
+- INAF 2024: tabelas consolidadas organizadas a partir do relatório,
+  não microdados de pessoas entrevistadas.
+- Censo 2022: tabelas 9514 e 9542 exportadas do SIDRA.
+- A exportação da tabela 9514 contém somente Taiobeiras (MG).
+- Para comparar a proporção de moradores com 60 anos ou mais com Minas e Brasil,
+  usamos os percentuais oficiais divulgados pelo IBGE (17,8% e 15,8%),
+  identificados no CSV complementar e em integrantes_e_fontes.txt.
+  Não se trata de uma exportação completa da tabela 9514.
+- Os CSVs de origem permanecem sem alterações.
+- As respostas não válidas (não sabe/não respondeu/não se aplica) são excluídas
+  dos indicadores da TIC, e seus percentuais consideram pesos da pesquisa.
+- Os gráficos de escolaridade usam cinco categorias construídas a partir do
+  dicionário original; os códigos originais permanecem no CSV da TIC.
+
+ESTRUTURA DA PASTA
+------------------
+GS_LIA_DataScience/
+  01_tic_domicilios_LIA.ipynb
+  02_censo_taiobeiras_LIA.ipynb
+  03_INAF_2024_LIA.ipynb
+  datasets/
+    raw/
+      tic_domicilios/
+      censo_2022/
+      inaf/
+    processed/
+  outputs/
+    censo_2022/
+    inaf/
+  requirements.txt
+  integrantes_e_fontes.txt
+  LEIA-ME.txt
+
+PERGUNTAS E CONCLUSÕES
+----------------------
+As perguntas de análise e conclusões com indicadores numéricos estão na
+abertura e no encerramento dos três notebooks. O CRAS Centro é um local
+de apoio proposto pelo projeto, e não uma parceria já comprovada.
+
+LINKS OFICIAIS
+---------------
+Consulte integrantes_e_fontes.txt para os links de cada base e das tabelas.

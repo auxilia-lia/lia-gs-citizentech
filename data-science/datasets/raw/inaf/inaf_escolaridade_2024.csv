@@ -1,0 +1,26 @@
+﻿ano,grupo,categoria,nivel_alfabetismo,percentual_no_grupo,base_ponderada_publicada,tabela
+2024,Escolaridade,Nenhuma,Analfabeto,88,67,4a
+2024,Escolaridade,Nenhuma,Rudimentar,10,67,4a
+2024,Escolaridade,Nenhuma,Elementar,0,67,4a
+2024,Escolaridade,Nenhuma,Intermediário,2,67,4a
+2024,Escolaridade,Nenhuma,Proficiente,0,67,4a
+2024,Escolaridade,Fundamental - anos iniciais,Analfabeto,27,275,4a
+2024,Escolaridade,Fundamental - anos iniciais,Rudimentar,51,275,4a
+2024,Escolaridade,Fundamental - anos iniciais,Elementar,19,275,4a
+2024,Escolaridade,Fundamental - anos iniciais,Intermediário,1,275,4a
+2024,Escolaridade,Fundamental - anos iniciais,Proficiente,2,275,4a
+2024,Escolaridade,Fundamental - anos finais,Analfabeto,6,464,4a
+2024,Escolaridade,Fundamental - anos finais,Rudimentar,37,464,4a
+2024,Escolaridade,Fundamental - anos finais,Elementar,40,464,4a
+2024,Escolaridade,Fundamental - anos finais,Intermediário,14,464,4a
+2024,Escolaridade,Fundamental - anos finais,Proficiente,3,464,4a
+2024,Escolaridade,Ensino médio,Analfabeto,1,1091,4a
+2024,Escolaridade,Ensino médio,Rudimentar,16,1091,4a
+2024,Escolaridade,Ensino médio,Elementar,45,1091,4a
+2024,Escolaridade,Ensino médio,Intermediário,29,1091,4a
+2024,Escolaridade,Ensino médio,Proficiente,9,1091,4a
+2024,Escolaridade,Superior completo ou mais,Analfabeto,1,583,4a
+2024,Escolaridade,Superior completo ou mais,Rudimentar,11,583,4a
+2024,Escolaridade,Superior completo ou mais,Elementar,27,583,4a
+2024,Escolaridade,Superior completo ou mais,Intermediário,38,583,4a
+2024,Escolaridade,Superior completo ou mais,Proficiente,24,583,4a
