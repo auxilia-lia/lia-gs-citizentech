@@ -1,7 +1,7 @@
 # Núcleo da Lia em Java
 
 Entrega de Domain Driven Design – Java da Global Solution 2026.2 (CitizenTech), equipe AuxiLia.
-Documento da entrega, com arquitetura, modelagem, orientação a objetos e testes: [AuxiLia_Equipe3_Java.pdf](AuxiLia_Equipe3_Java.pdf).
+Documento da entrega, com arquitetura, modelagem, orientação a objetos e testes: [AuxiLia_Java.pdf](AuxiLia_Java.pdf).
 
 A Lia é um assistente de voz para quem não consegue usar o celular, o gov.br ou o INSS sozinho. Este projeto é o núcleo de regras dela: ele decide o **risco** de cada ação, a **confirmação** que a Lia pede antes de agir, o **nível de autonomia** da pessoa e esconde CPF, telefone e e-mail dos textos.
 
