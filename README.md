@@ -39,7 +39,7 @@
 | `core-java/` | Núcleo da Lia em Java | Domain Driven Design – Java |
 | `dynamic-programming/` | Notebook e README do algoritmo | Dynamic Programming |
 | `data-science/` | CSV, notebook e README | Data Science & Statistical Computing |
-| `database/` | Modelos conceitual e lógico | Database Design |
+| `database/` | PDF com os modelos conceitual e lógico e o .sql | Database Design |
 | `network/` | Arquivo .pkt e PDF | Network Architect Solutions |
 | `ar-vr/` | Link do vídeo e PDF | AR-VR Modelling And Simulation |
 | `agile/` | Backlog, evidências das sprints e retrospectiva | Agile Methodology With Squad Framework |
