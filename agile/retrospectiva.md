@@ -26,7 +26,7 @@ Feita no fim do projeto (17/11/2026), no formato manter, melhorar e parar.
 ## Números
 | Medida | Valor |
 | --- | --- |
-| Itens do backlog de trabalho concluídos | 15 de 20 (4 com os responsáveis das matérias; 1 adiado para o piloto) |
+| Itens do backlog de trabalho concluídos | 19 de 20 (1 adiado para o piloto) |
 | Funcionalidades entregues (MoSCoW) | Todas as Must have e 5 de 7 Should have |
 | Itens que entraram no caminho | 4 (antigolpe em qualquer tela, banco protegido, recado pela ligação, site de golpe simulado) |
 | Decisões que mudaram | 23 (veja `decisoes.md`) |
