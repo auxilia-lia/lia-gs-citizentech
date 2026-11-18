@@ -147,6 +147,61 @@ Estes prompts rodam no servidor quando a Lia conversa. Ficam no código para qua
 
 Cada integrante mandou os prompts essenciais da sua parte. Como no resto do arquivo, são versões resumidas das conversas, não a transcrição de todas as mensagens.
 
+## Network Architect Solutions (Yan, 06 a 17/11)
+
+A rede foi montada, configurada e testada pelo Yan no Packet Tracer. A IA tirou dúvidas durante a configuração, gerou a planta ilustrativa e organizou o relatório a partir dos prints e testes do Yan.
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| NET.1 | "Vou montar no Packet Tracer as duas redes do enunciado, Atendimento (192.168.3.0/24) e Equipe (10.0.3.0/24), com 1 roteador, 2 switches, 1 access point, 1 servidor e 4 estações com IP fixo, uma no Wi-Fi. Tire as minhas dúvidas na configuração do roteador e do access point." | `network/AuxiLia_Equipe3_Network.pkt`, montado e testado pelo Yan |
+| NET.2 | "Com base nos pings e no modo Simulation que eu rodei, me ajude a redigir as respostas às perguntas do enunciado: cabos, gateway errado, PDUs e o papel do switch e do roteador." | Respostas do relatório, a partir dos testes do Yan |
+| NET.3 | Prompt da planta do CRAS, na IA de imagem (texto completo abaixo da tabela) | `network/planta-cras-centro.png`, com os dispositivos posicionados pelo Yan |
+| NET.4 | "Organize o relatório com a ficha, a topologia, a tabela de endereçamento, os meus prints e as respostas, e gere o PDF." | `network/AuxiLia_Network.pdf` (20 páginas) |
+| NET.5 | "A equipe trocou o ponto de atendimento para o CRAS Centro (Rua Santos Dumont, 336) e juntou tudo num repositório só. Atualize o relatório e gere o PDF de novo." | PDF atualizado; o prédio do `.pkt` foi renomeado pelo Yan |
+
+Prompt da planta (NET.3):
+
+```
+Crie uma planta baixa humanizada, vista de cima (ortogonal, sem perspectiva), no estilo de render de arquitetura realista e ilustrado, com iluminação suave e cores claras. Formato horizontal na proporção 2:1.
+
+É o prédio térreo de um CRAS (Centro de Referência de Assistência Social), um serviço público de uma cidade pequena do interior de Minas Gerais. Ambiente simples, acolhedor e acessível.
+
+Distribuição das salas:
+- Fileira de cima, da esquerda para a direita: "Sala de Uso Coletivo" (cadeiras em roda, mesa grande, quadro branco), "Atendimento Individual" (mesa pequena com duas cadeiras), "Sala Técnica" (sala pequena, sem janela, com um rack de servidor e um nobreak), "Sala da Equipe" (duas mesas de trabalho com notebooks e armários).
+- Um corredor no meio, ligando as salas.
+- Fileira de baixo, à esquerda e no centro: "Recepção · Ponto Lia", a maior sala, com balcão de atendimento com um notebook, fileira de cadeiras de espera, plantas e um ponto de acesso Wi-Fi no teto.
+- Fileira de baixo, à direita: "Copa" (pia, geladeira, mesa pequena), "Banheiro Feminino" e "Banheiro Masculino", ambos acessíveis.
+- Entrada principal na parte de baixo da recepção, com rampa de acessibilidade.
+- Área externa estreita em volta: calçada, algumas árvores e uma pequena área de estacionamento com uma vaga para pessoa com deficiência.
+
+Escreva o nome de cada sala em português, em letras grandes e legíveis, exatamente como está entre aspas acima. Não inclua pessoas, logotipos, marcas, marca d'água nem nenhum outro texto além dos nomes das salas.
+```
+
+## Domain Driven Design – Java (Yan, 11 a 18/11)
+
+O código do núcleo foi escrito pelo Yan, no IntelliJ. A IA explicava a lógica de cada parte, passava o esqueleto com lacunas e revisava o que o Yan escrevia. A organização do repositório (Conventional Commits, uma branch por parte, merge por Pull Request) foi decisão do Yan.
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| JAVA.1 | "Vou montar o núcleo em Spring Boot por partes, com commits semânticos e uma branch por parte, e o README vai crescendo junto com o código. Me ajude a configurar o projeto a partir do contrato do João." | Organização `auxilia-lia` e projeto `core-java/`, criados pelo Yan (no `lia-citizentech`, juntado a este repositório em 17/11) |
+| JAVA.2 | "Para eu escrever cada classe, me passe a lógica e o esqueleto com lacunas. Depois, revise o que eu fizer e aponte os erros." (repetido a cada parte) | Domínio (`Acao` e as três filhas, `Pedido`, `Canal`, `Usuario`...), serviços (`PoliticaDeConfirmacao`, `GestorDeAutonomia`, `Pseudonimizador`, `FabricaDeAcoes`) e o `Main` com os 4 casos, escritos pelo Yan |
+| JAVA.3 | "Agora a camada REST, no mesmo formato: DTOs, beans, controller com `/nucleo/decidir`, `/nucleo/pseudonimizar` e `/nucleo/saude` e os erros 422 e 400." | Pacotes `config` e `web`, escritos e testados com `curl` pelo Yan |
+| JAVA.4 | "Redija o CONTRATO.md e o README do core-java e confira a branch antes do Pull Request." | `core-java/CONTRATO.md` e `core-java/README.md`, revisados pelo Yan |
+| JAVA.5 | "O João ligou a API ao núcleo. Me ajude a rodar os dois juntos no meu computador para testar a integração, com o núcleo no ar e fora do ar." | Teste integrado feito pelo Yan, com prints |
+| JAVA.6 | "Com os meus prints e o teste integrado, organize o documento da matéria (desafio, objetivos, ODS, arquitetura e diagramas) e gere o PDF. Eu reviso antes de subir." | `core-java/AuxiLia_Java.pdf` (7 páginas), revisado e commitado pelo Yan |
+
+## Dynamic Programming (Yan, 15 a 17/11)
+
+O notebook foi escrito pelo Yan no PyCharm, parte por parte, no mesmo formato do Java: a IA explicava a lógica e passava o código com lacunas, o Yan completava, rodava e corrigia o que dava errado, e a IA revisava. Os dados foram digitados pelo Yan, e a branch, os commits e o Pull Request também foram feitos por ele.
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| DP.1 | "O Levenshtein já está na arquitetura da Lia, no antigolpe e na busca. Quero usar ele em Dynamic Programming: me explica como a tabela funciona e me passa a primeira parte com lacunas, que eu completo." | Os dados (`dominios_oficiais.csv`, públicos, e `jeitos_de_pedir.csv`, simulados), digitados pelo Yan, e a tabela de PD, completada por ele |
+| DP.2 | "Completei a versão ingênua, a de duas linhas e as medições de tempo. Tem algum erro? Se tiver, me diz onde está." (repetido a cada parte) | As três versões e as medições, corrigidas pelo Yan a partir da revisão |
+| DP.3 | "Rodei a busca e deu 3 de 12. Dá uma olhada no meu código." | Busca e antigolpe corrigidos pelo Yan: 10 de 10 no antigolpe e 12 de 12 na busca |
+| DP.4 | "No README da pasta, só o essencial: como executar, em até 5 linhas. Os nomes e os RMs vão na capa do PDF." | `dynamic-programming/README.md` |
+| DP.5 | "Com os resultados e os tempos que eu medi no notebook, organize o relatório de até 4 páginas no modelo da matéria e gere o PDF. Eu reviso antes de subir." | `dynamic-programming/AuxiLia_DynamicProgramming.pdf` (4 páginas), revisado e commitado pelo Yan |
+
 ## Data Science & Statistical Computing
 
 Vinicius, com o ChatGPT. Fontes: TIC Domicílios, INAF 2024 e Censo Demográfico 2022 (Taiobeiras, Minas Gerais e Brasil).
@@ -199,3 +254,12 @@ A modelagem, os ajustes e os diagramas foram feitos no Oracle Data Modeler; a IA
 | João | "Edite o vídeo da cena: roteiro no ritmo da música, captura dos planos por script no Maya, textos animados, montagem, som e exportação em 24 fps." (Claude) | Vídeo de AR/VR e PDF da entrega |
 
 A idosa da cena não foi gerada por IA: é um modelo livre (CC0) do OpenGameArt, recolorido e posado no Maya.
+
+## Revisões e organização do repositório (Yan, 10 a 18/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| REV.1 | "Revise as entregas de AR-VR, Data Science e Database contra os critérios de cada matéria e liste o que precisa mudar." | Ajustes repassados ao Murilo e ao Vinicius, incluindo o doc "Ajustes no Database Design (Lia)" |
+| REV.2 | "Revise o repositório do João (arquivos, testes e organização) e liste o que precisa mudar." | Doc "Ajustes no repositório lia-gs-citizentech" |
+| REV.3 | "Me ajude a juntar o lia-citizentech neste repositório sem perder o histórico e a resolver os conflitos." | Merge feito pelo Yan (`chore/junta-repositorios`) |
+| REV.4 | "Confira o repositório e liste o que falta, por pessoa, até a entrega." | Lista de pendências da equipe |
