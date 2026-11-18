@@ -800,3 +800,50 @@ def test_ligacao_recado_para_a_nora():
     r = falar("Lia, avisa a minha nora que eu já cheguei em casa", canal="ligacao", contexto={"familia": ["nora"]})
     assert r["acao"]["tipo"] == "avisar_familiar" and r["acao"]["contato"] == "nora"
     assert "cheguei em casa" in r["acao"]["mensagem"]
+
+
+# ---------- núcleo em Java ----------
+def test_nivel_do_servico_traduz_a_chave():
+    from main import nivel_do_servico
+    aut = {"consulta": 2, "app:whatsapp": 1, "avisar_familiar": 1}
+    assert nivel_do_servico({"tipo": "guiar", "servico": "consulta"}, aut) == 2
+    assert nivel_do_servico({"tipo": "guiar_app", "app": "whatsapp"}, aut) == 1
+    assert nivel_do_servico({"tipo": "avisar_familiar"}, aut) == 1
+    assert nivel_do_servico({"tipo": "guiar", "servico": "beneficio"}, aut) == 0
+
+
+def test_conversa_com_nucleo_no_ar(monkeypatch):
+    import httpx as h
+    import main
+    pedidos = []
+
+    async def falso(self, url, json=None, **k):
+        pedidos.append(json)
+        return h.Response(200, json={"risco": "MEDIO", "confirmacao": "SIM_OU_NAO", "nivel": 0,
+                                     "fala_confirmacao": "Posso mandar para o seu filho: \"Cheguei bem\"?"},
+                          request=h.Request("POST", url))
+    monkeypatch.setattr(h.AsyncClient, "post", falso)
+    r = c.post("/conversa", json={"mensagens": [{"papel": "pessoa", "texto": "avisa meu filho que cheguei bem"}],
+                                  "contexto": {"familia": ["filho"]}}).json()
+    if r["acao"]:
+        assert r["risco"] == "MEDIO" and r["confirmacao"] == "SIM_OU_NAO" and r["fala_confirmacao"]
+        assert pedidos[0]["canal"] == "app" and pedidos[0]["acao"]["tipo"] == r["acao"]["tipo"]
+    final = [l for l in c.post("/conversa/fluxo", json={"mensagens": [{"papel": "pessoa", "texto": "avisa meu filho que cheguei bem"}],
+                                                        "contexto": {"familia": ["filho"]}}).text.splitlines() if l][-1]
+    import json as js
+    f = js.loads(final)["final"]
+    assert (not f["acao"]) or f["risco"] == "MEDIO"
+
+
+def test_conversa_com_nucleo_fora_do_ar(monkeypatch):
+    import httpx as h
+    monkeypatch.setattr("main.NUCLEO_URL", "http://127.0.0.1:9")  # porta fechada
+    r = c.post("/conversa", json={"mensagens": [{"papel": "pessoa", "texto": "avisa meu filho que cheguei bem"}],
+                                  "contexto": {"familia": ["filho"]}}).json()
+    assert r["fala"] and "risco" not in r
+
+
+def test_agendar_sem_ubs_ganha_padrao():
+    from main import validar_acao
+    a = validar_acao({"tipo": "agendar_por_voz"}, "ligacao")
+    assert a["ubs"] and a["horario"]

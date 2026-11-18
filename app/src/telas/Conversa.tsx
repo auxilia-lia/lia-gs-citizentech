@@ -4,7 +4,7 @@ import { Text } from '../ui/fonte';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import LiaGuia from '../../modules/lia-guia';
-import { Acao, AnaliseGolpe, buscarFluxos, conversar, conversarEmPartes, entenderFoto, Mensagem, restoDaFala, urlGov } from '../lia/api';
+import { Acao, AnaliseGolpe, buscarFluxos, Confirmacao, conversar, conversarEmPartes, entenderFoto, Mensagem, restoDaFala, urlGov } from '../lia/api';
 import { registrar } from '../lia/registro';
 import { respostaRapida } from '../lia/rapido';
 import { anotarErro, comecarTentativa, nivelPara, NOMES_NIVEL, registrarConclusao, Resultado } from '../lia/autonomia';
@@ -249,7 +249,7 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
       const resto = restoDaFala(r.fala, partes);
       if (partes.length) setMensagens((m) => [...m.slice(0, -1), { papel: 'lia', texto: r.fala }]);
       else setMensagens((m) => [...m, { papel: 'lia', texto: r.fala }]);
-      const depois = () => { if (r.acao) executar(r.acao); };
+      const depois = () => { if (r.acao) executar(r.acao, r.confirmacao); };
       voz.falar(resto, depois, jaFalou);
     } catch {
       clearTimeout(aviso);
@@ -261,11 +261,11 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
   };
 
   // ---------- ações ----------
-  const executar = async (acao: Acao) => {
+  const executar = async (acao: Acao, confirmacao?: Confirmacao) => {
     if (acao.tipo === 'guiar') return guiar(acao.servico);
     if (acao.tipo === 'guiar_app') return guiarApp(acao.app, acao.objetivo, undefined, acao.ensinar ? undefined : acao.nome_app, undefined, acao.abrir, !!acao.ensinar);
     if (acao.tipo === 'tirar_foto') return tirarFoto();
-    if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem);
+    if (acao.tipo === 'avisar_familiar') return prepararAviso(acao.contato, acao.mensagem, confirmacao);
     if (acao.tipo === 'parar_guia') return pararOGuia(!!acao.conseguiu);
   };
 
@@ -317,11 +317,13 @@ export default function Conversa({ ativa, pedido }: { ativa: boolean; pedido: Pe
     if (!abriu) dizer('Não consegui abrir esse app. Ele está instalado?');
   };
 
-  const prepararAviso = async (contato: string, mensagem: string) => {
+  const prepararAviso = async (contato: string, mensagem: string, confirmacao?: Confirmacao) => {
     const familiar = acharFamiliar(contato, await carregarFamilia());
     if (!familiar) return dizer(`Ainda não conheço "${contato}". Cadastre essa pessoa na aba Família, que eu aviso na hora.`);
     if (!familiar.telefone) return dizer(`Falta o número do WhatsApp de ${familiar.nome}. Dá para colocar na aba Família.`);
-    if (!precisaConfirmar('avisar_familiar')) return enviarAviso({ familiar, mensagem });
+    // Com o núcleo Java no ar, vale a confirmação que ele decidiu; sem ele, a tabela do app.
+    const confirmar = confirmacao ? confirmacao !== 'NENHUMA' : precisaConfirmar('avisar_familiar');
+    if (!confirmar) return enviarAviso({ familiar, mensagem });
     const p = { familiar, mensagem };
     setPendente(p);
     pendenteRef.current = p;

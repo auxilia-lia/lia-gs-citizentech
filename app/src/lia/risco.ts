@@ -1,12 +1,12 @@
 // Confirmação conforme o risco (RF05). Quanto mais a ação mexe na vida da pessoa,
-// mais a Lia confirma antes. O núcleo em Java vai ter a mesma regra no servidor.
+// mais a Lia confirma antes. O núcleo em Java tem a mesma regra no servidor; quando ele responde, vale a dele.
 export type Risco = 'baixo' | 'medio' | 'alto';
 
 export const RISCO_DA_ACAO: Record<string, Risco> = {
   guiar: 'baixo', // só aponta; quem toca é a pessoa
   tirar_foto: 'baixo',
   avisar_familiar: 'medio', // manda mensagem em nome dela
-  agendar_por_voz: 'alto', // compromisso com o serviço público
+  agendar_por_voz: 'medio', // igual ao núcleo Java: ação comum, confirma com sim ou não
 };
 
 export const precisaConfirmar = (tipo: string) => (RISCO_DA_ACAO[tipo] ?? 'alto') !== 'baixo';

@@ -14,7 +14,12 @@ export type Acao =
   | { tipo: 'agendar_por_voz'; ubs: string; horario: string; resultado?: { protocolo: string } }
   | { tipo: 'consultar_beneficio'; resultado?: unknown };
 export type AnaliseGolpe = { golpe: boolean; nivel: 'alto' | 'medio' | 'baixo'; motivos: string[] };
-export type RespostaLia = { fala: string; acao: Acao | null; golpe: AnaliseGolpe | null };
+// risco, confirmacao, nivel e fala_confirmacao vêm do núcleo Java (só quando ele está no ar).
+export type Confirmacao = 'NENHUMA' | 'SIM_OU_NAO' | 'DUPLA';
+export type RespostaLia = {
+  fala: string; acao: Acao | null; golpe: AnaliseGolpe | null;
+  risco?: 'BAIXO' | 'MEDIO' | 'ALTO'; confirmacao?: Confirmacao; nivel?: number; fala_confirmacao?: string | null;
+};
 export type Contexto = { autonomia: Record<string, number>; familia: string[]; guia?: string | null };
 export type Fluxo = { titulo: string; caminho: string; passos: string[]; risco: string };
 

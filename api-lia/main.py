@@ -77,7 +77,7 @@ class Texto(BaseModel):
 
 
 # Data da última mudança no servidor: o robô de testes mostra, para saber se a API foi reiniciada.
-VERSAO = "2026-11-08.1"
+VERSAO = "2026-11-17.1"
 
 
 @app.get("/saude")
@@ -115,6 +115,9 @@ def validar_acao(acao, canal: str) -> dict | None:
                 acao["nome_app"] = nome
     if acao["tipo"] == "avisar_familiar" and not (acao.get("contato") and acao.get("mensagem")):
         return None
+    if acao["tipo"] == "agendar_por_voz":
+        # O núcleo Java exige UBS e horário: se a IA não mandou, valem os mesmos padrões do agendamento.
+        acao = {**acao, "ubs": acao.get("ubs") or "UBS Centro", "horario": acao.get("horario") or gov_simulado.HORARIOS["h1"]}
     return acao
 
 
@@ -192,6 +195,46 @@ def _finalizar(r: dict, c: "Conversa", analise: dict, p: str) -> dict:
     return {"fala": fala, "acao": acao, "golpe": analise if analise["golpe"] else None, "provedor": p}
 
 
+# ---------- núcleo em Java (DDD) ----------
+# Quando a IA devolve uma ação, o núcleo diz o risco, a confirmação exigida, o nível de autonomia e a frase de
+# confirmação (contrato em core-java/CONTRATO.md). Se o núcleo estiver fora do ar, a Lia segue sem esses campos.
+NUCLEO_URL = os.getenv("LIA_NUCLEO", "http://localhost:8080")
+
+
+def nivel_do_servico(acao: dict, autonomia: dict[str, int]) -> int:
+    """O app guarda a autonomia por serviço ("consulta", "app:whatsapp"...); o núcleo espera pelo tipo da ação."""
+    if acao["tipo"] == "guiar":
+        chave = acao.get("servico")
+    elif acao["tipo"] == "guiar_app":
+        chave = f"app:{acao.get('app')}"
+    else:
+        chave = acao["tipo"]
+    nivel = autonomia.get(chave, 0)
+    return nivel if nivel in (0, 1, 2) else 0
+
+
+async def consultar_nucleo(resposta: dict, c: "Conversa") -> dict:
+    """Junta risco, confirmação e nível do núcleo Java à resposta. Se o núcleo não responder, segue sem."""
+    acao = resposta.get("acao")
+    if not acao:
+        return resposta
+    corpo = {
+        "canal": c.canal,
+        "acao": {k: v for k, v in acao.items() if k != "resultado"},
+        "autonomia": {acao["tipo"]: nivel_do_servico(acao, c.contexto.autonomia)},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=2) as cliente:
+            r = await cliente.post(f"{NUCLEO_URL}/nucleo/decidir", json=corpo)
+        if r.status_code == 200:
+            d = r.json()
+            return {**resposta, **{k: d.get(k) for k in ("risco", "confirmacao", "nivel", "fala_confirmacao")}}
+        log.warning("núcleo Java recusou a ação: %s %s", r.status_code, r.text[:200])
+    except (httpx.HTTPError, ValueError):
+        log.warning("núcleo Java fora do ar; seguindo sem ele")
+    return resposta
+
+
 @app.post("/conversa")
 async def conversa(c: Conversa):
     msgs = [m.model_dump() for m in c.mensagens]
@@ -207,7 +250,7 @@ async def conversa(c: Conversa):
             p = "regras (IA indisponível)"
     else:
         r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
-    return _finalizar(r, c, analise, p)
+    return await consultar_nucleo(_finalizar(r, c, analise, p), c)
 
 
 def _final_do_fluxo(bruto: str, ditas: list[str]) -> dict | None:
@@ -259,7 +302,8 @@ async def conversa_fluxo(c: Conversa):
                     r, p = _sem_ia(msgs, c, contexto, analise), "regras (IA indisponível)"
             else:
                 r = cerebro_teste.responder(msgs, c.canal, contexto, analise)
-        yield json.dumps({"final": _finalizar(r, c, analise, p)}, ensure_ascii=False) + "\n"
+        final = await consultar_nucleo(_finalizar(r, c, analise, p), c)
+        yield json.dumps({"final": final}, ensure_ascii=False) + "\n"
 
     return StreamingResponse(linhas(), media_type="application/x-ndjson")
 

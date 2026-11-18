@@ -22,8 +22,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 | `GET /gov` | gov.br **simulado** (abra no navegador do celular: `http://IP:8000/gov`) |
 | `GET /gov/fluxos` | Passos de cada serviço para o Guia (consulta, beneficio, multas) |
 
-Ações que a IA pode pedir: `guiar`, `avisar_familiar` e `tirar_foto` (app); `agendar_por_voz`, `consultar_beneficio` e `avisar_familiar` (ligação). Qualquer outra é descartada pelo servidor.
+Ações que a IA pode pedir: `guiar`, `guiar_app`, `parar_guia`, `avisar_familiar` e `tirar_foto` (app); `agendar_por_voz`, `consultar_beneficio` e `avisar_familiar` (ligação). Qualquer outra é descartada pelo servidor.
 
 Testes: `pip install -r requirements-dev.txt` e depois `python -m pytest teste_api.py -q`.
 
-Provisório: depois, a chamada à IA passa pelo núcleo em Java, como manda a documentação.
+## Núcleo em Java
+
+Quando a IA devolve uma ação, a API consulta o núcleo em Java (`POST /nucleo/decidir`, prazo de 2 s) e junta à resposta o `risco`, a `confirmacao`, o `nivel` e a `fala_confirmacao`. O contrato está em [`../core-java/CONTRATO.md`](../core-java/CONTRATO.md).
+
+- Endereço: variável `LIA_NUCLEO` (padrão `http://localhost:8080`).
+- A autonomia do app é guardada por serviço (`consulta`, `app:whatsapp`...); a API traduz para o tipo da ação antes de mandar.
+- Se o núcleo estiver fora do ar, a Lia responde normalmente, sem esses campos. Na nuvem (Render) o núcleo não roda; para ver a integração, rode a API e o núcleo no mesmo computador.
