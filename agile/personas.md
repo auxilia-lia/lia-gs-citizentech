@@ -1,6 +1,6 @@
 # Personas
 
-Construídas a partir da entrevista com a dona Rosária (13/11/2026, gravada pelo Vinicius) e dos dados públicos de `data-science/`. Onde não houve entrevista, a persona está marcada como **hipótese**, para validar no piloto.
+Construídas a partir da entrevista com a dona Rosária (13/11/2026, gravada pelo Vinicius) e de dados públicos (IBGE, Inaf e Cetic.br). Onde não houve entrevista, a persona está marcada como **hipótese**, para validar no piloto.
 
 ## 1. Dona Rosária, quem usa a Lia
 *Base: entrevista real.*

@@ -5,7 +5,7 @@
 ## Planejado × feito
 | Item | Planejado | Feito até agora | Observação |
 | --- | --- | --- | --- |
-| 1 · Cidade | Escolher a cidade e pegar a taxa | Taiobeiras (MG), bairro Centro, com o CRAS Centro como ponto de atendimento | Escolhida por ser cidade do interior com parentes da equipe; o ranking das UFs ficou em `data-science/` |
+| 1 · Cidade | Escolher a cidade e pegar a taxa | Taiobeiras (MG), bairro Centro, com o CRAS Centro como ponto de atendimento | Escolhida por ser cidade do interior com parentes da equipe |
 | 2 · Entrevista | 2 entrevistas (quem tem dificuldade e quem ajuda) | Roteiro pronto na Sprint 1 | Feita na Sprint 2 (13/11), só com a Rosária; a segunda ficou para o piloto |
 | 3 · Ficha | Ficha completa no README | Ficha pronta | Cidade, equipe e RMs completados depois |
 | 4 · Teste do Guia | Teste de 1 dia até 09/11 | Guia rodando no celular, em apps reais | Robô de testes com 14 de 14 cenários (07/11): o Guia genérico entra na demo |
