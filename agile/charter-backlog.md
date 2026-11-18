@@ -1,6 +1,6 @@
 # Charter da equipe e backlog — Lia (GS Citizen Tech)
 
-Nov 5, 2026 · @João Victor · atualizado em 07/11/2026
+Nov 5, 2026 · @João Victor · atualizado em 18/11/2026
 
 Uma página para a equipe saber o que vamos entregar, quem cuida de quê e até quando. Entrega final: Nov 19, 2026, às 23h55.
 
@@ -42,7 +42,7 @@ Cada matéria tem um dono, responsável por garantir a entrega. Todo mundo ajuda
 | Banco e privacidade | Banco real, consentimento LGPD. Pseudonimização: no app, antes de sair do celular; no núcleo Java, no canal por ligação | Vinicius e Yan (banco); João (app) e Yan (núcleo) |
 | gov.br simulado | Telas do gov.br e API fake, onde o Guia atua na demo | João |
 | Canal por ligação | Simulação da Lia atendendo por ligação comum | João |
-| Pitch | Vídeo de até 3 min no YouTube e roteiro da demo | João |
+| Pitch | Vídeo de até 5 min no YouTube (eram 3; veja `decisoes.md`, 14/11) e roteiro da demo | João |
 
 **Integrantes:** João Victor Melo Santos (RM 566640), Murilo Jeronimo Ferreira Nunes (RM 560641), Vinicius Kozonoe Guaglini (RM 567264) e Yan Lucas Gonçalves da Silva (RM 567046).
 
