@@ -1,6 +1,6 @@
 # Vídeo pitch
 
-**Link (YouTube, não listado):** https://youtu.be/Lb78aDGaQFA · 4 min 38 s · 1080p
+**Link (YouTube, não listado):** https://youtu.be/rrERlaYx498 · 5 min · 1080p
 
 ## Estrutura
 | Parte | O que mostra |

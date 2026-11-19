@@ -77,7 +77,7 @@ Os 20 itens do charter, usados como issues e milestones no GitHub.
 | 16 | Redes: CRAS no Packet Tracer | 2 | Concluído (Yan) |
 | 17 | Maya: cena e vídeo | 3 | Concluído (cena: Murilo; vídeo e slide: João) |
 | 18 | Validar com 3 a 5 pessoas | 3 | Adiado para o piloto |
-| 19 | Vídeo pitch (até 5 min) | 3 | Concluído (https://youtu.be/Lb78aDGaQFA) |
+| 19 | Vídeo pitch (até 5 min) | 3 | Concluído (https://youtu.be/rrERlaYx498) |
 | 20 | Retrospectiva e PDF de Agile | 3 | Concluído |
 
 **Entraram no caminho:** Lia por ligação com recado para a família, antigolpe em qualquer tela, banco protegido e site de golpe simulado (Sprint 2, depois da entrevista e da gravação da demo).

@@ -21,4 +21,4 @@ Entrega de Agile Methodology With Squad Framework. O PDF da entrega (`Agile-Lia-
 
 **Integração (2 pontos):** cada item do backlog vira uma peça real da Lia, e cada matéria entrega uma parte do mesmo produto.
 
-**Vídeo pitch:** https://youtu.be/Lb78aDGaQFA
+**Vídeo pitch:** https://youtu.be/rrERlaYx498

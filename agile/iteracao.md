@@ -40,7 +40,7 @@ Usar a Lia de verdade, com câmera e gravação de tela, mostrou problemas que o
 
 ## Resultado
 - Commits de 14/11: `74841f4` (fala em JSON), `1abd159` (ensino do começo, autonomia sem erro, botões que falam, Portal do Cidadão, privacidade visível), `ad0eb14` (banco protegido), `735d140` (antigolpe em qualquer tela e recado pela ligação).
-- Vídeo pitch de 4:38 com a entrevista, a demo e o plano de escala: https://youtu.be/Lb78aDGaQFA
+- Vídeo pitch de 5 min com a entrevista, a demo e o plano de escala: https://youtu.be/rrERlaYx498
 - Itens que entraram no backlog durante a sprint: antigolpe em qualquer tela, banco protegido, recado pela ligação e site de golpe simulado.
 
 **O que levamos para a Sprint 3:** validação com mais pessoas no piloto do CRAS, integração do núcleo em Java e revisão final das entregas.

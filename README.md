@@ -28,7 +28,7 @@
 | Yan Lucas Gonçalves da Silva | 567046 |
 
 ## Vídeos
-- **Pitch (Agile):** https://youtu.be/Lb78aDGaQFA
+- **Pitch (Agile):** https://youtu.be/rrERlaYx498
 - **AR/VR:** https://youtu.be/BPEwRDY87NE
 
 ## Estrutura do repositório
