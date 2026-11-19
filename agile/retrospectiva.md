@@ -15,7 +15,7 @@ Feita no fim do projeto (17/11/2026), no formato manter, melhorar e parar.
 - Gravar a demo sem erro levou várias tentativas, e parte foi refeita (golpe, ligação e o ensino com a lanterna).
 
 ## O que dá para melhorar
-- **Check-ins da equipe:** combinamos a cada 2 ou 3 dias, mas quase tudo ficou no WhatsApp, sem registro. Na próxima, um registro curto no repositório a cada check-in.
+- **Check-ins da equipe:** combinamos a cada 2 ou 3 dias; no começo ficaram só no WhatsApp e depois foram resumidos em `agile/checkins.md`. Na próxima, registrar no mesmo dia.
 - **Validação com mais pessoas:** fizemos uma entrevista; o plano era de 3 a 5. Ficou para o piloto.
 - **Roteiro de teste antes de gravar:** vários erros só apareceram na gravação. Um ensaio completo antes economizaria regravações.
 

@@ -36,4 +36,4 @@ Construídas a partir da entrevista com a dona Rosária (13/11/2026, gravada pel
 ## O que os dados dizem sobre esse público
 - 3 em cada 10 brasileiros de 15 a 64 anos são analfabetos funcionais (Inaf 2024).
 - 20,3% das pessoas com 65 anos ou mais são analfabetas (IBGE, Censo 2022).
-- 37% das pessoas com 60 anos ou mais não usam a internet (Cetic.br, TIC Domicílios 2024), por isso a Lia também atende por ligação.
+- 37,8% das pessoas com 60 anos ou mais nunca usaram a internet (Cetic.br, TIC Domicílios 2025), por isso a Lia também atende por ligação.

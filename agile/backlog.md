@@ -21,7 +21,7 @@ Status em 17/11/2026. **Feito** = funcionando no APK e mostrado no vídeo. **Sim
 | # | Funcionalidade | Por quê | Status |
 | --- | --- | --- | --- |
 | S1 | Portal do Cidadão simulado (benefício, consulta, multas) | Mostrar o Guia em serviços do governo sem usar o gov.br real | Simulado |
-| S2 | Lia por ligação, para quem não tem internet (recado para a família com confirmação) | 37% dos idosos não usam internet | Simulado |
+| S2 | Lia por ligação, para quem não tem internet (recado para a família com confirmação) | 37,8% dos idosos nunca usaram a internet | Simulado |
 | S3 | Progresso na aba Eu e conquista compartilhada com a família, se a pessoa quiser | Motivação sem pressão; a família acompanha | Feito |
 | S4 | Avisar um familiar no WhatsApp | Pilar Age | Feito |
 | S5 | Resposta rápida: fala em partes e pedidos comuns resolvidos no celular | Esperar desanima o público | Feito |

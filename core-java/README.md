@@ -14,7 +14,7 @@ A Lia é um assistente de voz para quem não consegue usar o celular, o gov.br o
 
 ## Como rodar
 
-Precisa do JDK 25 ou mais novo. O Maven não precisa estar instalado: o projeto traz o Maven Wrapper (`mvnw`).
+Precisa do JDK 21 ou mais novo. O Maven não precisa estar instalado: o projeto traz o Maven Wrapper (`mvnw`).
 
 ### 1. Os 4 casos, sem servidor
 

@@ -127,6 +127,13 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | 15.1 | "O Yan terminou o núcleo em Java. Ligue o núcleo na API seguindo o contrato: risco, confirmação e nível nas duas rotas de conversa, e a Lia tem que continuar funcionando se o Java cair." | `consultar_nucleo` em `api-lia/main.py`, tradução da autonomia por serviço, testes com o núcleo no ar e fora do ar |
 | 15.2 | "Me explique como testar com o Java rodando e o que tirar de print para o documento." | Teste em `localhost:8000/docs` com e sem o núcleo (prints no documento de Java) |
 
+## 16. Revisão final das entregas (18 e 19/11)
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| 16.1 | "Faça uma revisão geral de todas as entregas e veja se estão de acordo com o PDF da GS e dos professores, e se tem algum ponto que faça a gente perder nota." | Lista de riscos por matéria |
+| 16.2 | "Corrige tudo, até o número dos 37%." | Java no JDK 21; ODS 3 sem "lembrete de remédio" (Java e Redes); títulos "conceitual" e "lógico" e significado dos relacionamentos (Database); medidas estatísticas da idade no notebook da TIC (Data Science); squad, retrospectiva e TIC 2025 no Agile; charter em PDF atualizado |
+
 ## Prompts que a Lia usa (dentro do produto)
 
 Estes prompts rodam no servidor quando a Lia conversa. Ficam no código para qualquer um conferir.
