@@ -2,9 +2,13 @@
 
 Registro dos prompts usados no desenvolvimento (regra da GS, RNF06). Cada integrante registra os seus e sabe explicar o que entregou.
 
-Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API. Em Data Science e Database Design, o Vinicius usou o ChatGPT (OpenAI). Os prompts de cada matéria estão na parte **Prompts das matérias**, no fim deste arquivo.
+Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API. Em Data Science e Database Design, o Vinicius usou o ChatGPT (OpenAI). Primeiro vêm os prompts do João; os dos colegas, por matéria, estão na parte **Prompts das matérias**, no fim deste arquivo.
 
-**Como ler:** os prompts estão em ordem de montagem do projeto, da ideia ao crescimento. Pedidos repetidos durante os testes foram juntados num só, e o texto foi revisado (português e clareza) sem mudar o que foi pedido.
+---
+
+# Prompts do João (ideia, app, API, pitch e Agile)
+
+**Como ler:** os prompts do João estão em ordem de montagem do projeto, da ideia ao crescimento. Pedidos repetidos durante os testes foram juntados num só, e o texto foi revisado (português e clareza) sem mudar o que foi pedido.
 
 ## 1. Idealização (29/10 a 04/11/2026)
 
