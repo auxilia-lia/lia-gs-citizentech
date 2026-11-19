@@ -10,15 +10,15 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 1.1 | "O tema da Global Solution é CitizenTech. Me ajude a levantar ideias de problemas reais de cidadania que a tecnologia resolve, e avalie cada uma pelo critério: o que faz ganhar é ir além do pedido e ser uma ideia melhor que as dos outros grupos." | Ideias comparadas (sobra de comida, direitos esquecidos, cisterna, enchente, calor, vaga no SUS, evasão escolar, quadra ociosa, dependência digital) |
-| 1.2 | "Aprofunde a ideia de um assistente por voz que acaba com a dependência digital: o que ele faz, para quem, o que o diferencia de um chatbot comum e por que não ser só no WhatsApp." | A Lia e os 3 pilares (Entende, Guia, Age), autonomia progressiva e canal por ligação |
+| 1.1 | "Tenho uma ideia para a GS CitizenTech: a Lia, uma assistente por voz para quem depende dos outros para usar o celular. Avalie de forma crítica, aponte pontos fracos e compare com outras ideias que a equipe levantou." | Avaliação da ideia do João; a equipe seguiu com a Lia |
+| 1.2 | "O Yan sugeriu a autonomia progressiva e um canal por ligação. Valide esses incrementos e me ajude a responder: o que diferencia a Lia de um chatbot comum e por que não ser só no WhatsApp?" | Validação dos incrementos do Yan e dos 3 pilares (Entende, Guia, Age) |
 | 1.3 | "Como o Guia pode mostrar onde tocar em qualquer app, sem agir no lugar da pessoa? Funciona no iPhone? Como proteger bancos e senhas?" | Decisão: serviço de acessibilidade do Android + sobreposição; apps protegidos e filtro de dados; iPhone como visão futura |
 
 ## 2. Planejamento (04 a 05/11)
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 2.1 | "Monte o charter da equipe e um backlog priorizado em sprints até 19/11, com uma matéria por dono." | Charter e backlog de 20 itens (épicos = pilares) |
+| 2.1 | "Me ajude a organizar o charter da equipe e o backlog em sprints até 19/11, a partir das entregas de cada matéria." | Charter e backlog de 20 itens (épicos = pilares), revisados pela equipe |
 | 2.2 | "Mostre como cada matéria da GS vira uma peça da Lia, com entrega, nota, dependências, prazo e cuidados." | Documentação do projeto (arquitetura e plano de execução) |
 | 2.3 | "Prepare as perguntas das entrevistas e a estrutura do vídeo de pitch de 3 minutos, seguindo o método de storytelling do professor." | Roteiro das entrevistas e do pitch |
 | 2.4 | "O que ainda falta fazer, por responsável e por sprint? Separe o que você consegue adiantar sem depender de mim." | Lista de pendências usada para planejar cada rodada |
@@ -27,7 +27,7 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 3.1 | "Prepare o ambiente e o projeto do app (Expo com development build). Trabalhe direto na pasta do repositório e faça os commits no meu nome." | Roteiro de instalação e projeto Expo em `app/` |
+| 3.1 | "Prepare o ambiente e o projeto do app (Expo com development build). Trabalhe direto na pasta do repositório." | Roteiro de instalação e projeto Expo em `app/` |
 | 3.2 | "Crie a conversa por voz com a Lia no app e uma API que guarda a personalidade dela, antes mesmo das telas do gov.br." | `api-lia` (FastAPI) e a conversa por voz |
 | 3.3 | "Faça o módulo nativo do Guia (acessibilidade, sobreposição e voz) e a tela para o teste de 1 dia." | `app/modules/lia-guia` |
 
@@ -77,7 +77,6 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | # | Prompt | O que saiu |
 | --- | --- | --- |
 | 9.1 | "Como a entrega de Java se conecta ao que estou desenvolvendo? Escreva um contrato para o colega construir o núcleo integrado à Lia, sem piorar o tempo de resposta, e atualize o charter para bater com ele." | `core-java/CONTRATO.md` (e PDF) e charter atualizado |
-| 9.2 | "Reescreva este registro de prompts em ordem de montagem, por tópicos, juntando os repetidos e com o português corrigido." | Este arquivo |
 
 ## 10. Nuvem e velocidade (07 a 08/11)
 
