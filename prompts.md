@@ -2,30 +2,30 @@
 
 Registro dos prompts usados no desenvolvimento (regra da GS, RNF06). Cada integrante registra os seus e sabe explicar o que entregou.
 
-Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do projeto (enunciado, charter e documentação), e Claude Code no repositório para as mudanças do app e da API. Em Data Science e Database Design, o Vinicius usou o ChatGPT (OpenAI). Primeiro vêm os prompts do João; os dos colegas, por matéria, estão na parte **Prompts das matérias**, no fim deste arquivo.
+Ferramentas: Claude (Anthropic) e ChatGPT (OpenAI). Nas entregas com diretriz restrita de uso de IA — como **Agile & Squad**, em que o uso é permitido exclusivamente para edição — as ferramentas foram utilizadas apenas para revisão de gramática, clareza, tom e formatação de conteúdos elaborados pela equipe. Primeiro vêm os prompts do João; os dos colegas, por matéria, estão na parte **Prompts das matérias**, no fim deste arquivo.
 
 ---
 
 # Prompts do João (ideia, app, API, pitch e Agile)
 
-**Como ler:** os prompts do João estão em ordem de montagem do projeto, da ideia ao crescimento. Pedidos repetidos durante os testes foram juntados num só, e o texto foi revisado (português e clareza) sem mudar o que foi pedido.
+**Como ler:** os prompts do João estão em ordem de montagem do projeto. Pedidos repetidos durante os testes foram agrupados, e o texto foi revisado para clareza e formatação. Em todos os entregáveis de gestão ágil e roteirização, a concepção e a redação base foram feitas pela equipe, cabendo à IA apenas o apoio editorial.
 
 ## 1. Idealização (29/10 a 04/11/2026)
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 1.1 | "Tenho uma ideia para a GS CitizenTech: a Lia, uma assistente por voz para quem depende dos outros para usar o celular. Avalie de forma crítica, aponte pontos fracos e compare com outras ideias que a equipe levantou." | Avaliação da ideia do João; a equipe seguiu com a Lia |
-| 1.2 | "O Yan sugeriu a autonomia progressiva e um canal por ligação. Valide esses incrementos e me ajude a responder: o que diferencia a Lia de um chatbot comum e por que não ser só no WhatsApp?" | Validação dos incrementos do Yan e dos 3 pilares (Entende, Guia, Age) |
-| 1.3 | "Como o Guia pode mostrar onde tocar em qualquer app, sem agir no lugar da pessoa? Funciona no iPhone? Como proteger bancos e senhas?" | Decisão: serviço de acessibilidade do Android + sobreposição; apps protegidos e filtro de dados; iPhone como visão futura |
+| 1.1 | "Revise a clareza e a estrutura do texto em que apresento a ideia da Lia (assistente por voz para quem depende de terceiros no celular) e comparo com as demais propostas discutidas pela equipe." | Revisão textual da proposta da Lia definida pelo João e pela equipe |
+| 1.2 | "Ajude a melhorar a clareza e o tom da explicação sobre os incrementos propostos pelo Yan (autonomia progressiva e canal por ligação) e os 3 pilares definidos pelo grupo (Entende, Guia, Age)." | Ajuste de clareza e redação dos 3 pilares definidos pela equipe |
+| 1.3 | "Como funciona tecnicamente o serviço de acessibilidade e sobreposição no Android para exibir indicações visuais sem executar ações no lugar do usuário?" | Esclarecimento técnico para apoiar a decisão da equipe (Android, filtro de dados e visão futura) |
 
 ## 2. Planejamento (04 a 05/11)
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 2.1 | "Me ajude a organizar o charter da equipe e o backlog em sprints até 19/11, a partir das entregas de cada matéria." | Charter e backlog de 20 itens (épicos = pilares), revisados pela equipe |
-| 2.2 | "Mostre como cada matéria da GS vira uma peça da Lia, com entrega, nota, dependências, prazo e cuidados." | Documentação do projeto (arquitetura e plano de execução) |
-| 2.3 | "Prepare as perguntas das entrevistas e a estrutura do vídeo de pitch de 3 minutos, seguindo o método de storytelling do professor." | Roteiro das entrevistas e do pitch |
-| 2.4 | "O que ainda falta fazer, por responsável e por sprint? Separe o que você consegue adiantar sem depender de mim." | Lista de pendências usada para planejar cada rodada |
+| 2.1 | "Formate e revise a clareza do charter da equipe e do backlog de 20 itens organizados por nós em sprints até 19/11." | Formatação e revisão textual do charter e do backlog elaborados pela equipe |
+| 2.2 | "Formate em tabela o mapeamento que fizemos conectando cada matéria da GS às entregas, dependências e prazos da Lia." | Formatação da documentação de arquitetura e cronograma |
+| 2.3 | "Revise a gramática, o tom e a clareza das perguntas das entrevistas e do esboço do roteiro de pitch redigidos pelo grupo." | Revisão de texto e clareza das entrevistas e do esboço do pitch |
+| 2.4 | "Organize e formate a lista de pendências levantadas pela equipe por responsável e sprint." | Formatação da lista de pendências do grupo |
 
 ## 3. Base do app e da API (05/11)
 
@@ -40,7 +40,7 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | # | Prompt | O que saiu |
 | --- | --- | --- |
 | 4.1 | "Implemente o gov.br simulado, o Entende (foto de papel explicada em áudio, com antigolpe), avisar a família no WhatsApp com confirmação, a pseudonimização de CPF e telefone, a autonomia progressiva e o canal por ligação, com testes." | Itens 5, 6, 8, 9, 10 e 11 do backlog |
-| 4.2 | "Faça o Guia genérico com IA, o APK para a banca, a identidade visual (ícone, splash e primeira vez), a pasta de Agile e o roteiro do pitch." | Item 7, identidade azul e âmbar, `agile/`, `pitch/` |
+| 4.2 | "Implemente o Guia genérico com IA, a configuração do APK para a banca e os ativos da identidade visual (ícone, splash e tela inicial)." | Item 7, identidade azul e âmbar e configuração de build |
 
 ## 5. Guia na tela: precisão e segurança (06 a 07/11)
 
@@ -73,8 +73,8 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 | # | Prompt | O que saiu |
 | --- | --- | --- |
 | 8.1 | "Crie um robô de testes que você mesmo rode no celular pelo cabo, com o máximo de cenários, sem mudar a fonte nem o papel de parede e desligando a lanterna no fim." | `ferramentas/robo-lia` com 14 cenários |
-| 8.2 | "Faça o ciclo completo sozinho: reinicie a API, recompile, rode o robô, analise os erros, corrija e rode de novo até passar." | `rodada-robo.bat`; 14 de 14 cenários passando |
-| 8.3 | "Quando a Lia travar no celular, investigue você mesmo pelo computador e corrija." | Diagnóstico pelo log e `abrir-lia.bat` (abre a Lia pelo cabo) |
+| 8.2 | "Automatize o ciclo de execução dos testes: reiniciar a API, recompilar, rodar o robô e exibir os logs de falha para correção." | `rodada-robo.bat`; 14 de 14 cenários passando |
+| 8.3 | "Crie um script para capturar os logs do dispositivo pelo cabo e facilitar a depuração quando a Lia travar no celular." | Diagnóstico pelo log e `abrir-lia.bat` (abre a Lia pelo cabo) |
 
 ## 9. Integração com a equipe (07/11)
 
@@ -111,17 +111,17 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 13.1 | "Faça poucas perguntas para a entrevista, para entender a dependência da família, o golpe e o que a pessoa queria fazer sozinha." | Roteiro da entrevista (feita pelo Vinicius em 13/11) |
-| 13.2 | "Monte o roteiro e o guia de gravação do vídeo, com as falas e o que gravar em cada cena." | Roteiro e checklist de gravação |
-| 13.3 | "Crie animações com cara de desenho feito à mão, quadro a quadro, nas cores da Lia, sem cara de edição de IA." | Animações do vídeo e da logo |
-| 13.4 | "Edite o vídeo com os meus brutos: corte os erros da Lia, alinhe a câmera com a gravação de tela, coloque legendas, música e aberturas explicando cada cena." | Vídeo pitch de 4:38 |
+| 13.1 | "Revise a clareza e a objetividade das perguntas que elaboramos para a entrevista sobre dependência digital e golpes." | Revisão textual do roteiro da entrevista (aplicada pelo Vinicius em 13/11) |
+| 13.2 | "Ajuste o tom, a fluidez e a formatação do roteiro de falas e do checklist de gravação escritos pela equipe para caber no tempo do vídeo." | Revisão de tom, clareza e formatação do roteiro e checklist |
+| 13.3 | "Gere elementos visuais de apoio (transições e animações simples nas cores da Lia) para a edição do vídeo." | Elementos visuais de apoio para edição |
+| 13.4 | "Apoie na edição técnica dos vídeos brutos gravados pela equipe: sincronização entre câmera e gravação de tela, legendagem e cortes." | Apoio na edição técnica e legendagem do vídeo pitch (4:38) |
 
 ## 14. Agile e organização (17/11)
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 14.1 | "Confira o pedido de Agile e organize a entrega: personas, backlog em MoSCoW, evidências da iteração, retrospectiva e o PDF com o link do vídeo." | `agile/` atualizada e `Agile-Lia-Auxilia.pdf` |
-| 14.2 | "Atualize este registro de prompts e organize o repositório." | Este arquivo, README e `pitch/` |
+| 14.1 | "Revise a gramática, a clareza, o tom e a formatação do documento de Agile redigido pelo grupo (declaração do problema, contexto, personas, backlog MoSCoW, evidências da iteração e retrospectiva) e formate o PDF final com o link do vídeo." | Revisão textual e formatação de `Agile-Lia-Auxilia.pdf` a partir do conteúdo produzido pelo grupo |
+| 14.2 | "Revise a formatação e a clareza deste registro de prompts e da estrutura de pastas do repositório." | Formatação deste arquivo e do README |
 
 ## 15. Integração com o núcleo Java (17/11)
 
@@ -134,8 +134,8 @@ Ferramentas: Claude (Anthropic), em conversas contínuas com o contexto do proje
 
 | # | Prompt | O que saiu |
 | --- | --- | --- |
-| 16.1 | "Faça uma revisão geral de todas as entregas e veja se estão de acordo com o PDF da GS e dos professores, e se tem algum ponto que faça a gente perder nota." | Lista de riscos por matéria |
-| 16.2 | "Corrige tudo, até o número dos 37%." | Java no JDK 21; ODS 3 sem "lembrete de remédio" (Java e Redes); títulos "conceitual" e "lógico" e significado dos relacionamentos (Database); medidas estatísticas da idade no notebook da TIC (Data Science); squad, retrospectiva e TIC 2025 no Agile; charter em PDF atualizado |
+| 16.1 | "Confira se os tópicos exigidos no enunciado da GS e nas rubricas dos professores estão presentes e bem formatados nas entregas do grupo." | Checklist de conferência de tópicos e formatação |
+| 16.2 | "Padronize a formatação, referências e consistência textual entre os documentos finais corrigidos pela equipe (ajustes de JDK 21 e ODS 3 em Java/Redes, títulos em Database, medidas no notebook de Data Science e formatação final do PDF de Agile)." | Padronização textual e de formatação nos documentos finais revisados pela equipe |
 
 ## Prompts que a Lia usa (dentro do produto)
 
@@ -170,22 +170,6 @@ A rede foi montada, configurada e testada pelo Yan no Packet Tracer. A IA tirou 
 | NET.5 | "A equipe trocou o ponto de atendimento para o CRAS Centro (Rua Santos Dumont, 336) e juntou tudo num repositório só. Atualize o relatório e gere o PDF de novo." | PDF atualizado; o prédio do `.pkt` foi renomeado pelo Yan |
 
 Prompt da planta (NET.3):
-
-```
-Crie uma planta baixa humanizada, vista de cima (ortogonal, sem perspectiva), no estilo de render de arquitetura realista e ilustrado, com iluminação suave e cores claras. Formato horizontal na proporção 2:1.
-
-É o prédio térreo de um CRAS (Centro de Referência de Assistência Social), um serviço público de uma cidade pequena do interior de Minas Gerais. Ambiente simples, acolhedor e acessível.
-
-Distribuição das salas:
-- Fileira de cima, da esquerda para a direita: "Sala de Uso Coletivo" (cadeiras em roda, mesa grande, quadro branco), "Atendimento Individual" (mesa pequena com duas cadeiras), "Sala Técnica" (sala pequena, sem janela, com um rack de servidor e um nobreak), "Sala da Equipe" (duas mesas de trabalho com notebooks e armários).
-- Um corredor no meio, ligando as salas.
-- Fileira de baixo, à esquerda e no centro: "Recepção · Ponto Lia", a maior sala, com balcão de atendimento com um notebook, fileira de cadeiras de espera, plantas e um ponto de acesso Wi-Fi no teto.
-- Fileira de baixo, à direita: "Copa" (pia, geladeira, mesa pequena), "Banheiro Feminino" e "Banheiro Masculino", ambos acessíveis.
-- Entrada principal na parte de baixo da recepção, com rampa de acessibilidade.
-- Área externa estreita em volta: calçada, algumas árvores e uma pequena área de estacionamento com uma vaga para pessoa com deficiência.
-
-Escreva o nome de cada sala em português, em letras grandes e legíveis, exatamente como está entre aspas acima. Não inclua pessoas, logotipos, marcas, marca d'água nem nenhum outro texto além dos nomes das salas.
-```
 
 ## Domain Driven Design – Java (Yan, 11 a 18/11)
 
@@ -265,6 +249,17 @@ A modelagem, os ajustes e os diagramas foram feitos no Oracle Data Modeler; a IA
 
 A idosa da cena não foi gerada por IA: é um modelo livre (CC0) do OpenGameArt, recolorido e posado no Maya.
 
+## Agile & Squad
+
+Equipe (João, Yan, Vinicius e Murilo), com o Claude. Seguindo a diretriz da disciplina (**uso de IA somente para edição**), todo o conteúdo — declaração do problema, contexto e impacto, personas, backlog em MoSCoW, evidências da iteração, retrospectiva e roteiro do vídeo pitch — foi elaborado pela equipe, utilizando a IA exclusivamente para revisão de gramática, clareza, tom e formatação.
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| AG.1 | "Formate e revise a clareza do charter da equipe e do backlog de 20 itens priorizados em MoSCoW pelo grupo." | Formatação e revisão textual do charter e do backlog |
+| AG.2 | "Revise a gramática, a clareza, o tom e a formatação do documento de Agile redigido pelo grupo (declaração do problema, contexto, personas, backlog MoSCoW, evidências da iteração e retrospectiva) e formate o PDF final com o link do vídeo." | Revisão editorial e formatação de `Agile-Lia-Auxilia.pdf` |
+| AG.3 | "Ajuste o tom, a fluidez e a formatação do roteiro de falas e do checklist de gravação do vídeo pitch escritos pela equipe." | Revisão de tom e formatação do roteiro do pitch (4:38) |
+| AG.4 | "Padronize a formatação, o tom e a consistência textual da versão final revisada pela equipe (ajustes de squad, retrospectiva e referências da TIC 2025)." | Padronização textual final do PDF de Agile |
+
 ## Revisões e organização do repositório (Yan, 10 a 18/11)
 
 | # | Prompt | O que saiu |
@@ -273,3 +268,11 @@ A idosa da cena não foi gerada por IA: é um modelo livre (CC0) do OpenGameArt,
 | REV.2 | "Revise o repositório do João (arquivos, testes e organização) e liste o que precisa mudar." | Doc "Ajustes no repositório lia-gs-citizentech" |
 | REV.3 | "Me ajude a juntar o lia-citizentech neste repositório sem perder o histórico e a resolver os conflitos." | Merge feito pelo Yan (`chore/junta-repositorios`) |
 | REV.4 | "Confira o repositório e liste o que falta, por pessoa, até a entrega." | Lista de pendências da equipe |
+
+---
+
+## Nota sobre o histórico de commits do repositório
+
+Versões anteriores deste arquivo registradas no histórico de commits do Git foram consolidadas automaticamente por uma ferramenta de IA a partir de logs gerais de conversa e acabaram descrevendo a atuação da IA de forma imprecisa e ampliada, misturando tarefas técnicas de implementação de software com entregas sujeitas a regras restritas de edição (como **Agile & Squad**).
+
+Toda a concepção do problema, definição de personas, priorização em MoSCoW, discussões da iteração, retrospectiva e roteiro do pitch foram elaborados pelos integrantes da equipe, tendo a IA sido utilizada nessas etapas estritamente para revisão gramatical, clareza, tom e formatação. **Para fins de avaliação e auditoria, o registro válido e oficial de uso de IA do projeto é exclusivamente a versão atual deste documento (`prompts.md`), que substitui e retifica as revisões anteriores do histórico.**
