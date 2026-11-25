@@ -31,11 +31,9 @@
 - **Pitch (Agile):** https://youtu.be/rrERlaYx498
 - **AR/VR:** https://youtu.be/BPEwRDY87NE
 
-## Como rodar a Lia
+## Como instalar a Lia
 
-1. **API** (Python): veja [`api-lia/README.md`](api-lia/README.md). Use a sua chave do Gemini no `.env`, ou rode sem chave com `LIA_PROVEDOR=teste`, que responde por regras.
-2. **App** (Android): veja [`app/README.md`](app/README.md). No app, em **Minha Lia → Servidor da Lia**, informe o endereço da sua API.
-3. **Núcleo em Java** (opcional): veja [`core-java/README.md`](core-java/README.md). Sem ele, a Lia funciona normalmente, sem o risco e a confirmação vindos do núcleo.
+O passo a passo completo está em [`INSTALAR.md`](INSTALAR.md): ligar a API (com a sua chave do Gemini ou sem chave, no modo teste), instalar o app no Android e conectar os dois. O núcleo em Java é opcional ([`core-java/README.md`](core-java/README.md)).
 
 ## Estrutura do repositório
 
