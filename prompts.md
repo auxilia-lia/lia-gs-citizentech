@@ -249,6 +249,17 @@ A modelagem, os ajustes e os diagramas foram feitos no Oracle Data Modeler; a IA
 
 A idosa da cena não foi gerada por IA: é um modelo livre (CC0) do OpenGameArt, recolorido e posado no Maya.
 
+## Agile & Squad
+
+Equipe (João, Yan, Vinicius e Murilo), com o Claude. Seguindo a diretriz da disciplina (**uso de IA somente para edição**), todo o conteúdo — declaração do problema, contexto e impacto, personas, backlog em MoSCoW, evidências da iteração, retrospectiva e roteiro do vídeo pitch — foi elaborado pela equipe, utilizando a IA exclusivamente para revisão de gramática, clareza, tom e formatação.
+
+| # | Prompt | O que saiu |
+| --- | --- | --- |
+| AG.1 | "Formate e revise a clareza do charter da equipe e do backlog de 20 itens priorizados em MoSCoW pelo grupo." | Formatação e revisão textual do charter e do backlog |
+| AG.2 | "Revise a gramática, a clareza, o tom e a formatação do documento de Agile redigido pelo grupo (declaração do problema, contexto, personas, backlog MoSCoW, evidências da iteração e retrospectiva) e formate o PDF final com o link do vídeo." | Revisão editorial e formatação de `Agile-Lia-Auxilia.pdf` |
+| AG.3 | "Ajuste o tom, a fluidez e a formatação do roteiro de falas e do checklist de gravação do vídeo pitch escritos pela equipe." | Revisão de tom e formatação do roteiro do pitch (4:38) |
+| AG.4 | "Padronize a formatação, o tom e a consistência textual da versão final revisada pela equipe (ajustes de squad, retrospectiva e referências da TIC 2025)." | Padronização textual final do PDF de Agile |
+
 ## Revisões e organização do repositório (Yan, 10 a 18/11)
 
 | # | Prompt | O que saiu |
