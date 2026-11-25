@@ -33,6 +33,8 @@
 
 ## Como instalar a Lia
 
+**Baixar o app:** [Lia.apk](https://github.com/auxilia-lia/lia-gs-citizentech/releases/download/V1.0/Lia.apk) (Android). Para ligar a API e conectar, veja o [`INSTALAR.md`](INSTALAR.md).
+
 O passo a passo completo está em [`INSTALAR.md`](INSTALAR.md): ligar a API (com a sua chave do Gemini ou sem chave, no modo teste), instalar o app no Android e conectar os dois. O núcleo em Java é opcional ([`core-java/README.md`](core-java/README.md)).
 
 ## Estrutura do repositório
